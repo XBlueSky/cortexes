@@ -1,0 +1,8 @@
+# Vault data (should only exist on main branch, not plugin branch)
+Notes/
+Projects/
+Weekly/
+Raw/
+.obsidian/
+.claude/
+_index.md

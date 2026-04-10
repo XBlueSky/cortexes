@@ -1,0 +1,28 @@
+{
+  "description": "Cortex plugin hooks — session recording and memory injection",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before ending this session, produce a session report for the cortex vault. Review what was accomplished in this session and create a report with these sections:\n\n## Commits\nList all git commits made in this session with their subjects, repos, and issue refs.\n\n## Discoveries\nAny technical insights, root causes found, or important observations.\n\n## Decisions\nArchitecture or design decisions made and their reasoning.\n\n## Other\nHelping colleagues, code reviews, support tickets, anything else notable.\n\n## Unfinished\nWork in progress or things left to do.\n\nIf the session was trivial (just a question, no real work done), return 'approve' to stop without saving.\n\nOtherwise, present the report to the user and ask for confirmation. If confirmed:\n1. Read ~/.cortex/config.json to get vault_path\n2. Write the report to <vault_path>/Raw/YYYY/MM/DD/HHMMSS_session_<repo>.md with frontmatter (date, time, type: session, repo, tags)\n3. git add and commit in the vault repo\n\nIf the user says skip, return 'approve' to stop without saving.\nIf the user confirms, save then return 'approve'."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start-inject.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

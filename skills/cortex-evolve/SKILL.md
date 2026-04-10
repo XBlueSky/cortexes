@@ -1,0 +1,91 @@
+---
+name: cortex-evolve
+description: >
+  Save knowledge to the cortex vault. Use when the user says "存到 cortex",
+  "記一下", "save to cortex", "記到筆記", "cortex evolve", or when the
+  session-suggest hook recommends saving content. Handles Notes and Projects.
+---
+
+# Cortex Evolve — Save to Vault
+
+Save content to the cortex Obsidian vault.
+
+## Resolve Vault Path
+
+Read `~/.cortex/config.json` to get `vault_path`.
+If the file doesn't exist, tell the user to run `/cortex:genesis` first.
+All file paths below are relative to the vault root.
+
+## Determine Content Type
+
+Ask the user if unclear. Use these heuristics:
+
+| Signal | Type | Target |
+|--------|------|--------|
+| Technical knowledge, how-to, concept explanation | Notes | `Notes/<category>/<title>.md` |
+| Related to a specific repo's design, decision, or progress | Projects | `Projects/<repo-name>/<title>.md` |
+
+## Writing to Notes
+
+1. Determine category from content (C++, DSM, Linux, Nginx, Web, or create new)
+2. Create file at `Notes/<category>/<title>.md`
+3. Use this template:
+
+```markdown
+---
+title: <title>
+tags:
+  - <relevant-tags>
+created: <YYYY-MM-DD>
+source: cortex
+---
+
+# <title>
+
+<content>
+
+<optional: related wikilinks like [[dsm-AdminCenter]] or [[other-note]]>
+```
+
+4. Use Obsidian wikilinks `[[note-name]]` for vault-internal references
+5. Use standard markdown links `[text](url)` for external URLs only
+
+## Writing to Projects
+
+1. Determine repo name (from current session context or ask user)
+2. If `Projects/<repo-name>/_index.md` doesn't exist, create it:
+
+```markdown
+---
+title: <repo-name>
+repo: <git-remote-url>
+tags:
+  - project
+---
+
+# <repo-name>
+
+<brief description>
+```
+
+3. Create topic file at `Projects/<repo-name>/<topic>.md`
+
+## Update _index.md
+
+After writing the file:
+
+1. Read `<vault_path>/_index.md`
+2. Append a row to the appropriate table section:
+   - Notes: `| [[title]] | tags | one-line summary |`
+   - Projects: `| [[repo-name]] | tags | summary |` (if new project)
+3. Update `entries` count and `updated` date in frontmatter
+
+## Commit
+
+In the vault repo:
+```
+git add <file> _index.md
+git commit -m "cortex: <type> <brief>"
+```
+
+Confirm to the user what was saved and where.

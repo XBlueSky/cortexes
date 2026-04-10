@@ -1,0 +1,14 @@
+{
+  "name": "cortex",
+  "owner": {
+    "name": "tonyhu"
+  },
+  "plugins": [
+    {
+      "name": "cortex",
+      "source": "./",
+      "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, weekly report compilation",
+      "version": "0.1.0"
+    }
+  ]
+}
