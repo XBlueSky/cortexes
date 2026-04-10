@@ -48,7 +48,15 @@ For each MR, collect: title, URL, target repo.
 ### Source C: CSS Tickets
 
 Use robinhood MCP `css_get_activities` to fetch CSS ticket activity for the week.
-For each ticket: ticket number, URL, brief description, resolution/status.
+For each ticket, extract:
+- Ticket number and URL
+- Root cause (what was wrong)
+- Resolution (how it was fixed, or issue link if a bug was filed)
+
+Rules for CSS entries:
+- **No names** — no customer names, colleague names, or personal identifiers
+- **Concise** — one line: symptom → outcome (e.g., "→ can not reproduce", "→ config error, guided user to fix")
+- If a Workplus issue was filed, append the link: `[DSM-123456](https://workplus.synology.inc/key/DSM/issues/123456)`
 
 ## Step 4: Merge and Deduplicate
 
@@ -60,11 +68,19 @@ For each ticket: ticket number, URL, brief description, resolution/status.
 
 ## Step 5: Classify
 
+Classification is based on **whether the commit/MR has a Workplus issue ref**:
+
 | Category | Criteria |
 |----------|----------|
-| `fix.` | Commit type = fix, or MR title starts with fix |
-| `feat.` | Commit type = feat, or MR title starts with feat |
-| `misc.` | Everything else: CSS tickets, reviews, chore, refactor, docs, helping colleagues |
+| `fix.` | Has issue ref + commit type = fix |
+| `feat.` | Has issue ref + commit type = feat |
+| `misc.` | No issue ref (side projects), CSS tickets, reviews, chore, docs |
+
+Key rules:
+- **Issue ref present** → always `fix.` or `feat.` (these are Synology work)
+- **No issue ref** → always `misc.` (side projects like syno-build-mcp, etc.)
+- **CSS tickets** → always `misc.`
+- `feat.` entries are **grouped by theme/Workplus issue**, not listed individually
 
 ## Step 6: Generate Draft
 
@@ -78,13 +94,22 @@ source: cortex
 ---
 
 - fix.
-	- [commit-or-MR-title](MR-URL)
+	- [MR-or-commit-title](MR-URL) / [DSM-XXXXXX](https://workplus.synology.inc/key/DSM/issues/XXXXXX)
 - feat.
-	- [commit-or-MR-title](MR-URL)
+	- [Theme Name](https://workplus.synology.inc/key/DSM/issues/XXXXXX)
+		- [MR-or-commit-title](MR-URL)
+		- [MR-or-commit-title](MR-URL)
 - misc.
-	- [css#XXXXXXX](https://cssnew.synology.com/ticket/XXXXXXX): description → conclusion
-	- colleague(topic): what was done
+	- [css#XXXXXXX](https://cssnew.synology.com/ticket/XXXXXXX): symptom → outcome
+	- side-project-name: one-line summary of recent changes
 ```
+
+For `feat.`, group all commits/MRs under their parent Workplus issue.
+Use the issue title or a short theme name as the group heading.
+
+For side projects in `misc.`, **do not list individual commits**.
+Summarize all activity for each project in one line:
+`syno-build-mcp: added platform detection, improved error handling`
 
 **Present the draft to the user for review.** Do not write until user confirms.
 

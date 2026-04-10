@@ -12,6 +12,11 @@ allowed-tools:
   - Grep
   - Bash
   - WebFetch
+  - mcp__plugin_synology-workflows_syno-workplus-mcp__get_issue
+  - mcp__plugin_synology-workflows_gitlab__list_merge_requests
+  - mcp__plugin_synology-workflows_gitlab__get_merge_request
+  - mcp__plugin_synology-workflows_gitlab__list_commits
+  - mcp__plugin_syno-robinhood_robinhood__css_get_activities
 ---
 
 You are the weekly-compiler agent for the cortex vault.
@@ -45,11 +50,21 @@ Use Bash to run glab or GitLab MCP commands to get the user's activity:
 Use available robinhood MCP tools (`css_get_activities`) to get CSS ticket
 activity for the user in the date range.
 
+For each ticket, extract root cause and resolution. Rules:
+- **No names** — no customer names, colleague names, or personal identifiers
+- **Concise** — one line: root cause → how it was resolved
+- If a Workplus issue was filed, link it: `[DSM-123456](https://workplus.synology.inc/key/DSM/issues/123456)`
+
 ### 4. Merge and Classify
 
 - Deduplicate: same MR URL in Raw and GitLab → keep Raw's description
-- Classify into fix/feat/misc based on commit type prefix
-- CSS tickets go into misc with format: `[css#XXXXXXX](url): description → conclusion`
+- Classification based on **issue ref presence**:
+  - Has issue ref + fix type → `fix.`
+  - Has issue ref + feat type → `feat.` (group by parent Workplus issue)
+  - No issue ref → `misc.` (side projects — summarize per project in one line, not individual commits)
+  - CSS tickets → always `misc.` with format: `[css#XXXXXXX](url): symptom → outcome`
+- For feat entries, group commits/MRs under their parent Workplus issue as a theme heading
+- Workplus issue links use format: `[DSM-XXXXXX](https://workplus.synology.inc/key/DSM/issues/XXXXXX)`
 
 ## Output
 
