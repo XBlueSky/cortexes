@@ -90,11 +90,15 @@ tags: [session]
 ${report}
 EOF
 
-# Git commit if auto_commit enabled
+# Git commit and push if enabled
 auto_commit=$(jq -r '.git.auto_commit // false' "$CORTEX_CONFIG" 2>/dev/null)
+auto_push=$(jq -r '.git.auto_push // false' "$CORTEX_CONFIG" 2>/dev/null)
 if [[ "$auto_commit" == "true" ]]; then
   git -C "$vault_path" add "$target_file" 2>/dev/null || true
   git -C "$vault_path" commit -m "raw: session ${repo_name} $(date +%Y-%m-%d)" 2>/dev/null || true
+  if [[ "$auto_push" == "true" ]]; then
+    git -C "$vault_path" push 2>/dev/null || true
+  fi
 fi
 
 exit 0

@@ -88,4 +88,6 @@ git add <file> _index.md
 git commit -m "cortex: <type> <brief>"
 ```
 
+If `auto_push` is true in config: `git push`
+
 Confirm to the user what was saved and where.

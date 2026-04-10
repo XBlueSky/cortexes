@@ -73,3 +73,5 @@ For each new Note or Project file created:
 git add Raw/ Notes/ Projects/ _index.md
 git commit -m "distill: extract N entries from Raw"
 ```
+
+If `auto_push` is true in config: `git push`

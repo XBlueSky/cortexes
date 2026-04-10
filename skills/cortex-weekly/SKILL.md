@@ -134,3 +134,4 @@ Summarize all activity for each project in one line:
 1. Write to `<vault_path>/Weekly/YYYY/YYYY-MM-DD.md`
 2. Update `_index.md` Weekly section
 3. `git add Weekly/ _index.md && git commit -m "weekly: YYYY-MM-DD"`
+4. If `auto_push` is true in config: `git push`
