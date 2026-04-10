@@ -45,7 +45,21 @@ Use GitLab MCP tools to fetch the user's (from config `weekly.gitlab_username`) 
 
 For each MR, collect: title, URL, target repo.
 
-### Source C: CSS Tickets
+### Source C: GitLab Issues (wit/wit_issues)
+
+Use GitLab MCP tools (`list_issues` with project_id `wit/wit_issues`) to fetch
+issues assigned to or participated by the user during the target week.
+
+This is the cross-department issue tracker (project ID: `31865`,
+URL: `https://git.synology.inc/wit/wit_issues`). Colleagues from various teams
+(sp, pm, qa, techw, etc.) open tickets here — some get assigned to the user.
+
+Include issues where the user responded or resolved them.
+Format: `[wit#issue-iid](issue-url): question topic → responded / resolved`
+- Concise, one line per issue
+- Goes into `misc.`
+
+### Source D: CSS Tickets
 
 Use robinhood MCP `css_get_activities` to fetch CSS ticket activity for the week.
 For each ticket, extract:
@@ -64,7 +78,8 @@ Rules for CSS entries:
 2. For each GitLab MR:
    - If same MR URL exists in Raw → keep Raw's description
    - If MR not in Raw → add it
-3. Add CSS tickets to misc section
+3. Add GitLab issues (responded/resolved) to misc section
+4. Add CSS tickets to misc section
 
 ## Step 5: Classify
 
@@ -100,6 +115,7 @@ source: cortex
 		- [MR-or-commit-title](MR-URL)
 		- [MR-or-commit-title](MR-URL)
 - misc.
+	- [project#issue-id](issue-url): question topic → responded / resolved
 	- [css#XXXXXXX](https://cssnew.synology.com/ticket/XXXXXXX): symptom → outcome
 	- side-project-name: one-line summary of recent changes
 ```

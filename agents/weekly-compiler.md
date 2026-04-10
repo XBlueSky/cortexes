@@ -16,6 +16,9 @@ allowed-tools:
   - mcp__plugin_synology-workflows_gitlab__list_merge_requests
   - mcp__plugin_synology-workflows_gitlab__get_merge_request
   - mcp__plugin_synology-workflows_gitlab__list_commits
+  - mcp__plugin_synology-workflows_gitlab__my_issues
+  - mcp__plugin_synology-workflows_gitlab__list_issues
+  - mcp__plugin_synology-workflows_gitlab__get_issue
   - mcp__plugin_syno-robinhood_robinhood__css_get_activities
 ---
 
@@ -23,7 +26,7 @@ You are the weekly-compiler agent for the cortex vault.
 
 ## Your Task
 
-Collect and merge weekly report data from three sources for a given week.
+Collect and merge weekly report data from multiple sources for a given week.
 
 ## Input
 
@@ -45,7 +48,17 @@ Use Bash to run glab or GitLab MCP commands to get the user's activity:
 - List merged MRs in the date range
 - List commits pushed
 
-### 3. Fetch CSS Tickets
+### 3. Fetch GitLab Issues (wit/wit_issues)
+
+Use GitLab MCP `list_issues` with `project_id: "wit/wit_issues"` to find issues
+assigned to or participated by the user in the date range.
+
+This is the cross-department ticket tracker (project ID: 31865).
+Include issues where the user responded or resolved them.
+Format: `[wit#issue-iid](issue-url): question → what was done`
+Goes into `misc.`
+
+### 4. Fetch CSS Tickets
 
 Use available robinhood MCP tools (`css_get_activities`) to get CSS ticket
 activity for the user in the date range.
@@ -55,13 +68,14 @@ For each ticket, extract root cause and resolution. Rules:
 - **Concise** — one line: root cause → how it was resolved
 - If a Workplus issue was filed, link it: `[DSM-123456](https://workplus.synology.inc/key/DSM/issues/123456)`
 
-### 4. Merge and Classify
+### 5. Merge and Classify
 
 - Deduplicate: same MR URL in Raw and GitLab → keep Raw's description
 - Classification based on **issue ref presence**:
   - Has issue ref + fix type → `fix.`
   - Has issue ref + feat type → `feat.` (group by parent Workplus issue)
   - No issue ref → `misc.` (side projects — summarize per project in one line, not individual commits)
+  - GitLab issues (responded/resolved) → always `misc.`
   - CSS tickets → always `misc.` with format: `[css#XXXXXXX](url): symptom → outcome`
 - For feat entries, group commits/MRs under their parent Workplus issue as a theme heading
 - Workplus issue links use format: `[DSM-XXXXXX](https://workplus.synology.inc/key/DSM/issues/XXXXXX)`
