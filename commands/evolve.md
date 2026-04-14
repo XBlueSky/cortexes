@@ -9,6 +9,8 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
+skills:
+  - cortex-evolve
 ---
 
 Use the cortex-evolve skill to save content to the cortex vault.

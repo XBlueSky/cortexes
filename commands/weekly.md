@@ -10,6 +10,9 @@ allowed-tools:
   - Grep
   - Bash
   - Agent
+skills:
+  - cortex-weekly
+  - cortex-distill
 ---
 
 Use the cortex-weekly skill to compile the weekly report.

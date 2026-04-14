@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # SessionEnd hook — automatic session recording via claude -p
-# Reads transcript, calls Claude Sonnet to summarize, writes to vault
+# Uses nohup+disown to survive parent exit (Claude Code kills SessionEnd hooks early)
+# See: https://github.com/anthropics/claude-code/issues/41577
 
 # Recursion guard: child claude -p also triggers SessionEnd → prevent infinite loop
 if [[ -n "${CORTEX_SESSION_RECORDING:-}" ]]; then
@@ -32,7 +33,6 @@ if [[ ! -f "$CORTEX_CONFIG" ]]; then
 fi
 
 vault_path=$(jq -r '.vault_path // ""' "$CORTEX_CONFIG" 2>/dev/null)
-
 if [[ -z "$vault_path" || ! -d "$vault_path" ]]; then
   exit 0
 fi
@@ -53,8 +53,18 @@ target_dir="${vault_path}/Raw/${date_dir}"
 target_file="${target_dir}/${filename}"
 mkdir -p "$target_dir"
 
-# Summarize transcript with claude -p
-prompt='You are a session recorder. Given a Claude Code session transcript (JSONL), produce a concise session report in Markdown. Include ONLY sections that have real content — omit empty sections entirely.
+# Detach heavy work into background so it survives parent exit
+nohup bash -c '
+  CORTEX_SESSION_RECORDING=1
+  export CORTEX_SESSION_RECORDING
+
+  transcript_path="$1"
+  target_file="$2"
+  vault_path="$3"
+  repo_name="$4"
+  CORTEX_CONFIG="$5"
+
+  prompt="You are a session recorder. Given a Claude Code session transcript (JSONL), produce a concise session report in Markdown. Include ONLY sections that have real content — omit empty sections entirely.
 
 Sections to consider:
 ## Commits — git commits made (subject, repo, issue ref)
@@ -66,19 +76,18 @@ Sections to consider:
 Rules:
 - Be concise, capture essence not verbatim
 - If the session was truly trivial, output exactly: TRIVIAL
-- Write in the same language the user used in the session'
+- Write in the same language the user used in the session"
 
-report=$(cat "$transcript_path" \
-  | claude -p --model sonnet --no-session-persistence "$prompt" 2>/dev/null) \
-  || exit 0
+  # Summarize with timeout
+  report=$(timeout 120 bash -c "cat \"$transcript_path\" | claude -p --model sonnet --no-session-persistence \"\$1\"" _ "$prompt" 2>/dev/null) || exit 0
 
-# Trivial session → clean up and skip
-if [[ "$report" == "TRIVIAL" ]]; then
-  exit 0
-fi
+  # Trivial → skip
+  if [[ "$report" == "TRIVIAL" ]]; then
+    exit 0
+  fi
 
-# Write report with frontmatter
-cat > "$target_file" <<EOF
+  # Write report
+  cat > "$target_file" <<REPORT
 ---
 date: $(date +%Y-%m-%d)
 time: $(date +%H:%M:%S)
@@ -88,17 +97,19 @@ tags: [session]
 ---
 
 ${report}
-EOF
+REPORT
 
-# Git commit and push if enabled
-auto_commit=$(jq -r '.git.auto_commit // false' "$CORTEX_CONFIG" 2>/dev/null)
-auto_push=$(jq -r '.git.auto_push // false' "$CORTEX_CONFIG" 2>/dev/null)
-if [[ "$auto_commit" == "true" ]]; then
-  git -C "$vault_path" add "$target_file" 2>/dev/null || true
-  git -C "$vault_path" commit -m "raw: session ${repo_name} $(date +%Y-%m-%d)" 2>/dev/null || true
-  if [[ "$auto_push" == "true" ]]; then
-    git -C "$vault_path" push 2>/dev/null || true
+  # Git commit and push if enabled
+  auto_commit=$(jq -r ".git.auto_commit // false" "$CORTEX_CONFIG" 2>/dev/null)
+  auto_push=$(jq -r ".git.auto_push // false" "$CORTEX_CONFIG" 2>/dev/null)
+  if [[ "$auto_commit" == "true" ]]; then
+    git -C "$vault_path" add "$target_file" 2>/dev/null || true
+    git -C "$vault_path" commit -m "raw: session ${repo_name} $(date +%Y-%m-%d)" 2>/dev/null || true
+    if [[ "$auto_push" == "true" ]]; then
+      git -C "$vault_path" push 2>/dev/null || true
+    fi
   fi
-fi
+' _ "$transcript_path" "$target_file" "$vault_path" "$repo_name" "$CORTEX_CONFIG" >/dev/null 2>&1 &
+disown
 
 exit 0

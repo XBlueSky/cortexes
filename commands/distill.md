@@ -9,6 +9,8 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
+skills:
+  - cortex-distill
 ---
 
 Use the cortex-distill skill to process unprocessed Raw/ files.

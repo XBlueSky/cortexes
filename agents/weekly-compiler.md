@@ -2,8 +2,9 @@
 name: weekly-compiler
 description: >
   Compile weekly reports by collecting data from Raw/ session records,
-  GitLab activity, and CSS tickets. Use when the cortex-weekly skill
-  needs to gather and merge data from multiple sources.
+  GitLab activity, and CSS tickets. Use when the user asks to "整理週報",
+  "generate weekly report", or when the /cortex:weekly command needs to
+  gather and merge data from multiple sources in parallel.
 model: sonnet
 color: cyan
 allowed-tools:
