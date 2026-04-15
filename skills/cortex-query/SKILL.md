@@ -25,7 +25,7 @@ Use `cortex-vec` for semantic search:
 cortex-vec search "<query>" --n 5
 ```
 
-Where `cortex-vec` is at `${CLAUDE_PLUGIN_ROOT}/scripts/cortex-vec`.
+`cortex-vec` is installed as a CLI tool (via pip).
 
 **Context-aware filtering:** If the current session is inside a git repo,
 detect the repo name and add `--repo` filter as default scope:
@@ -39,7 +39,6 @@ The user can override this by saying "search all" or "search across everything".
 **Additional filters:** Apply when the user specifies:
 - `--type note|project|weekly` — filter by content type
 - `--category Nginx|DSM|...` — filter by category
-- `--tags <tag>` — filter by tags
 
 **Interpreting scores:**
 - Score > 0.80: High confidence match — present prominently

@@ -61,7 +61,6 @@ For each unprocessed Raw file:
 Before creating a new note:
 
 1. Run: `cortex-vec search "<discovery text>" --n 3`
-   (where `cortex-vec` is at `${CLAUDE_PLUGIN_ROOT}/scripts/cortex-vec`)
 2. Check results:
    - **Score > 0.85** → High overlap. Show existing note. Suggest: merge, skip, or create anyway.
    - **Score 0.70-0.85** → Possible overlap. Show to user for judgment.
@@ -94,13 +93,12 @@ Before creating a new note:
 For each new file created:
 
 1. Run: `cortex-vec upsert <relative-path>`
-2. Run: `cortex-vec export-repo-index`
-3. Update `_index.md`: append row, update entries count and date
+2. Update `_index.md`: append row, update entries count and date
 
 ## Step 7: Commit
 
 ```
-git add Raw/ Notes/ Projects/ _index.md _repo_index.json
+git add Raw/ Notes/ Projects/ _index.md
 git commit -m "distill: extract N entries from Raw"
 ```
 

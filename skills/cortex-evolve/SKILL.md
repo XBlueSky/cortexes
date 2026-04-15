@@ -97,6 +97,3 @@ Confirm to the user what was saved and where.
 After committing the new file to the vault:
 
 1. Run: `cortex-vec upsert <relative-path-from-vault>`
-2. Run: `cortex-vec export-repo-index`
-
-Where `cortex-vec` is at `${CLAUDE_PLUGIN_ROOT}/scripts/cortex-vec`.
