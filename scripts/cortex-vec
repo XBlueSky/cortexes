@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+# pysqlite3 patch: system SQLite (3.22) is too old for ChromaDB (needs >= 3.35)
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
+"""cortex-vec — Vector store CLI for the cortex vault.
+
+Subcommands:
+    rebuild             Full rebuild of vector store from vault
+    upsert <path>       Add/update a single document
+    delete <path>       Remove a document
+    search <query>      Semantic search
+    export-repo-index   Export _repo_index.json from vector store
+    status              Show index health
+"""
+
+import argparse
+import json
+import os
+import re
+from pathlib import Path
+
+import chromadb
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+CORTEX_CONFIG = Path.home() / ".cortex" / "config.json"
+VECTORSTORE_DIR = Path.home() / ".cortex" / "vectorstore"
+COLLECTION_NAME = "cortex"
+
+
+def load_config():
+    if not CORTEX_CONFIG.exists():
+        print("Error: ~/.cortex/config.json not found. Run /cortex:genesis first.", file=sys.stderr)
+        sys.exit(1)
+    with open(CORTEX_CONFIG) as f:
+        return json.load(f)
+
+
+def get_vault_path():
+    cfg = load_config()
+    vault = cfg.get("vault_path", "")
+    if not vault or not Path(vault).is_dir():
+        print(f"Error: vault_path '{vault}' not found.", file=sys.stderr)
+        sys.exit(1)
+    return Path(vault)
+
+
+def get_client():
+    VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
+    return chromadb.PersistentClient(path=str(VECTORSTORE_DIR))
+
+
+def get_collection(client):
+    return client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Frontmatter parser
+# ---------------------------------------------------------------------------
+
+def parse_frontmatter(text):
+    """Extract YAML frontmatter as a dict of strings. Handles tags/repos lists."""
+    fm = {}
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+    if not m:
+        return fm, text
+
+    fm_text = m.group(1)
+    body = text[m.end():]
+
+    # Simple line-by-line parser for flat YAML
+    current_key = None
+    current_list = []
+
+    for line in fm_text.splitlines():
+        # List item (indented "- value")
+        list_match = re.match(r"^\s+-\s+(.+)", line)
+        if list_match and current_key:
+            current_list.append(list_match.group(1).strip().strip("'\""))
+            continue
+
+        # Key: value
+        kv_match = re.match(r"^(\w[\w_]*):\s*(.*)", line)
+        if kv_match:
+            # Save previous list key
+            if current_key and current_list:
+                fm[current_key] = ",".join(current_list)
+                current_list = []
+
+            key = kv_match.group(1)
+            val = kv_match.group(2).strip().strip("'\"")
+
+            # Inline list: [a, b, c]
+            inline_match = re.match(r"\[([^\]]*)\]", val)
+            if inline_match:
+                items = [x.strip().strip("'\"") for x in inline_match.group(1).split(",") if x.strip()]
+                fm[key] = ",".join(items)
+                current_key = None
+            elif val:
+                fm[key] = val
+                current_key = None
+            else:
+                # Empty value — might be start of a list
+                current_key = key
+                current_list = []
+            continue
+
+    # Final list key
+    if current_key and current_list:
+        fm[current_key] = ",".join(current_list)
+
+    return fm, body
+
+
+def extract_summary(body, max_len=120):
+    """Extract first non-empty, non-heading line from body."""
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        # Strip callout prefixes
+        stripped = re.sub(r"^>\s*(\[![a-zA-Z]+\])?\s*", "", stripped)
+        if stripped:
+            return stripped[:max_len]
+    return ""
+
+
+def classify_path(rel_path):
+    """Determine type and category from relative path."""
+    parts = Path(rel_path).parts
+    if not parts:
+        return "unknown", ""
+
+    top = parts[0]
+    if top == "Notes":
+        category = parts[1] if len(parts) > 2 else ""
+        return "note", category
+    elif top == "Projects":
+        if len(parts) > 1 and parts[1] == "_archive":
+            return "archive", ""
+        repo = parts[1] if len(parts) > 1 else ""
+        return "project", repo
+    elif top == "Weekly":
+        return "weekly", ""
+    elif top == "Raw":
+        return "raw", ""
+    return "unknown", ""
+
+
+# ---------------------------------------------------------------------------
+# Subcommands
+# ---------------------------------------------------------------------------
+
+def cmd_status(args):
+    vault = get_vault_path()
+    client = get_client()
+    try:
+        col = client.get_collection(COLLECTION_NAME)
+        count = col.count()
+    except Exception:
+        count = 0
+
+    print(f"Collection: {COLLECTION_NAME}")
+    print(f"Documents:  {count}")
+    print(f"Model:      all-MiniLM-L6-v2 (default)")
+    print(f"DB path:    {VECTORSTORE_DIR}")
+    print(f"Vault:      {vault}")
+
+
+def cmd_rebuild(args):
+    vault = get_vault_path()
+    client = get_client()
+
+    # Delete existing collection
+    try:
+        client.delete_collection(COLLECTION_NAME)
+    except Exception:
+        pass
+
+    col = get_collection(client)
+
+    scan_dirs = ["Notes", "Projects", "Weekly"]
+    doc_count = 0
+
+    for scan_dir in scan_dirs:
+        scan_path = vault / scan_dir
+        if not scan_path.is_dir():
+            continue
+
+        for md_file in scan_path.rglob("*.md"):
+            rel_path = str(md_file.relative_to(vault))
+
+            # Skip archive
+            if "_archive" in rel_path:
+                continue
+
+            text = md_file.read_text(encoding="utf-8", errors="replace")
+            fm, body = parse_frontmatter(text)
+
+            doc_type, category = classify_path(rel_path)
+            title = fm.get("title", md_file.stem)
+            status = fm.get("status", "")
+            tags = fm.get("tags", "")
+            repos_str = fm.get("repos", "")
+
+            # Determine repo list
+            repos = []
+            if doc_type == "project" and category:
+                repos.append(category)
+            if repos_str:
+                for r in repos_str.split(","):
+                    r = r.strip()
+                    if r and r not in repos:
+                        repos.append(r)
+
+            # Content to embed: title + body (skip raw frontmatter)
+            embed_content = f"{title}\n\n{body}".strip()
+            if not embed_content:
+                continue
+
+            # Insert once per repo (or once with empty repo if no repo)
+            if not repos:
+                repos = [""]
+
+            for repo in repos:
+                doc_id = rel_path if not repo or len(repos) == 1 else f"{rel_path}::{repo}"
+                metadata = {
+                    "type": doc_type,
+                    "category": category,
+                    "title": title,
+                    "tags": tags,
+                    "source_path": str(md_file),
+                }
+                if repo:
+                    metadata["repo"] = repo
+                if repos_str:
+                    metadata["repos"] = repos_str
+                if status:
+                    metadata["status"] = status
+
+                col.upsert(
+                    ids=[doc_id],
+                    documents=[embed_content],
+                    metadatas=[metadata],
+                )
+                doc_count += 1
+
+    print(f"Rebuilt: {doc_count} documents indexed")
+
+    # Auto export repo index
+    _export_repo_index(vault, col)
+
+
+def cmd_upsert(args):
+    vault = get_vault_path()
+    rel_path = args.path
+    full_path = vault / rel_path
+
+    if not full_path.exists():
+        print(f"Error: {full_path} not found.", file=sys.stderr)
+        sys.exit(1)
+
+    client = get_client()
+    col = get_collection(client)
+
+    text = full_path.read_text(encoding="utf-8", errors="replace")
+    fm, body = parse_frontmatter(text)
+
+    doc_type, category = classify_path(rel_path)
+    title = fm.get("title", full_path.stem)
+    status = fm.get("status", "")
+    tags = fm.get("tags", "")
+    repos_str = fm.get("repos", "")
+
+    repos = []
+    if doc_type == "project" and category:
+        repos.append(category)
+    if repos_str:
+        for r in repos_str.split(","):
+            r = r.strip()
+            if r and r not in repos:
+                repos.append(r)
+
+    embed_content = f"{title}\n\n{body}".strip()
+    if not repos:
+        repos = [""]
+
+    for repo in repos:
+        doc_id = rel_path if not repo or len(repos) == 1 else f"{rel_path}::{repo}"
+        metadata = {
+            "type": doc_type,
+            "category": category,
+            "title": title,
+            "tags": tags,
+            "source_path": str(full_path),
+        }
+        if repo:
+            metadata["repo"] = repo
+        if repos_str:
+            metadata["repos"] = repos_str
+        if status:
+            metadata["status"] = status
+
+        col.upsert(
+            ids=[doc_id],
+            documents=[embed_content],
+            metadatas=[metadata],
+        )
+
+    print(f"Upserted: {rel_path}")
+
+
+def cmd_delete(args):
+    client = get_client()
+    col = get_collection(client)
+    rel_path = args.path
+
+    # Delete all IDs that start with this path (handles ::repo suffixes)
+    all_ids = col.get(include=[])["ids"]
+    to_delete = [i for i in all_ids if i == rel_path or i.startswith(f"{rel_path}::")]
+
+    if not to_delete:
+        print(f"Not found: {rel_path}", file=sys.stderr)
+        sys.exit(1)
+
+    col.delete(ids=to_delete)
+    print(f"Deleted: {len(to_delete)} entries for {rel_path}")
+
+
+def cmd_search(args):
+    client = get_client()
+    col = get_collection(client)
+    vault = get_vault_path()
+
+    query = args.query
+    n = args.n or 5
+
+    # Build where filter
+    where_clauses = []
+    if args.repo:
+        where_clauses.append({"repo": args.repo})
+    if args.type:
+        where_clauses.append({"type": args.type})
+    if args.category:
+        where_clauses.append({"category": args.category})
+
+    where = None
+    if len(where_clauses) == 1:
+        where = where_clauses[0]
+    elif len(where_clauses) > 1:
+        where = {"$and": where_clauses}
+
+    kwargs = {
+        "query_texts": [query],
+        "n_results": n,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if where:
+        kwargs["where"] = where
+
+    try:
+        results = col.query(**kwargs)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    docs = results["documents"][0]
+    metas = results["metadatas"][0]
+    dists = results["distances"][0]
+
+    for doc, meta, dist in zip(docs, metas, dists):
+        score = round(1 - dist, 4)
+        doc_id = meta.get("source_path", "")
+        # Get relative path from source_path
+        try:
+            rel_id = str(Path(doc_id).relative_to(vault))
+        except (ValueError, TypeError):
+            rel_id = doc_id
+
+        summary = extract_summary(doc)
+
+        entry = {
+            "id": rel_id,
+            "score": score,
+            "title": meta.get("title", ""),
+            "type": meta.get("type", ""),
+            "repo": meta.get("repo", ""),
+            "category": meta.get("category", ""),
+            "tags": meta.get("tags", ""),
+            "summary": summary,
+        }
+        print(json.dumps(entry, ensure_ascii=False))
+
+
+def _export_repo_index(vault, col):
+    """Export _repo_index.json from vector store metadata."""
+    all_data = col.get(include=["metadatas"])
+    ids = all_data["ids"]
+    metas = all_data["metadatas"]
+
+    index = {}
+    for doc_id, meta in zip(ids, metas):
+        repo = meta.get("repo", "")
+        if not repo:
+            continue
+
+        doc_type = meta.get("type", "")
+        # Get the base path (strip ::repo suffix)
+        base_path = doc_id.split("::")[0]
+
+        if repo not in index:
+            index[repo] = {"projects": [], "notes": []}
+
+        bucket = "projects" if doc_type == "project" else "notes"
+        if base_path not in index[repo][bucket]:
+            index[repo][bucket].append(base_path)
+
+    # Sort for deterministic output
+    for repo in index:
+        index[repo]["projects"].sort()
+        index[repo]["notes"].sort()
+
+    output_path = vault / "_repo_index.json"
+    with open(output_path, "w") as f:
+        json.dump(dict(sorted(index.items())), f, indent=2, ensure_ascii=False)
+
+    print(f"Exported: {len(index)} repos to _repo_index.json")
+
+
+def cmd_export_repo_index(args):
+    vault = get_vault_path()
+    client = get_client()
+    col = get_collection(client)
+    _export_repo_index(vault, col)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="cortex-vec — Vector store CLI for cortex vault")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("status", help="Show index health")
+    sub.add_parser("rebuild", help="Full rebuild from vault")
+
+    p_upsert = sub.add_parser("upsert", help="Add/update a document")
+    p_upsert.add_argument("path", help="Relative path from vault root")
+
+    p_delete = sub.add_parser("delete", help="Remove a document")
+    p_delete.add_argument("path", help="Relative path from vault root")
+
+    p_search = sub.add_parser("search", help="Semantic search")
+    p_search.add_argument("query", help="Search query text")
+    p_search.add_argument("--repo", help="Filter by repo")
+    p_search.add_argument("--type", help="Filter by type (note/project/weekly)")
+    p_search.add_argument("--category", help="Filter by category")
+    p_search.add_argument("--tags", help="Filter by tags")
+    p_search.add_argument("--n", type=int, default=5, help="Number of results")
+
+    sub.add_parser("export-repo-index", help="Export _repo_index.json")
+
+    args = parser.parse_args()
+
+    commands = {
+        "status": cmd_status,
+        "rebuild": cmd_rebuild,
+        "upsert": cmd_upsert,
+        "delete": cmd_delete,
+        "search": cmd_search,
+        "export-repo-index": cmd_export_repo_index,
+    }
+
+    if args.command in commands:
+        commands[args.command](args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
