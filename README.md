@@ -6,7 +6,7 @@ Personal knowledge vault plugin for Claude Code — session recording, memory di
 
 Cortex 是一個 Obsidian vault + Claude Code plugin。vault 儲存工作記憶，plugin 提供自動記錄、提煉、檢索等功能。
 
-**設計哲學：** 零外部依賴，純 markdown + JSON + git。
+**設計哲學：** Vault 是 source of truth（純 markdown + git），vector store 是可重建的衍生索引。
 
 ## Architecture
 
@@ -17,7 +17,8 @@ cortex repo
 
 ~/.cortex/
 ├── config.json                ← genesis 產生的設定
-└── distill-state.json         ← distill 處理狀態快取
+├── distill-state.json         ← distill 處理狀態快取
+└── vectorstore/               ← ChromaDB 語意索引（local only，不在 git）
 ```
 
 ### Vault Structure (main branch)
@@ -69,13 +70,13 @@ _index.md                      ← 全 vault 摘要索引（分層檢索用）
 | Hook | Event | Behavior |
 |------|-------|----------|
 | Session Report | Stop | session 結束時產出完整報告（含 commits、發現、決策），確認後寫到 Raw/ |
-| Memory Injection | SessionStart | 讀 `_index.md`，match 當前 repo，注入相關記憶到 context |
+| Memory Injection | SessionStart | 偵測當前 repo，詢問使用者是否載入 cortex memory |
 
 ## Data Flow
 
 ```
 每個 session:
-  SessionStart → 注入相關記憶
+  SessionStart → 提示有 memory 可用 → 使用者決定是否載入
   工作...
   session 結束 → Stop hook → 確認 → Raw/
 
@@ -92,9 +93,9 @@ _index.md                      ← 全 vault 摘要索引（分層檢索用）
 
 分層檢索，避免 token 浪費：
 
-1. **_index.md**（快）— 每個檔案一行摘要 + tags，SessionStart 自動注入
-2. **Notes/Projects**（中）— grep 搜尋精煉後的完整內容
-3. **Raw/**（慢）— 只在追溯時查詢原始 session 記錄
+1. **Vector Search**（主要）— `cortex-vec search` 語意搜尋，ranked results
+2. **Grep Fallback**（補充）— 精確字串搜尋 Notes/Projects
+3. **Raw Search**（按需）— 只在追溯時查詢原始 session 記錄
 
 ## Configuration
 
@@ -115,6 +116,15 @@ _index.md                      ← 全 vault 摘要索引（分層檢索用）
   }
 }
 ```
+
+## Dependencies
+
+- Python 3.8+
+- [ChromaDB](https://www.trychroma.com/) — 語意向量索引
+- [python-frontmatter](https://python-frontmatter.readthedocs.io/) — YAML frontmatter 解析
+- pysqlite3-binary — SQLite 3.35+ 相容（系統 SQLite 太舊時需要）
+
+安裝：`pip install -e ./cortex-vec`
 
 ## License
 
