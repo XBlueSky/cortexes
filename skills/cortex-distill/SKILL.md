@@ -18,7 +18,10 @@ If the file doesn't exist, tell the user to run `/cortex:genesis` first.
 ## Step 1: Find Unprocessed Raw Files
 
 1. Read `~/.cortex/distill-state.json` (local cache)
-2. Glob `<vault_path>/Raw/` for all `.md` files
+2. Find all `.md` files recursively under `<vault_path>/Raw/`:
+   ```bash
+   find <vault_path>/Raw -name "*.md" -type f
+   ```
 3. For each file:
    - In distill-state.json → skip (fast path)
    - Not in distill-state.json → read file, grep `<!-- distilled:`
@@ -26,51 +29,78 @@ If the file doesn't exist, tell the user to run `/cortex:genesis` first.
      - No marker → unprocessed, add to pending list
 4. Show user the pending list count and ask to proceed
 
-## Step 2: Process Each Raw File
+## Step 2: Assess Value
 
 For each unprocessed Raw file:
 
 1. Read the full content
-2. Assess: does it contain knowledge worth persisting in Notes or Projects?
-   - Technical discovery, root cause, debugging insight → Notes
-   - Architecture decision, project progress → Projects
-   - Routine commits with no notable insight → skip (just mark as processed)
-3. If worth persisting:
-   - Draft the refined content
-   - Present to user for confirmation
-   - Write to Notes/<category>/<title>.md or Projects/<repo>/<title>.md
-   - Use Obsidian Flavored Markdown (wikilinks, frontmatter, callouts)
+2. Check if it has `## Discoveries` or `## Decisions` sections with content
+   - No such sections → **skip** (mark as processed with no extractable content)
+   - Has sections → apply the three-filter criteria
 
-## Step 3: Mark as Processed
+### Three-Filter Criteria
 
-After processing (whether content was extracted or skipped):
+| Category | What to look for | Example |
+|----------|-----------------|---------|
+| **踩坑知識 (Gotchas)** | Non-obvious behavior, hidden traps, root causes | "jsoncpp returns null for oversized doubles instead of throwing" |
+| **內部慣例 (Internal conventions)** | Synology-specific practices, internal API quirks | "subdomain: Drive uses AppPortal.json, MailClient uses API" |
+| **關鍵決策 (Key decisions)** | Why A over B, trade-offs, decisions that will be forgotten | "Use build-history.json vs PID check because..." |
 
-1. Append marker to the Raw file (works with any format):
+- Matches any criterion → **extract** (proceed to Step 3)
+- Matches none → **skip** (routine knowledge already in code/commits)
+
+### What to skip (not worth extracting)
+
+- Routine commits (fix is in the code, commit message has context)
+- General programming knowledge (Google-able)
+- Tool/plugin configuration (changes frequently, in config files)
+- Records that only say "what was done" without insight
+
+## Step 3: Deduplication Check
+
+Before creating a new note:
+
+1. Run: `cortex-vec search "<discovery text>" --n 3`
+   (where `cortex-vec` is at `${CLAUDE_PLUGIN_ROOT}/scripts/cortex-vec`)
+2. Check results:
+   - **Score > 0.85** → High overlap. Show existing note. Suggest: merge, skip, or create anyway.
+   - **Score 0.70-0.85** → Possible overlap. Show to user for judgment.
+   - **Score < 0.70** → New knowledge. Proceed to create.
+
+## Step 4: Create Refined Note
+
+1. Draft the refined content
+2. Determine placement:
+   - Repo-specific knowledge → `Projects/<repo>/` (repo from Raw file's `repo:` frontmatter)
+   - General technical knowledge → `Notes/<category>/` (match existing categories)
+3. Add `repos:` to frontmatter if repo-specific
+4. Present draft to user for confirmation
+5. Write to vault using Obsidian Flavored Markdown (wikilinks, frontmatter, callouts)
+
+## Step 5: Mark as Processed
+
+1. Append marker to Raw file:
    ```
    <!-- distilled: YYYY-MM-DD → Notes/path.md -->
    ```
-   or if nothing was extracted:
+   or if skipped:
    ```
    <!-- distilled: YYYY-MM-DD → (no extractable content) -->
    ```
-2. Update `~/.cortex/distill-state.json`:
-   - Add file path to `processed` array
-   - Update `last_distill` timestamp
+2. Update `~/.cortex/distill-state.json`
 
-## Step 4: Update _index.md
+## Step 6: Update Index
 
-For each new Note or Project file created:
+For each new file created:
 
-1. Read `<vault_path>/_index.md`
-2. Append a row to the appropriate table section (Projects or Notes)
-3. Format: `| [[title]] | tags | one-line summary |`
-4. Update the `entries` count in frontmatter
-5. Update the `updated` date in frontmatter
+1. Run: `cortex-vec upsert <relative-path>`
+2. Run: `cortex-vec export-repo-index`
+3. Update `_index.md`: append row, update entries count and date
 
-## Step 5: Commit
+## Step 7: Commit
 
 ```
-git add Raw/ Notes/ Projects/ _index.md
+git add Raw/ Notes/ Projects/ _index.md _repo_index.json
 git commit -m "distill: extract N entries from Raw"
 ```
 
