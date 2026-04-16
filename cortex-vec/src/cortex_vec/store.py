@@ -11,7 +11,7 @@ import os
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
-from .config import COLLECTION_NAME, VECTORSTORE_DIR, get_vault_path
+from .config import COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
 from .parser import classify_path, extract_summary, parse_document
 
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -24,6 +24,38 @@ def _get_embedding_function():
         print("Error: OPENAI_API_KEY not set.", file=sys.stderr)
         sys.exit(1)
     return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
+
+
+_SUMMARY_PROMPT = """Summarize this markdown note in 2-3 sentences, capturing the core knowledge.
+Include both Chinese and English terms for key concepts.
+End with "Keywords:" listing the most important terms in both languages.
+Keep total output under 200 characters.
+
+Title: {title}
+Tags: {tags}
+---
+{body}"""
+
+
+def _generate_summary(title, tags, body):
+    """Generate a bilingual summary using LLM. Falls back to title+tags on failure."""
+    try:
+        from openai import OpenAI
+
+        client = OpenAI()
+        resp = client.chat.completions.create(
+            model=SUMMARY_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SUMMARY_PROMPT.format(title=title, tags=tags, body=body[:3000]),
+                }
+            ],
+            max_tokens=200,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception:
+        return f"{title}. Tags: {tags}"
 
 
 def get_client():
