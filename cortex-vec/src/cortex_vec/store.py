@@ -26,13 +26,16 @@ def _get_embedding_function():
     return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
 
 
-_SUMMARY_PROMPT = """Summarize this markdown note in 2-3 sentences, capturing the core knowledge.
-Include both Chinese and English terms for key concepts.
-End with "Keywords:" listing the most important terms in both languages.
-Keep total output under 200 characters.
+_SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索引。
 
-Title: {title}
-Tags: {tags}
+規則：
+1. 用繁體中文寫 2-3 句摘要，描述核心知識
+2. 重要概念同時列出中英文（例如：憑證 certificate）
+3. 最後加「關鍵詞：」列出中英文關鍵詞
+4. 總長度不超過 300 字
+
+標題：{title}
+標籤：{tags}
 ---
 {body}"""
 
