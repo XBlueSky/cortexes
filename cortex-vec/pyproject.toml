@@ -5,6 +5,7 @@ description = "Vector store CLI for the cortex vault"
 requires-python = ">=3.8"
 dependencies = [
     "chromadb",
+    "openai",
     "python-frontmatter",
     "pysqlite3-binary",
 ]

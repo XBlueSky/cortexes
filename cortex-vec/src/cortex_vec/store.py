@@ -6,10 +6,24 @@ import sys
 
 sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 
+import os
+
 import chromadb
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 from .config import COLLECTION_NAME, VECTORSTORE_DIR, get_vault_path
 from .parser import classify_path, extract_summary, parse_document
+
+EMBEDDING_MODEL = "text-embedding-3-small"
+
+
+def _get_embedding_function():
+    """Return OpenAI embedding function."""
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        print("Error: OPENAI_API_KEY not set.", file=sys.stderr)
+        sys.exit(1)
+    return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
 
 
 def get_client():
@@ -22,6 +36,7 @@ def get_collection(client):
     """Get or create the cortex collection."""
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
+        embedding_function=_get_embedding_function(),
         metadata={"hnsw:space": "cosine"},
     )
 
@@ -82,7 +97,7 @@ def cmd_status(_args):
 
     print(f"Collection: {COLLECTION_NAME}")
     print(f"Documents:  {count}")
-    print(f"Model:      all-MiniLM-L6-v2 (default)")
+    print(f"Model:      {EMBEDDING_MODEL} (OpenAI)")
     print(f"DB path:    {VECTORSTORE_DIR}")
     print(f"Vault:      {vault}")
 
