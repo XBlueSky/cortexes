@@ -30,7 +30,7 @@ fi
 [[ -z "$repo_name" ]] && exit 0
 
 # Lazy loading prompt — AI asks user whether to load memory
-context="[Cortex] 你目前在 ${repo_name} repo。Cortex vault 中可能有此 repo 的相關記憶（技術筆記、專案決策、踩坑紀錄）。請詢問使用者是否需要載入 cortex memory。如需載入，使用 cortex-vec search --repo ${repo_name} 查詢相關內容。"
+context="[Cortex] 你目前在 ${repo_name} repo。Cortex vault 中可能有此 repo 的相關記憶（技術筆記、專案決策、踩坑紀錄）。在你第一次回覆使用者時，先簡短提及有 cortex memory 可用，問使用者是否要載入。不需要等使用者主動問。如需載入，使用 cortex-vec search --repo ${repo_name} 查詢相關內容。"
 
 # Escape for JSON
 context_escaped=$(echo "$context" | sed 's/"/\\"/g')
