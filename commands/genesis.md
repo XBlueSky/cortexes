@@ -1,6 +1,6 @@
 ---
 name: genesis
-description: Initialize cortex vault — set up config, vault structure, rebuild index and distill state
+description: Initialize cortex vault — set up config, vault structure, and rebuild index
 argument-hint: "[vault path, e.g. /synosrc/misc/cortex or ~/cortex]"
 allowed-tools:
   - Read
@@ -69,31 +69,7 @@ Ensure these directories exist in the vault:
 
 If the vault is not a git repo, run `git init` and create an initial commit.
 
-### 7. Rebuild distill-state.json
-
-Scan all files in `Raw/` for `<!-- distilled:` markers.
-Build `~/.cortex/distill-state.json`:
-
-```json
-{
-  "last_distill": "<current timestamp>",
-  "processed": [
-    "Raw/2026/04/08/151032_session_dsm-AdminCenter.md",
-    ...
-  ]
-}
-```
-
-If Raw/ is empty or doesn't exist, create an empty state:
-
-```json
-{
-  "last_distill": "<current timestamp>",
-  "processed": []
-}
-```
-
-### 8. Rebuild _index.md
+### 7. Rebuild _index.md
 
 Scan all files in Notes/, Projects/, and Weekly/:
 - For each Notes file: extract title, tags from frontmatter, first line of content as summary
@@ -135,7 +111,7 @@ entries: <count>
 | YYYY-MM-DD | N | topics |
 ```
 
-### 9. Show summary
+### 8. Show summary
 
 Display:
 ```
@@ -145,7 +121,6 @@ Display:
   Author: <name> <email>
   GitLab: <username>
   Index: <N> entries in _index.md
-  Distill state: <N> processed files
 
   Next steps:
   - Sessions auto-record to Raw/ on exit

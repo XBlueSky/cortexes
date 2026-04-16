@@ -86,7 +86,6 @@ cortex repo
 
 ~/.cortex/
 ├── config.json                ← genesis 產生的設定
-├── distill-state.json         ← distill 處理狀態快取
 └── vectorstore/               ← ChromaDB 語意索引（local only，不在 git）
 ```
 

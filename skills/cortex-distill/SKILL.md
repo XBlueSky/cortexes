@@ -17,17 +17,13 @@ If the file doesn't exist, tell the user to run `/cortex:genesis` first.
 
 ## Step 1: Find Unprocessed Raw Files
 
-1. Read `~/.cortex/distill-state.json` (local cache)
-2. Find all `.md` files recursively under `<vault_path>/Raw/`:
-   ```bash
-   find <vault_path>/Raw -name "*.md" -type f
-   ```
-3. For each file:
-   - In distill-state.json → skip (fast path)
-   - Not in distill-state.json → read file, grep `<!-- distilled:`
-     - Has marker → already processed, add to distill-state.json
-     - No marker → unprocessed, add to pending list
-4. Show user the pending list count and ask to proceed
+Find all Raw files that lack a `<!-- distilled:` marker:
+
+```bash
+grep -rL '<!-- distilled:' <vault_path>/Raw/ --include='*.md'
+```
+
+Show the pending list count and ask to proceed.
 
 ## Step 2: Assess Value
 
@@ -86,7 +82,6 @@ Before creating a new note:
    ```
    <!-- distilled: YYYY-MM-DD → (no extractable content) -->
    ```
-2. Update `~/.cortex/distill-state.json`
 
 ## Step 6: Update Index
 
