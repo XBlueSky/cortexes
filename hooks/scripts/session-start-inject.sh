@@ -68,13 +68,13 @@ done
 
 # --- Build interactive menu prompt ---
 read -r -d '' context <<'PROMPT_TEMPLATE' || true
-[Cortex] 你目前在 __REPO__ repo。在你第一次回覆使用者時，呈現以下格式：
+[Cortex] 你目前在 __REPO__ repo。Cortex vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。在你第一次回覆使用者時，呈現以下格式：
 
 先顯示 vault 狀態：
 __STATUS__
 然後列出選項：
 1. 載入此 repo 的記憶筆記（執行 cortex-vec search --repo __REPO__）
-2. 查看最近的 session 紀錄（列出 Raw/ 中最近幾筆）
+2. 查看最近的 session 紀錄（列出 __VAULT__/Raw/ 中最近幾筆）
 3. 處理待辦事項（提煉未處理的紀錄 或 產生週報）
 4. 直接開始工作
 
@@ -86,6 +86,7 @@ PROMPT_TEMPLATE
 
 # Substitute placeholders
 context="${context//__REPO__/$repo_name}"
+context="${context//__VAULT__/$CORTEX_DIR}"
 context="${context//__STATUS__/$status_block}"
 
 # Use jq for safe JSON encoding
