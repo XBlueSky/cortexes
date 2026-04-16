@@ -117,19 +117,30 @@ def _delete_stale_entries(collection, rel_path):
     return stale
 
 
+def _base_path(doc_id):
+    """Extract base file path from a doc ID, stripping ::repo and ::summary suffixes."""
+    return doc_id.split("::")[0]
+
+
 def cmd_status(_args):
     """Show index health."""
     vault = get_vault_path()
     client = get_client()
     try:
         col = client.get_collection(COLLECTION_NAME)
-        count = col.count()
+        total = col.count()
+        all_metas = col.get(include=["metadatas"])["metadatas"]
+        summaries = sum(1 for m in all_metas if m.get("entry_type") == "summary")
+        bodies = total - summaries
     except Exception:
-        count = 0
+        total = 0
+        bodies = 0
+        summaries = 0
 
     print(f"Collection: {COLLECTION_NAME}")
-    print(f"Documents:  {count}")
-    print(f"Model:      {EMBEDDING_MODEL} (OpenAI)")
+    print(f"Entries:    {total} ({bodies} body + {summaries} summary)")
+    print(f"Embedding:  {EMBEDDING_MODEL} (OpenAI)")
+    print(f"Summary:    {SUMMARY_MODEL} (OpenAI)")
     print(f"DB path:    {VECTORSTORE_DIR}")
     print(f"Vault:      {vault}")
 
@@ -145,7 +156,7 @@ def cmd_rebuild(_args):
         pass
 
     col = get_collection(client)
-    scan_dirs = ["Notes", "Projects", "Weekly"]
+    scan_dirs = ["Notes", "Projects"]
     doc_count = 0
 
     for scan_dir in scan_dirs:
@@ -172,6 +183,9 @@ def cmd_rebuild(_args):
             if not embed_content:
                 continue
 
+            # Generate bilingual summary
+            summary_text = _generate_summary(title, tags, body)
+
             for repo in repos:
                 doc_id = (
                     rel_path
@@ -182,10 +196,22 @@ def cmd_rebuild(_args):
                     doc_type, category, title, tags, repos_str, status,
                     str(md_file), repo,
                 )
+
+                # Full body vector
                 col.upsert(
                     ids=[doc_id],
                     documents=[embed_content],
                     metadatas=[metadata],
+                )
+                doc_count += 1
+
+                # Summary vector
+                summary_id = f"{doc_id}::summary"
+                summary_metadata = {**metadata, "entry_type": "summary"}
+                col.upsert(
+                    ids=[summary_id],
+                    documents=[summary_text],
+                    metadatas=[summary_metadata],
                 )
                 doc_count += 1
 
@@ -220,6 +246,9 @@ def cmd_upsert(args):
     repos = _resolve_repos(doc_type, category, repos_str)
     embed_content = f"{title}\n\n{body}".strip()
 
+    # Generate bilingual summary
+    summary_text = _generate_summary(title, tags, body)
+
     for repo in repos:
         doc_id = (
             rel_path
@@ -230,10 +259,21 @@ def cmd_upsert(args):
             doc_type, category, title, tags, repos_str, status,
             str(full_path), repo,
         )
+
+        # Full body vector
         col.upsert(
             ids=[doc_id],
             documents=[embed_content],
             metadatas=[metadata],
+        )
+
+        # Summary vector
+        summary_id = f"{doc_id}::summary"
+        summary_metadata = {**metadata, "entry_type": "summary"}
+        col.upsert(
+            ids=[summary_id],
+            documents=[summary_text],
+            metadatas=[summary_metadata],
         )
 
     print(f"Upserted: {rel_path}")
@@ -279,9 +319,10 @@ def cmd_search(args):
     elif len(where_clauses) > 1:
         where = {"$and": where_clauses}
 
+    # Request extra results to account for deduplication
     kwargs = {
         "query_texts": [query],
-        "n_results": n,
+        "n_results": n * 3,
         "include": ["documents", "metadatas", "distances"],
     }
     if where:
@@ -297,24 +338,31 @@ def cmd_search(args):
     metas = results["metadatas"][0]
     dists = results["distances"][0]
 
+    # Deduplicate: keep highest score per base path
+    seen = {}
     for doc, meta, dist in zip(docs, metas, dists):
         score = round(1 - dist, 4)
-        doc_id = meta.get("source_path", "")
+        source = meta.get("source_path", "")
         try:
-            rel_id = str(Path(doc_id).relative_to(vault))
+            rel_id = str(Path(source).relative_to(vault))
         except (ValueError, TypeError):
-            rel_id = doc_id
+            rel_id = source
 
-        summary = extract_summary(doc)
+        base = _base_path(rel_id)
+        if base not in seen or score > seen[base]["score"]:
+            seen[base] = {
+                "id": base,
+                "score": score,
+                "title": meta.get("title", ""),
+                "type": meta.get("type", ""),
+                "repo": meta.get("repo", ""),
+                "category": meta.get("category", ""),
+                "tags": meta.get("tags", ""),
+                "summary": extract_summary(doc),
+            }
 
-        entry = {
-            "id": rel_id,
-            "score": score,
-            "title": meta.get("title", ""),
-            "type": meta.get("type", ""),
-            "repo": meta.get("repo", ""),
-            "category": meta.get("category", ""),
-            "tags": meta.get("tags", ""),
-            "summary": summary,
-        }
+    # Sort by score descending and limit to n
+    deduped = sorted(seen.values(), key=lambda x: -x["score"])[:n]
+
+    for entry in deduped:
         print(json.dumps(entry, ensure_ascii=False))
