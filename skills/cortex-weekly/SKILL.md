@@ -110,10 +110,20 @@ This is the cross-department issue tracker (project ID: `31865`,
 URL: `https://git.synology.inc/wit/wit_issues`). Colleagues from various teams
 (sp, pm, qa, techw, etc.) open tickets here — some get assigned to the user.
 
-Include issues where the user responded or resolved them.
+**Filter rule — only include issues the user actually replied to this week.**
+`updated_at` in the week range is not enough: bots, label changes, and other
+people's comments all bump `updated_at` and would re-surface old issues.
+
+For each candidate issue:
+
+1. Call `list_issue_discussions` (or equivalent) to fetch notes
+2. Keep the issue only if at least one note is authored by the configured
+   `weekly.gitlab_username` AND `created_at` falls in `[start, end)`
+3. Otherwise drop it
+
 Format: `[wit#issue-iid](issue-url): question topic → responded / resolved`
 - Concise, one line per issue
-- Goes into `misc.`
+- Goes into `inbound.`
 
 ### Source D: CSS Tickets
 
@@ -134,46 +144,59 @@ Rules for CSS entries:
 2. For each GitLab MR:
    - If same MR URL exists in Raw → keep Raw's description
    - If MR not in Raw → add it
-3. Add GitLab issues (responded/resolved) to misc section
-4. Add CSS tickets to misc section
+3. Add wit issues (this-week replied only) to `inbound.`
+4. Add CSS tickets (this-week activity only) to `inbound.`
+5. Add MR reviews (this-week approved only) to `inbound.`
 
 ## Step 5: Classify
 
-Classification is based on **whether the commit/MR has a Workplus issue ref**:
+Four sections, selected by **who authored the work** and **what kind of
+work it is**:
 
-| Category | Criteria |
-|----------|----------|
-| `fix.` | Has issue ref + commit type = fix |
-| `feat.` | Has issue ref + commit type = feat |
-| `misc.` | No issue ref (side projects), CSS tickets, reviews, chore, docs |
+| Section | Criteria |
+|---------|----------|
+| `fix.` | Self-authored MR, commit type = fix (flat list — no issue grouping) |
+| `feat.` | Self-authored MR, commit type = feat with issue ref (grouped by Workplus issue; includes supporting chore/docs MRs of the same issue) |
+| `inbound.` | Others' MR you approved / wit issue you replied to / CSS ticket you worked — all within the week cutoff window |
+| `misc.` | Self-authored side project (typically no issue ref) |
 
 Key rules:
-- **Issue ref present** → always `fix.` or `feat.` (these are Synology work)
-- **No issue ref** → always `misc.` (side projects like syno-build-mcp, etc.)
-- **CSS tickets** → always `misc.`
-- `feat.` entries are **grouped by theme/Workplus issue**, not listed individually
+- **fix. is flat** — do NOT group under Workplus issue. A bug fix tells its story
+  in its MR title; grouping adds noise. If a fix MR happens to share a Workplus
+  issue with a feat group, still list it under `fix.` (not merged into the feat
+  group).
+- **feat. is grouped** — a feature typically spans many MRs (feat/chore/docs),
+  so grouping under the Workplus issue + title tells the story. Supporting
+  chore/docs MRs of the same issue go under the feat group, not misc.
+- **inbound. filters strictly** — only this-week approvals / replies / CSS
+  activity. `updated_at` in-range is NOT sufficient for wit issues (see
+  Source C for the reply-check rule).
+- **misc. is flat** — one line per side project.
 
-### Resolve Workplus issue titles
+### Resolve Workplus issue titles (for `feat.` groups only)
 
-For every unique issue key found in `fix.` and `feat.`, call the Workplus
+For every unique issue key that anchors a `feat.` group, call the Workplus
 MCP tool `get_issue` to fetch the real `title`. Use this exact title
 verbatim in the group heading — **do not paraphrase, summarize, or
 invent a "short theme name"**. See Step 6 for the exact heading format.
 
 Cache the title → reuse for all MRs under the same issue.
 
+`fix.` and `inbound.` MR-review items do not need Workplus title resolution
+(they show the MR title directly).
+
 ### Experimental repos (draft label)
 
 Read `weekly.experimental_repos` from `~/.cortex/config.json`. This is a
 list of `namespace/project` strings (e.g. `["wit/morpheus"]`).
 
-Rule for the `[draft]` label:
+Rule for the `**[draft]**` prefix (applies to `feat.` group bullets):
 - Build the group of MRs for each issue ref
 - If **every** MR in the group has its target repo in `experimental_repos`
-  → prefix the group heading with `**[draft]**` (bold, literal text)
+  → prefix the group-heading bullet with `**[draft]** `
+  (bold, trailing space)
 - If the group mixes experimental and non-experimental repos → no label
   (it is already a real feature)
-- Same rule applies to `fix.` entries if they are experimental
 
 ## Step 6: Generate Draft
 
@@ -183,8 +206,10 @@ The draft is **copy-pasted into a GitLab issue/MR description**
 - Obsidian wikilinks `[[Title]]` — use plain `[text](url)` instead
 - Obsidian embeds `![[file]]`
 - Obsidian callouts `> [!note]`
-- Tabs for indentation — use **2 spaces** per nesting level
 - Unicode bullets (`•`, `▪`) — use plain `-`
+
+Indent nested bullets with **tabs** (matches vault convention — see
+`Weekly/2026/2026-03-16.md` etc.).
 
 **Frontmatter block is required** at the top of every draft (for
 Obsidian vault compatibility — the same file is committed to the
@@ -201,98 +226,120 @@ source: cortex
 
 Where `YYYY-MM-DD` is the **meeting Friday date** (same as filename).
 
-### Group heading format (`fix.` and `feat.`)
+### Top-level structure
+
+All four sections are top-level bullet items, not headings:
 
 ```
-<Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
+- fix.
+- feat.
+- inbound.
+- misc.
 ```
 
-- Title is **plain text**, not wrapped in `[...]` — intentional, so
-  titles like `[webapi] morpheus: webapi http server framework` do
-  not collide with markdown link syntax
-- Issue key + URL sit inside `[...](...)` wrapped in parentheses
-- If the group qualifies for the draft label (Step 5 "Experimental
-  repos"), prefix the heading with `**[draft]** ` (bold, trailing space)
+Tab-indent each sub-item one level under its section. Omit any empty
+section entirely (do not print `- fix.` with no children).
 
-Examples:
+### `fix.` format — flat list, MR link only
+
 ```
-### NextGen-Web-Core - ([DSM-167678](https://workplus.synology.inc/key/DSM/issues/167678))
-
-### **[draft]** [webapi] morpheus: webapi http server framework - ([DSM-172916](https://workplus.synology.inc/key/DSM/issues/172916))
+- fix.
+	- [mr-title](mr-url)
+	- [mr-title](mr-url)
 ```
 
-### `feat.` narrative requirement
+No descriptions, no grouping. The MR title already says what was fixed.
 
-Each `feat.` group **must** begin with a 2–4 sentence prose summary
-describing what was achieved at the feature level — not just a list
-of MRs. The narrative should:
+### `feat.` format — grouped by Workplus issue, with descriptions
 
-- Name the theme/goal (what is this feature actually doing?)
-- Summarize how the MRs collectively achieve the goal
-- Flag anything unusual (trade-offs, deferred work, what it unblocks)
+```
+- feat.
+	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
+		- [mr-title](mr-url): one-line description of what the MR does
+		- [mr-title](mr-url): one-line description
+			- sub-detail when the MR change is large
+			- sub-detail
+	- **[draft]** <experimental title> - ([<ISSUE-KEY>](<issue-url>))
+		- [mr-title](mr-url): description
+```
 
-Think "I'm standing up in the weekly meeting and have 30 seconds to
-explain what we did for this feature." The MR list underneath is
-supporting evidence, not the headline.
+Rules:
+- Group-heading bullet is plain text + parenthesized issue link.
+  Title is **not** wrapped in `[...]` — intentional, so titles like
+  `[webapi] morpheus: ...` don't collide with markdown link syntax.
+- Each MR bullet: link + `:` + one-line description.
+- **No prose narrative.** A bulleted list of MRs with descriptions is
+  enough — if something needs more explanation, indent another level
+  and list sub-items, don't write paragraphs.
+- When a MR's change is genuinely large, tab-indent one more level and
+  list the key sub-changes.
 
-`fix.` groups do **not** require narrative — one-line MR description
-per item is enough.
+### `inbound.` format — this-week external work
 
-### Full draft layout
+```
+- inbound.
+	- [mr-title](mr-url) / [<ISSUE-KEY>](<issue-url>)
+	- [mr-title](mr-url)
+	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
+	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → outcome
+```
+
+Rules:
+- **MR review**: `[mr-title](mr-url)` — append ` / [KEY](issue-url)`
+  only when the MR's commit messages carry a `Ref:` trailer.
+- **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`).
+  Only list issues with a tonyhu note in this week's window (see
+  Source C filter).
+- **CSS ticket**: `[css#ticket-id](url): symptom → outcome`. Never
+  include customer, colleague, or personal identifiers.
+- No `(reviewed)` prefix — the link shape (MR URL vs `wit#` vs `css#`)
+  already disambiguates.
+
+### `misc.` format — your side projects, flat list
+
+Two shapes depending on activity:
+
+```
+- misc.
+	- [side-project vX.Y.Z](repo-root-url)               ← version bump
+	- project-name: summary ([!NN](mr-url), [!MM](mr-url))  ← scattered MRs
+```
+
+Rules:
+- If the side project had a version tag / release this week → link the
+  repo root with the version as the title.
+- If the side project only has scattered MRs (no release) → one line:
+  `project: one-sentence summary` followed by comma-separated MR links
+  in parentheses.
+- One line per project. Do not break individual MRs onto their own
+  top-level bullets.
+
+### Full skeleton example
 
 ```markdown
 ---
-title: "YYYY-MM-DD"
-date: YYYY-MM-DD
+title: "2026-04-17"
+date: 2026-04-17
 source: cortex
 ---
 
-## fix.
-
-### <Group heading format>
-
-- [MR-title](MR-URL): one-line what was fixed
-
-## feat.
-
-### <Group heading format>
-
-<2–4 sentence narrative: what this feature achieves, how the MRs
-combine, any trade-offs or deferred work>
-
-- [MR-title](MR-URL): specific change
-- [MR-title](MR-URL): specific change
-
-### **[draft]** <Group heading format for experimental group>
-
-<narrative — same 2–4 sentence requirement even for draft>
-
-- [MR-title](MR-URL): specific change
-
-## misc.
-
-- side-project-name: one-line summary of recent changes across
-  [!NN](MR-url), [!MM](MR-url)
-- [project#issue-id](issue-url): question topic → responded / resolved
-- [css#XXXXXXX](https://cssnew.synology.com/ticket/XXXXXXX): symptom → outcome
+- fix.
+	- [fix(...): ...](mr-url)
+	- [fix(...): ...](mr-url)
+- feat.
+	- NextGen-Web-Core - ([DSM-167678](https://workplus.synology.inc/key/DSM/issues/167678))
+		- [feat(nginx): ...](mr-url): adds nextweb upstream and flips `/` to proxy_pass
+		- [chore(projects): ...](mr-url): register syno-nextweb in build list
+	- **[draft]** [webapi] morpheus: webapi http server framework - ([DSM-172916](https://workplus.synology.inc/key/DSM/issues/172916))
+		- [refactor(core): ...](mr-url): split god file into focused modules
+- inbound.
+	- [fix(fsdn): ...](mr-url) / [DSM-173132](https://workplus.synology.inc/key/DSM/issues/173132)
+	- [wit#4432](wit-url): upgrade session-clear behaviour → responded
+	- [css#3977379](css-url): db missing entry → repaired, closed
+- misc.
+	- [syno-build-mcp v0.9.0](https://git.synology.inc/tonyhu/syno-build-mcp)
+	- synology-dev-kit: replaced polling with Monitor tool, extracted build workflow into skill ([!27](url), [!29](url), [!30](url))
 ```
-
-### `misc.` rules
-
-`misc.` is a **flat bullet list** — no H3 sub-headings, no narrative
-paragraphs, no nested MR lists. Each line stands alone.
-
-- Side projects: **one line per project** summarizing all activity.
-  **Do not list individual commits or MRs on separate lines.** Include
-  comma-separated MR links inline if merged, e.g.
-  `synology-dev-kit: replaced polling with Monitor tool, added shared reference ([!27](url), [!29](url), [!30](url))`
-- GitLab issues (responded/resolved): `[project#iid](url): topic → action`
-- CSS tickets: `[css#XXXXXXX](url): symptom → outcome` — no names
-
-The rationale: `misc.` is the "side stuff" bucket — it should scan
-quickly in the weekly meeting, not compete for attention with the real
-features in `feat.`. Anything that deserves its own narrative belongs
-in `feat.` or `fix.`, not here.
 
 **Present the draft to the user for review.** Do not write until user confirms.
 

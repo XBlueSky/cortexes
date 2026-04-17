@@ -19,7 +19,9 @@ allowed-tools:
   - mcp__plugin_synology-workflows_gitlab__list_commits
   - mcp__plugin_synology-workflows_gitlab__my_issues
   - mcp__plugin_synology-workflows_gitlab__list_issues
+  - mcp__plugin_synology-workflows_gitlab__list_issue_discussions
   - mcp__plugin_synology-workflows_gitlab__get_issue
+  - mcp__plugin_synology-workflows_gitlab__list_events
   - mcp__plugin_syno-robinhood_robinhood__css_get_activities
 ---
 
@@ -28,6 +30,11 @@ You are the weekly-compiler agent for the cortex vault.
 ## Your Task
 
 Collect and merge weekly report data from multiple sources for a given week.
+
+**Format rules are owned by `skills/cortex-weekly/SKILL.md`** — read it for
+the authoritative draft layout, classification rules, and formatting
+conventions. This agent's job is to gather sources and hand back a merged
+dataset that the skill's Step 6 can render.
 
 ## Input
 
@@ -52,11 +59,9 @@ filter by the filename's first 6 chars (`HHMMSS`):
 
 Parse each session report: extract commits, discoveries, decisions, other work.
 
-### 2. Fetch GitLab Activity
+### 2. Fetch GitLab MRs (self-authored)
 
-Use Bash to run glab or GitLab MCP commands to get the user's activity:
-- List merged MRs in the date range
-- List commits pushed
+List merged MRs authored by the configured username in the date range.
 
 For each merged MR, also fetch its commit messages and grep for
 `Ref:\s*([A-Z]+-\d+)` — attach any matching issue keys to the MR.
@@ -66,128 +71,71 @@ their parent Workplus issue.
 Record each MR's target repo as `namespace/project` (e.g.
 `synology/libsynow3`, `wit/morpheus`) — needed for the draft label rule.
 
-### 3. Fetch GitLab Issues (wit/wit_issues)
+### 3. Fetch MR Reviews (approvals)
 
-Use GitLab MCP `list_issues` with `project_id: "wit/wit_issues"` to find issues
-assigned to or participated by the user in the date range.
+Use `list_events` with `action=approved, target_type=merge_request` in
+the date range to find MRs the user approved. For each, look up the MR
+to grab its title and any `Ref:` issue key.
 
-This is the cross-department ticket tracker (project ID: 31865).
-Include issues where the user responded or resolved them.
-Format: `[wit#issue-iid](issue-url): question → what was done`
-Goes into `misc.`
+These go into `inbound.` — see SKILL.md for the format.
 
-### 4. Fetch CSS Tickets
+### 4. Fetch GitLab Issues (wit/wit_issues)
 
-Use available robinhood MCP tools (`css_get_activities`) to get CSS ticket
-activity for the user in the date range.
+Use `list_issues` with `project_id: "wit/wit_issues"` (cross-department
+tracker, project ID 31865) to find candidate issues assigned to or
+touching the user.
+
+**Filter strictly — only keep issues the user actually replied to this
+week.** `updated_at` in-range is not sufficient (bots, label changes,
+other people's comments all bump it).
+
+For each candidate:
+1. Call `list_issue_discussions` to fetch all notes
+2. Keep the issue only if at least one note has `author.username ==
+   <configured username>` AND `created_at` falls in `[start, end)`
+3. Otherwise drop it
+
+Matching issues go into `inbound.`.
+
+### 5. Fetch CSS Tickets
+
+Use `css_get_activities` to get CSS ticket activity for the user in the
+date range.
 
 For each ticket, extract root cause and resolution. Rules:
-- **No names** — no customer names, colleague names, or personal identifiers
-- **Concise** — one line: root cause → how it was resolved
-- If a Workplus issue was filed, link it: `[DSM-123456](https://workplus.synology.inc/key/DSM/issues/123456)`
+- **No names** — no customer, colleague, or personal identifiers
+- **Concise** — one line: symptom → outcome
+- If a Workplus issue was filed, link it:
+  `[DSM-123456](https://workplus.synology.inc/key/DSM/issues/123456)`
 
-### 5. Merge and Classify
+CSS entries go into `inbound.`.
 
-- Deduplicate: same MR URL in Raw and GitLab → keep Raw's description
-- Classification based on **issue ref presence**:
-  - Has issue ref + fix type → `fix.`
-  - Has issue ref + feat type → `feat.` (group by parent Workplus issue)
-  - No issue ref → `misc.` (side projects — summarize per project in one line, not individual commits)
-  - GitLab issues (responded/resolved) → always `misc.`
-  - CSS tickets → always `misc.` with format: `[css#XXXXXXX](url): symptom → outcome`
-- For `feat.` and `fix.` entries, group commits/MRs under their parent
-  Workplus issue as a theme heading
+### 6. Resolve Workplus titles (feat. groups only)
 
-### Output target: GitLab Flavored Markdown
+For each unique issue key that anchors a `feat.` group (not `fix.`, not
+`inbound.`), call Workplus MCP `get_issue` and cache the `title`. Use
+the title **verbatim** in the group heading — do not paraphrase.
 
-Output will be copy-pasted into a GitLab issue/MR description. Must be
-valid GFM. No Obsidian-only syntax (`[[wikilink]]`, `![[embed]]`,
-`> [!note]`), no tabs for indent (use 2 spaces).
+### 7. Merge, Deduplicate, Hand Off
 
-### Resolving group headings
+- Dedupe: same MR URL in Raw and GitLab → keep Raw's description
+- Classify per SKILL.md's Step 5 table:
+  - Self MR, type=fix → `fix.`
+  - Self MR, type=feat with issue ref → `feat.` (grouped by issue)
+  - Self MR, supporting chore/docs sharing an issue with a feat group
+    → fold into that `feat.` group
+  - Others' MR review / wit issue (replied this week) / CSS ticket
+    (this-week activity) → `inbound.`
+  - Self side-project MRs with no issue ref → `misc.`
 
-For each unique issue key, call Workplus MCP `get_issue` to fetch the
-real `title`. Use the exact title **verbatim** in the group heading —
-do not paraphrase.
-
-**Heading format** (applies to `fix.` and `feat.`):
-
-```
-### <Workplus-title> - ([<ISSUE-KEY>](<issue-url>))
-```
-
-The title sits as plain text (NOT inside `[...]`), so titles like
-`[webapi] morpheus: ...` do not collide with markdown link syntax.
-
-### Draft label for experimental repos
-
-Read `weekly.experimental_repos` from `~/.cortex/config.json`
-(list of `namespace/project` strings).
-
-For each `feat.` / `fix.` group:
-- If **every** MR in the group has its target repo in `experimental_repos`
-  → prefix the heading with `**[draft]** ` (bold, trailing space)
-- If the group mixes experimental and non-experimental repos → no label
-
-Example:
-```
-### **[draft]** [webapi] morpheus: webapi http server framework - ([DSM-172916](https://workplus.synology.inc/key/DSM/issues/172916))
-```
-
-### `feat.` narrative requirement
-
-Every `feat.` group **must** open with a 2–4 sentence prose summary
-explaining what the feature achieves at a conceptual level, not just
-an MR list. Frame it as "30-second weekly-meeting pitch":
-
-- What is this feature actually doing?
-- How do the MRs combine to achieve it?
-- Any trade-offs, deferred work, or things it unblocks?
-
-Then list the MRs as supporting evidence. Each MR line: one concise
-description of what was changed, not a full dump of the MR body.
-
-`fix.` groups do NOT need a narrative — one line per MR is enough.
-
-### Output structure
-
-Use H2 (`##`) for the three category sections (`fix.`, `feat.`, `misc.`),
-H3 (`###`) for issue group headings under `fix.`/`feat.`, and plain
-bullet lists (`-`) for MRs under each group.
-
-**Required frontmatter** at the top of every draft:
-
-```markdown
----
-title: "YYYY-MM-DD"
-date: YYYY-MM-DD
-source: cortex
----
-```
-
-Where `YYYY-MM-DD` is the meeting Friday date.
-
-### `misc.` is flat — no sub-headings
-
-`misc.` must be a **flat bullet list**. Do NOT add H3 sub-headings per
-project. Do NOT add narrative paragraphs. Do NOT nest MR lists.
-Collapse each side project to ONE line that includes a comma-separated
-list of MR links inline.
-
-Correct:
-```
-- synology-dev-kit: replaced polling with Monitor tool, added shared reference ([!27](url), [!29](url), [!30](url), [!31](url))
-```
-
-Wrong (do not do this):
-```
-### synology-dev-kit
-<narrative>
-- [!27](url): ...
-- [!29](url): ...
-```
+Return a structured dataset with the four buckets ready for the skill
+to render. Do not attempt to render the final markdown here — the
+skill's Step 6 owns that.
 
 ## Output
 
-Return a structured report with three sections (fix, feat, misc),
-each containing formatted entries ready for the weekly report template.
+Return to the caller:
+- `fix`: list of `{ mr_title, mr_url }`
+- `feat`: list of `{ issue_key, issue_url, workplus_title, is_draft, mrs: [{ mr_title, mr_url, description, sub_details? }] }`
+- `inbound`: list of `{ kind: "mr_review" | "wit" | "css", ... }`
+- `misc`: list of `{ project, shape: "version" | "mrs", ... }`
