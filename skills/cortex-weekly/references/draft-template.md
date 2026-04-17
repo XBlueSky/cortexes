@@ -33,25 +33,31 @@ Four top-level bullet items, not headings:
 
 Any section with no content is omitted.
 
-## `fix.` — flat MR list
+## `fix.` and `feat.` — grouped by Workplus issue
+
+Both sections follow the **same layout rules**. The only difference is what lands in each: `fix.` for Workplus issues with `type = BUG`, `feat.` for `type = FEATURE`.
+
+### Single MR per issue → flat bullet
 
 ```
 - fix.
 	- [mr-title](mr-url)
+- feat.
 	- [mr-title](mr-url)
 ```
 
-Rules:
-- No descriptions.
-- No Workplus issue grouping. The MR title already tells the story.
-- If a fix MR shares an issue with a feat group, still list it under `fix.` — do not merge into the feat group.
+No description, no group heading. The MR title carries the story.
 
-## `feat.` — grouped by Workplus issue
+### Multiple MRs per issue → group heading + indented bullets
 
 ```
-- feat.
+- fix.
 	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
 		- [mr-title](mr-url): one-line description of what the MR does
+		- [mr-title](mr-url): one-line description
+- feat.
+	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
+		- [mr-title](mr-url): one-line description
 		- [mr-title](mr-url): one-line description
 			- sub-detail when the MR change is genuinely large
 			- sub-detail
@@ -59,12 +65,16 @@ Rules:
 		- [mr-title](mr-url): description
 ```
 
-Rules:
+Rules (apply to both `fix.` and `feat.`):
 - Group-heading bullet is plain text followed by parenthesized issue link. Title is **not** wrapped in `[...]` — intentional so titles like `[webapi] morpheus: ...` do not collide with markdown link syntax.
+- **Backtick-escape group titles** that start with `[` or contain `][` (e.g. `[thread+fork][synoscgi] ...`). GFM can mis-parse these as reference-style links:
+  ```
+  - `[thread+fork][synoscgi] 替換 redis cpp client 實作` - ([DSM-169641](url))
+  ```
 - Each MR bullet: `[mr-title](mr-url): one-line description`.
 - **No prose narrative.** If something needs more explanation, indent another level and list sub-items. Do not write paragraphs.
-- Include all MRs sharing the same issue ref (feat + chore + docs) under the feat group — supporting work belongs with its feature, not scattered elsewhere.
-- Prefix with `**[draft]** ` (bold, trailing space) when every MR in the group targets a repo listed in `weekly.experimental_repos`.
+- Group includes **every** MR sharing the issue ref, regardless of individual commit type (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`). The Workplus issue type decides `fix.` vs `feat.`; the group pulls in all the MRs that serve that issue.
+- Prefix a group heading with `**[draft]** ` (bold, trailing space) when every MR in the group targets a repo listed in `weekly.experimental_repos`. Single-MR flat bullets are never draft-labelled.
 
 ## `inbound.` — externally-initiated work this week
 

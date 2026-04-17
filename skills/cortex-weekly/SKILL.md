@@ -130,31 +130,62 @@ Use this flow:
 
 ## Step 5: Classify
 
-Four sections, selected by **who authored the work** and **what kind of work it is**:
+Four sections, selected primarily by **Workplus issue type**, not commit type. Commit type is a fallback only when no issue ref exists.
 
 | Section | Criteria |
 |---------|----------|
-| `fix.` | Self-authored MR, commit type = `fix` (flat list — no issue grouping) |
-| `feat.` | Self-authored MR, commit type = `feat` with issue ref (grouped by Workplus issue; pulls in supporting `chore`/`docs` MRs sharing the same issue) |
+| `fix.` | Self-authored MR whose Workplus issue has `type = BUG` (groups MRs by issue) |
+| `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` (groups MRs by issue) |
 | `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on — all within the cutoff window |
-| `misc.` | Self-authored side project (typically no issue ref) |
+| `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) |
 
-Key rules:
+### Classification procedure
 
-- **`fix.` is flat** — no grouping. A `fix` MR sharing an issue with a `feat` group still lives in `fix.`, not merged into the feat group.
-- **`feat.` is grouped** — features span multiple MRs (`feat` + `chore` + `docs`). Group them all under the Workplus issue's verbatim title so the feature tells one story.
-- **`inbound.` is strictly filtered** — only entries with user action within the cutoff window.
-- **`misc.` is flat** — one bullet per side project, short summary only.
+For each self-authored MR:
 
-### Resolve Workplus issue titles (for `feat.` groups only)
+1. If the MR's commit messages contain a `Ref: <KEY>` trailer:
+   - Call Workplus `get_issue` on the key; cache the returned `title` **and** `type`
+   - `type == "BUG"` → `fix.` under that issue
+   - `type == "FEATURE"` → `feat.` under that issue
+   - Any other type (rare — e.g. `TASK`) → treat as `FEATURE` for layout purposes
+2. If no `Ref:` trailer:
+   - Send to `misc.` regardless of commit type. Side-project work does not belong with issue-driven fix/feat.
 
-For each unique issue key that anchors a `feat.` group, call Workplus MCP `get_issue` and cache the `title`. Use the title **verbatim** in the group heading — do not paraphrase, summarize, or invent a "short theme name".
+This rule is intentionally simple: **Workplus owns the semantics**. A DSM-169641 cleanup that ships seven `chore` MRs is a bug fix because the issue says so, not because any individual commit says `fix(...)`.
 
-`fix.` and `inbound.` MR items do not need title resolution (they show the MR title directly).
+### Grouping rule — same for `fix.` and `feat.`
+
+Within `fix.` and `feat.`, MRs are grouped by Workplus issue:
+
+- **Single MR in an issue** → flat one-line bullet:
+  `- [mr-title](mr-url)` (no group heading, no description)
+- **Multiple MRs in an issue** → group heading + indented MR bullets:
+  ```
+  - <Workplus-title> - ([<KEY>](<issue-url>))
+  	- [mr-title](mr-url): one-line description
+  	- [mr-title](mr-url): one-line description
+  ```
+
+The group heading only appears when at least two MRs share the issue — it exists to tell the story across the MRs, not to decorate single items.
+
+### `inbound.` and `misc.`
+
+- **`inbound.`** is a flat list. See `references/draft-template.md` for the three shapes (MR review, wit issue, CSS ticket).
+- **`misc.`** is a flat list — one bullet per side project, short summary only.
+
+### Resolve Workplus issue titles and types
+
+For each unique issue key referenced by a self-authored MR, call Workplus MCP `get_issue` once and cache both `title` and `type`. Use the title **verbatim** in any group heading — do not paraphrase, summarize, or invent a "short theme name".
+
+If the title begins with `[` or contains `][` (e.g. `[thread+fork][synoscgi] ...`), wrap the title in backticks so GFM does not misinterpret it as a reference-style link:
+
+```
+- `[thread+fork][synoscgi] 替換 redis cpp client 實作` - ([DSM-169641](url))
+```
 
 ### Experimental repos (draft label)
 
-Read `weekly.experimental_repos` from `~/.cortex/config.json` (list of `namespace/project` strings). For each `feat.` group, if **every** MR in the group targets a repo in that list, prefix the group-heading bullet with `**[draft]** ` (bold, trailing space). Mixed groups get no prefix.
+Read `weekly.experimental_repos` from `~/.cortex/config.json` (list of `namespace/project` strings). For each group heading (in `fix.` or `feat.`), if **every** MR in the group targets a repo in that list, prefix the heading bullet with `**[draft]** ` (bold, trailing space). Mixed groups get no prefix. Single-MR flat bullets are never draft-labelled.
 
 ## Step 6: Generate Draft
 
