@@ -80,11 +80,34 @@ After writing the file:
    - Projects: `| [[repo-name]] | tags | summary |` (if new project)
 3. Update `entries` count and `updated` date in frontmatter
 
+## Append Log Entry
+
+Compose this entry with all placeholders substituted (today's date/time in `YYYY-MM-DD HH:MM` format, the vault-relative path of the saved file, the repo name or `(none)`):
+
+````markdown
+## [YYYY-MM-DD HH:MM] evolve | user-initiated
+- outcome: new
+- target: <vault-relative path of saved file>
+- repo: <repo name or "(none)">
+````
+
+Append to `<vault>/log.md` using either the Edit tool (preferred — preserves file integrity) or bash:
+
+````bash
+printf '\n%s\n' "$ENTRY" >> "<vault>/log.md"
+````
+
+Where `$ENTRY` is the fully-substituted markdown entry.
+
+Preserve exactly one blank line between entries (achieved by the leading `\n` in the printf above, or by ensuring the Edit tool's appended content starts with a blank line).
+
+The `dedup_top1` field is omitted for evolve entries (evolve does not perform a dedup check in Phase 1; the user explicitly chose to save).
+
 ## Commit
 
 In the vault repo:
 ```
-git add <file> _index.md
+git add <file> _index.md log.md
 git commit -m "cortex: <type> <brief>"
 ```
 
