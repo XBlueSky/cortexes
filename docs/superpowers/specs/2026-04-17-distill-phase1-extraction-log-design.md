@@ -96,22 +96,33 @@ materialize the insight, using dedup score as the primary signal.
 
 Input: `cortex-vec search "<top discovery text>" --n 3` → top-1 score.
 
+Thresholds are **calibrated for `text-embedding-3-small`** based on
+probe queries against the current vault (50 docs). Empirical ceiling
+is ~0.75 even for exact title matches; "same topic" overlap peaks near
+0.60.
+
 | Condition | Outcome | Raw marker |
 |-----------|---------|------------|
-| top-1 score < 0.70 | `new` | `→ <target-path>` |
-| top-1 score 0.70–0.85 | interactive: ask user `(n)ew / (p)ending / (s)kip` | per choice |
-| top-1 score ≥ 0.85 | `pending-merge` | `→ pending-merge: <existing-path> (<score>)` |
+| top-1 score < 0.45 | `new` | `→ <target-path>` |
+| top-1 score 0.45–0.60 | interactive: ask user `(n)ew / (p)ending / (s)kip` | per choice |
+| top-1 score ≥ 0.60 | `pending-merge` | `→ pending-merge: <existing-path> (<score>)` |
 | Stage 1 Y but content is pure commit dump / tool recap | `skip-routine` | `→ (skip: routine)` |
 
 Notes:
 
+- Thresholds live in `~/.cortex/config.json` under
+  `distill.dedup_threshold_new` (0.45) and
+  `distill.dedup_threshold_pending` (0.60). Not hardcoded in skill.
+  Rationale: Phase 2/3 can statistically re-calibrate from `log.md`'s
+  `dedup_top1` field without editing any skill file. Fallback defaults
+  apply when keys are missing.
 - `skip-routine` is a Stage 2 escape hatch for cases where Stage 1's
   "has specific symbol" passes but the symbol is only in a commit line
   with no analysis. Use sparingly.
-- For interactive 0.70–0.85: the user answer governs the marker. If they
-  pick `pending`, it behaves like the ≥0.85 case.
+- For interactive 0.45–0.60: the user answer governs the marker. If they
+  pick `pending`, it behaves like the ≥0.60 case.
 - `cortex-vec` unavailable → log `dedup_top1: unavailable`, fall back to
-  LLM reading `_index.md` for rough dedup, treat as < 0.70 if uncertain
+  LLM reading `_index.md` for rough dedup, treat as < 0.45 if uncertain
   (prefer false-positive new-page over losing the insight).
 
 ### 2. Raw marker formats
@@ -121,7 +132,7 @@ with four canonical shapes:
 
 ```
 <!-- distilled: 2026-04-17 → Notes/DSM/foo.md -->
-<!-- distilled: 2026-04-17 → pending-merge: Notes/Linux/tcpdump.md (0.87) -->
+<!-- distilled: 2026-04-17 → pending-merge: Notes/Linux/tcpdump.md (0.71) -->
 <!-- distilled: 2026-04-17 → (skip: routine) -->
 <!-- distilled: 2026-04-17 → (no insight) -->
 ```
@@ -160,7 +171,7 @@ Distill entry (new outcome):
 ## [2026-04-17 14:30] distill | 170916_session_syno-build-mcp.md
 - outcome: new
 - target: Projects/syno-build-mcp/dockerimage-filter-bug.md
-- dedup_top1: 0.62 → [[Package Center guide]]
+- dedup_top1: 0.32 → [[Package Center guide]]
 - repo: syno-build-mcp
 ```
 
@@ -171,7 +182,7 @@ vault page that overlaps above threshold):
 ## [2026-04-17 14:35] distill | 181129_session_webapi-Web.md
 - outcome: pending-merge
 - target: Notes/DSM/Web benchmark.md
-- dedup_top1: 0.89 → [[Web benchmark]]
+- dedup_top1: 0.62 → [[Web benchmark]]
 - repo: webapi-Web
 ```
 
@@ -231,8 +242,10 @@ existing page.
   Keep the three-filter table as *categorization hint* (not gate)
   inside Stage 1 guidance.
 - Step 3 "Deduplication Check" folds into Stage 2. Preserve
-  0.70–0.85 interactive flow; extend ≥0.85 to emit `pending-merge`
-  marker instead of "suggest merge/skip/create anyway".
+  the interactive middle-band flow (now 0.45–0.60); extend the
+  high-band (≥0.60) to emit `pending-merge` marker instead of
+  "suggest merge/skip/create anyway". Read thresholds from
+  `~/.cortex/config.json`.
 - Update Step 5 "Mark as Processed" with the four canonical marker
   shapes.
 - Insert new Step 5.5 "Append Log Entry" before the commit step.
@@ -268,9 +281,9 @@ cortex-vec search top-3 (or fallback)
   ▼
 Stage 2: decide_placement()
   │
-  ├─ <0.70 ──────> new ────────> write page + _index + vec upsert
-  ├─ 0.70-0.85 ─> ask user ────> (new | pending | skip) branches
-  ├─ ≥0.85 ─────> pending-merge ─> (no write)
+  ├─ <0.45 ──────> new ────────> write page + _index + vec upsert
+  ├─ 0.45-0.60 ─> ask user ────> (new | pending | skip) branches
+  ├─ ≥0.60 ─────> pending-merge ─> (no write)
   └─ commit-only/recap ─> skip-routine ─> (no write)
                 │
                 ▼
@@ -315,7 +328,7 @@ Stage 2: decide_placement()
   `grep -r "pending-merge" Raw/` or `grep "pending-merge" log.md`.
 - **Evolve called without a Raw source** (user types "save this to
   cortex" mid-conversation). log subject = `user-initiated`.
-- **Interactive 0.70–0.85 declined (user picks `skip`).** Marker =
+- **Interactive 0.45–0.60 declined (user picks `skip`).** Marker =
   `(skip: routine)`, same as the automated skip-routine path; log
   `outcome: skip-routine`.
 
