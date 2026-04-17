@@ -65,6 +65,22 @@ Ensure these directories exist in the vault:
 - `Projects/`
 - `Weekly/`
 
+Ensure `log.md` exists at the vault root. If missing, create it with:
+
+````markdown
+---
+created: <today>
+---
+
+# Cortex Log
+
+Append-only record of vault operations (distill, evolve).
+
+---
+````
+
+The file is append-only; do not overwrite if it exists.
+
 ### 6. Initialize git
 
 If the vault is not a git repo, run `git init` and create an initial commit.
