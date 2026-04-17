@@ -6,3 +6,7 @@ Raw/
 .obsidian/
 .claude/
 _index.md
+
+# Python build artifacts from cortex-vec
+__pycache__/
+*.pyc

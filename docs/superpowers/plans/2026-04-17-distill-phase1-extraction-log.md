@@ -729,3 +729,72 @@ git commit -m "docs(plan): append Phase 1 rollout notes"
 1. **`skills/cortex-genesis/` does not exist.** Spec referred to updating this skill; actual file is `commands/genesis.md`. Task 3 targets the command instead.
 2. **Acceptance testing is manual.** No pytest harness in this repo. Tasks 6 and 7 rely on manual invocation + grep verification. This is acceptable for markdown-skill projects and is documented in the spec's "Migration" section.
 3. **Legacy marker handling is manual.** Per spec Open Question #1, the plan removes old `(no extractable content)` markers by hand in Task 6 Step 2 rather than teaching the skill to auto-upgrade.
+
+---
+
+## Phase 1 rollout notes (2026-04-17)
+
+### Execution summary
+
+All 7 planned tasks executed via subagent-driven development in a single session. Four plugin-repo commits + three vault-repo commits. Rollout took ~90 minutes end-to-end including two review iterations.
+
+### Commits
+
+**Plugin repo (`/synosrc/misc/cortex/`):**
+- `d8b107f` feat(genesis): create log.md during vault init — Task 3
+- `07d8156` feat(distill): two-stage assessment with pending-merge outcome — Task 4 initial
+- `82f26d7` fix(distill): clarify log-append mechanism — Task 4 fix after code review
+- `13d7e8b` feat(evolve): append log.md entry before commit — Task 5
+
+**Vault repo (`/synosrc/cortex/`):**
+- `8fcb638` chore: initialize log.md — Task 2
+- `8d3ab10` distill: extract 2 entries from Raw — Task 6 acceptance
+- `e0c8c09` cortex: note embedding score profile — Task 7 acceptance
+
+### Acceptance test outcomes
+
+Both previously-broken Raws produced `outcome: new` under the new skill:
+
+| Raw | Score | Target | Comment |
+|---|---|---|---|
+| `170916_session_syno-build-mcp.md` | **0.37** → `[[3rdparty misc]]` | `Projects/syno-build-mcp/checkDockerImage-bug.md` | Previously `(no extractable content)` — false negative eliminated |
+| `180605_session_syno-naxos.md` | **0.32** → `[[status code limit]]` | `Projects/syno-naxos/lifecycle-hook-bugs.md` | Three bug analyses preserved as separate sections |
+
+Top-1 matches were semantically unrelated (scores well below 0.45 `new` threshold), confirming that the old `(no extractable content)` verdict was indeed a false negative driven by the "one-layer-glued" assessment rather than any genuine overlap.
+
+### Success criteria — all pass
+
+1. ✅ Neither test Raw ended up as `(no insight)` — both got valid `→ Projects/...` targets
+2. ✅ Three log entries total (2 distill + 1 evolve) — one per source processed
+3. ✅ `grep -r "pending-merge" Raw/` returned 0 — neither test Raw had high enough score to trigger pending-merge (both fell well below 0.45 threshold; queue remains empty from this batch)
+4. ✅ Chroma count 100 → 104 after Task 6 (`2 × count(new) = 2 × 2 = 4`), then 104 → 106 after Task 7 (`1 new`)
+5. ✅ pending-merge marker format stable — no Phase 1 signature change required for Phase 2
+
+### Review iterations captured
+
+Task 4's initial commit `07d8156` passed spec review but failed code quality review with 1 Critical + 3 Important + 3 Minor issues. The Critical was a `<<'EOF'` quoted heredoc that would have written `$(date ...)` literally into log.md. Fix commit `82f26d7` replaced it with an agent-composed-entry + `printf '\n%s\n'` pattern. Task 5's evolve instructions were written from the start using this fixed pattern, so Task 5 needed no follow-up.
+
+### Observed embedding score reality
+
+Phase 1 recalibrated thresholds (0.45/0.60) based on four probe queries against a 50-doc vault:
+
+- Exact title match ceiling: **0.75**
+- Typical same-topic overlap: **0.55–0.65**
+- Weak relevance: **0.30–0.45**
+- Noise: **0.15–0.30**
+
+The two test Raws landed in the 0.30–0.37 band, consistent with "weak relevance / unrelated" rather than overlap. Recorded as a permanent Note at `Notes/Web/embedding score profile.md` for future calibration reference.
+
+### Spec open questions — closed by implementation
+
+All three open questions from the original spec are now effectively resolved:
+
+1. **Legacy marker re-handling**: manual removal, not auto-upgrade (Task 6 Step 2).
+2. **What text to pass to `cortex-vec search`**: skill now says "longest Discovery/Decision bullet with concrete referents" (distill SKILL.md Step 3.2).
+3. **Exact log.md append bash snippet**: agent-composed-entry + `printf '\n%s\n' "$ENTRY" >> <log>` (both distill and evolve skill files).
+
+### Minor deferred items (not blocking Phase 1)
+
+- Distill SKILL.md Step 7 template shows `dedup_top1` unconditionally; prose rules correctly state when to omit. Minor prose clarity improvement deferred.
+- Spec file itself could be annotated "Open questions closed in plan rollout notes" for future readers.
+- `.gitignore` extended to cover `__pycache__/` and `*.pyc` from cortex-vec Python package. Housekeeping — not tied to Phase 1 scope.
