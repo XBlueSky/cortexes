@@ -57,7 +57,7 @@ When has_insight is Yes, optionally tag the extracted content for later lint:
 | 慣例 (convention) | Synology-specific or internal practice | "Drive uses AppPortal.json, MailClient uses API" |
 | 決策 (decision) | Why A over B, trade-off rationale | "build-history.json over PID check because..." |
 
-These tags no longer gate extraction — they are metadata that helps Phase 3 lint query "show me all 決策 with no xref".
+These tags no longer gate extraction — they are reserved metadata for future lint capability. Safe to omit if the use case is unclear; downstream tooling treats absence as untagged.
 
 ## Step 3: Stage 2 — Decide Placement
 
@@ -95,16 +95,15 @@ If `cortex-vec` is unavailable (command errors, ECONNREFUSED, etc.): treat as `s
 | score < `dedup_threshold_new` | `new` |
 | `dedup_threshold_new` ≤ score < `dedup_threshold_pending` | interactive — ask user `(n)ew / (p)ending / (s)kip` |
 | score ≥ `dedup_threshold_pending` | `pending-merge` |
-| Pure commit dump / tool recap with no analysis | `skip-routine` (escape hatch) |
 
-Use `skip-routine` sparingly — only when Stage 1 passed on a symbol that turned out to be only a commit line with no surrounding analysis.
+**Escape hatch — `skip-routine`:** Independent of score. Triggered when Stage 1 passed on a symbol that turns out to be only a commit line with no surrounding analysis (e.g., a Raw that is essentially a git log dump plus a `"Discoveries"` bullet mentioning one file path). Use sparingly.
 
 ### 3.4 Dispatch
 
 - `new` → go to Step 4 (create) + Step 5 + 6 + 7 + 8.
 - `pending-merge` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only. **Do not write any new file or touch existing pages.**
 - `skip-routine` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only.
-- Interactive: user's choice governs the branch above.
+- Interactive: user's choice governs the branch above. Specifically: `(n)ew` → `new`, `(p)ending` → `pending-merge`, `(s)kip` → `skip-routine` (treat as escape-hatch equivalent; marker is `(skip: routine)`).
 
 ## Step 4: Create Refined Note
 
@@ -151,25 +150,23 @@ For each Raw processed (regardless of outcome), append exactly one entry to `<va
 - repo: <value from Raw frontmatter repo: field | "(none)">
 ```
 
-Append using:
+The agent should:
+
+1. Compose the entry text with all placeholders substituted (today's date/time, the raw filename, the outcome, the target path, the score, the wikilink, the repo).
+2. Append it to `<vault>/log.md` using either the Edit tool (preferred — adds the entry and preserves file integrity) or bash:
 
 ```bash
-cat >> <vault>/log.md <<'EOF'
-
-## [$(date '+%Y-%m-%d %H:%M')] distill | <raw-filename>
-- outcome: <outcome>
-- target: <path>
-- dedup_top1: <score> → [[<title>]]
-- repo: <repo>
-EOF
+printf '\n%s\n' "$ENTRY" >> "<vault>/log.md"
 ```
 
-Note the leading blank line inside the heredoc — preserves separation from the previous entry.
+Where `$ENTRY` is the fully-substituted markdown entry.
+
+Preserve exactly one blank line between entries (achieved by the leading `\n` in the printf above, or by ensuring the Edit tool's new content starts with a blank line when appending).
 
 Field rules:
 
 - `target`: present for `new` and `pending-merge`. Omit the line for `skip-routine` and `no-insight`.
-- `dedup_top1`: omit for `no-insight` (Stage 2 did not run). For `pending-merge` and interactive → pending, include the score and wikilink of the matched page. For `skip-routine`, include the score even though no write happened.
+- `dedup_top1`: include the score and top-1 page wikilink whenever Stage 2 ran (outcomes: `new` when score was computed, `pending-merge`, all interactive choices, `skip-routine`). Omit only for `no-insight` (Stage 2 did not run). For `cortex-vec` unavailable, write `dedup_top1: unavailable`.
 - `repo`: use `(none)` if the Raw has no `repo:` frontmatter field.
 
 ## Step 8: Commit
