@@ -1,0 +1,135 @@
+# Weekly Draft Template
+
+Detailed format rules and worked example for the weekly report draft.
+
+Reference this file whenever composing Step 6 output (Generate Draft).
+
+## Base principles
+
+- **Output is GitLab Flavored Markdown** — copy-pasted into a GitLab issue/MR description. No Obsidian-only syntax (`[[wikilink]]`, `![[embed]]`, `> [!note]`). Plain `-` bullets only; no Unicode markers.
+- **Tab indent** each nested bullet one level. Matches vault convention (`Weekly/2026/2026-03-16.md` and later).
+- **Frontmatter is required** at the top. Obsidian consumes it; GitLab renders it as a table or ignores it silently.
+- **Meeting Friday date** drives the `title` / `date` fields and the filename.
+- **Omit empty sections entirely** — do not print `- fix.` with no children.
+
+```markdown
+---
+title: "YYYY-MM-DD"
+date: YYYY-MM-DD
+source: cortex
+---
+```
+
+## Top-level structure
+
+Four top-level bullet items, not headings:
+
+```
+- fix.
+- feat.
+- inbound.
+- misc.
+```
+
+Any section with no content is omitted.
+
+## `fix.` — flat MR list
+
+```
+- fix.
+	- [mr-title](mr-url)
+	- [mr-title](mr-url)
+```
+
+Rules:
+- No descriptions.
+- No Workplus issue grouping. The MR title already tells the story.
+- If a fix MR shares an issue with a feat group, still list it under `fix.` — do not merge into the feat group.
+
+## `feat.` — grouped by Workplus issue
+
+```
+- feat.
+	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
+		- [mr-title](mr-url): one-line description of what the MR does
+		- [mr-title](mr-url): one-line description
+			- sub-detail when the MR change is genuinely large
+			- sub-detail
+	- **[draft]** <experimental title> - ([<ISSUE-KEY>](<issue-url>))
+		- [mr-title](mr-url): description
+```
+
+Rules:
+- Group-heading bullet is plain text followed by parenthesized issue link. Title is **not** wrapped in `[...]` — intentional so titles like `[webapi] morpheus: ...` do not collide with markdown link syntax.
+- Each MR bullet: `[mr-title](mr-url): one-line description`.
+- **No prose narrative.** If something needs more explanation, indent another level and list sub-items. Do not write paragraphs.
+- Include all MRs sharing the same issue ref (feat + chore + docs) under the feat group — supporting work belongs with its feature, not scattered elsewhere.
+- Prefix with `**[draft]** ` (bold, trailing space) when every MR in the group targets a repo listed in `weekly.experimental_repos`.
+
+## `inbound.` — externally-initiated work this week
+
+```
+- inbound.
+	- [mr-title](mr-url) / [<ISSUE-KEY>](<issue-url>)
+	- [mr-title](mr-url)
+	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
+	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → root cause → response
+```
+
+Rules:
+- **MR review**: `[mr-title](mr-url)`. Append ` / [KEY](issue-url)` only when the MR's commit messages carry a `Ref:` trailer.
+- **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`). List only when the configured user posted a note within the week window (see Source C filter).
+- **CSS ticket**: `[css#ticket-id](url): symptom → root cause → response` — three-segment form based on reading the actual ticket thread, not an `outcome` summary.
+  - `symptom`: what the customer reported
+  - `root cause`: what the user diagnosed in their reply (paraphrased, one clause)
+  - `response`: what the user did or routed the ticket to
+  - Never include customer, colleague, or personal identifiers.
+- Do not prefix items with `(reviewed)`. The link shape (MR URL vs `wit#` vs `css#`) already disambiguates the source.
+
+## `misc.` — self side projects, flat list
+
+Three acceptable shapes per project — pick the one that fits the actual activity. Keep each bullet scannable.
+
+```
+- misc.
+	- [side-project vX.Y.Z](repo-root-url)                           ← version bump
+	- project-name: short, comma-separated summary of themes         ← scattered work, no link
+	- project-name: summary ([!NN](mr-url), [!MM](mr-url))            ← scattered MRs with links
+```
+
+Rules:
+- **Version bump shape**: Use when the side project released a tag this week. Link to the repo root; put the version in the link text.
+- **Pure-prose shape**: 3–5 short comma-separated themes. Use when no meaningful MR links exist or when listing links would clutter the line. Matches `2026-04-06.md` pattern.
+- **Prose + inline MR links**: Use when specific MRs are worth pointing to. Comma-separated `[!NN](url)` after the summary in parentheses.
+- One bullet per project. Never split one project's MRs across multiple top-level bullets.
+- No MR-title dumps, no nested sub-bullets, no narrative paragraphs.
+
+## Worked example — 2026-04-17
+
+```markdown
+---
+title: "2026-04-17"
+date: 2026-04-17
+source: cortex
+---
+
+- feat.
+	- NextGen-Web-Core - ([DSM-167678](https://workplus.synology.inc/key/DSM/issues/167678))
+		- [feat(nginx): add nextweb upstream and routing](https://git.synology.inc/synology/libsynow3/-/merge_requests/263): add nextweb.pass partial, change `@continue` from `try_files → index.cgi` to `proxy_pass → nextweb`, add `= /sharing` exact match, register `127.0.0.1:6667` upstream
+		- [chore(projects): register syno-nextweb in build list](https://git.synology.inc/synology/lnxscripts/-/merge_requests/1962): add syno-nextweb to include/projects so BuildAll recognizes it
+		- [chore(conf): enable vite cache systemd service](https://git.synology.inc/synology/libdsm/-/merge_requests/244): enable the Vite cache systemd unit for nextwebd
+		- [docs: add README with architecture diagram](https://git.synology.inc/synology/syno-nextweb/-/merge_requests/1): architecture overview for nextwebd
+		- [fix(benchmark): target nextwebd root path instead of legacy index.cgi](https://git.synology.inc/synology/synowebbenchmark/-/merge_requests/26): DSMIndex benchmark now hits `/` (nextwebd) instead of `/index.cgi` (legacy CGI)
+- inbound.
+	- [fix(fsdn): recover spk backup from remote when identity mismatch](https://git.synology.inc/synology/synopkg/-/merge_requests/1458) / [DSM-173132](https://workplus.synology.inc/key/DSM/issues/173132)
+	- [docs(synology-coverity): note project -gandalf postfix in stream inference](https://git.synology.inc/wit/synology-dev-kit/-/merge_requests/26)
+	- [css#3978941](https://cssnew.synology.com/ticket/3978941): package install/start failure → improper shutdown wiped /var/log/nginx, nginx cascade → restart nginx, back to L1
+- misc.
+	- cortex: cortex-vec Python package migration, session-start interactive menu, weekly Friday alignment
+	- synology-dev-kit: Monitor tool for build progress, build workflow skill extraction, hardlink breakage docs
+	- morpheus: app.cpp split into dispatcher/runners/bootstrap
+	- syno-naxos: SSH ExitStatus handling fix
+	- syno-robinhood: css ticket response template
+```
+
+Note: `fix.` omitted because no stand-alone fix existed this week (`synowebbenchmark!26` was folded into the `DSM-167678` feat group).
