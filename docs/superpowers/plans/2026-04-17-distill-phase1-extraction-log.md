@@ -798,3 +798,56 @@ All three open questions from the original spec are now effectively resolved:
 - Distill SKILL.md Step 7 template shows `dedup_top1` unconditionally; prose rules correctly state when to omit. Minor prose clarity improvement deferred.
 - Spec file itself could be annotated "Open questions closed in plan rollout notes" for future readers.
 - `.gitignore` extended to cover `__pycache__/` and `*.pyc` from cortex-vec Python package. Housekeeping — not tied to Phase 1 scope.
+
+### 補測 round — extending Task 6 coverage (vault commit `b80b074`)
+
+Initial Task 6 only exercised the `new` outcome (both test Raws scored
+< 0.45). A follow-up round covered the remaining outcome paths using
+a mix of real and synthetic Raws. Results:
+
+| 補測 | Raw | Score | Path exercised | Verified |
+|---|---|---|---|---|
+| 1 | webapi-Notification (141013) | 0.48 | interactive → `(p)` → `pending-merge` | marker + log + queue seeded |
+| 2 | libsynosysnotify (142115) | 0.45 | interactive → `(s)` → `skip-routine` | marker + log, no file written |
+| 3 | test-no-insight (170000, synthetic) | n/a | Stage 1 fail → `no-insight` | marker + log (target and dedup_top1 omitted) |
+
+Chroma count unchanged (106 → 106): none of the three paths writes a
+file, matching spec chroma-rule. `grep -r "pending-merge" Raw/`
+returns exactly 1 entry now, demonstrating the Phase 2 work queue is
+functional.
+
+### cortex-vec unavailable fallback
+
+Live probe:
+
+```
+env -i HOME=$HOME PATH=/usr/bin:/bin cortex-vec search "any query"
+→ env: 「cortex-vec」: 沒有此一檔案或目錄  (exit nonzero)
+```
+
+In production, the skill's Step 3.2 catches this (`treat as score = 0.0,
+log dedup_top1: unavailable, prefer false-positive new`). Full
+end-to-end of this path was not triggered by any real Raw in this
+session; the fallback is covered by the skill instructions but not
+yet by a live log entry. First natural occurrence (e.g. during a
+network outage) will populate the pattern.
+
+### Paths not covered by live test
+
+- **Auto-dispatch `pending-merge` (score ≥ 0.60)**: never triggered
+  with natural vault content (0.48 was the highest observed). Marker
+  format and log pattern verified via the interactive-(p) path, which
+  shares the same write logic. First real auto-dispatch case will
+  appear organically as vault grows.
+- **`cortex-vec` unavailable at runtime**: skill instructions complete,
+  fallback command paths tested independently, but no live log entry
+  produced. Acceptable for Phase 1.
+
+### Final commit trail
+
+Plugin repo (`/synosrc/misc/cortex/`): 5 implementation commits (`d8b107f`,
+`07d8156`, `82f26d7`, `13d7e8b`, `d18c29a`) plus 3 design commits (`639ef11`,
+`ac978a8`, `8de977e`).
+
+Vault repo (`/synosrc/cortex/`): 4 commits (`8fcb638`, `8d3ab10`, `e0c8c09`,
+`b80b074`). Neither repo pushed yet — awaiting user.
