@@ -42,8 +42,8 @@ A Raw is eligible iff its marker meets **all** of:
 - Contains `<!-- distilled: YYYY-MM-DD → ... -->` (Phase 1 processed).
 - Outcome is `new` or `pending-merge` (the marker content after `→` is
   either a path like `Notes/X.md` / `Projects/Y/Z.md`, **or** starts with
-  `pending-merge:`; anything else — `(skip: routine)`, `(no insight)` —
-  is ineligible).
+  `pending-merge:`; anything else — `(skip: routine)`, `(no insight)`,
+  or the pre-Phase-1 legacy `(no extractable content)` — is ineligible).
 - Does not already contain any of: `| broadcast:`, `| merged:`,
   `| no-broadcast:`.
 
@@ -52,7 +52,7 @@ Build the list via:
 ```bash
 grep -rL '| broadcast:\|| merged:\|| no-broadcast:' <vault>/Raw/ --include='*.md' \
   | xargs grep -l '<!-- distilled:' \
-  | xargs grep -LE '(skip: routine|no insight)'
+  | xargs grep -LE '(skip: routine|no insight|no extractable content)'
 ```
 
 Sort by Raw filename (which starts with timestamp) for FIFO ordering.

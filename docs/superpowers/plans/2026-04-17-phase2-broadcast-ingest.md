@@ -921,3 +921,84 @@ Report status + final commit SHAs and ask the user whether to push.
    The skill relies on the user typing `abort` during conversation rather
    than sending SIGINT. Implementation-plan choice consistent with
    spec Open Question #2.
+
+---
+
+## Phase 2 rollout notes (2026-04-20)
+
+### Execution summary
+
+All 7 planned tasks executed via SDD + inline acceptance. Four plugin-repo
+implementation commits, one follow-up fix commit, plus three vault-repo
+acceptance commits. One rate-limit interruption between Task 1 and Task 2
+(reset at 9pm Asia/Taipei), resumed cleanly via fresh Agent dispatch.
+
+### Commits
+
+**Plugin repo (`/synosrc/misc/cortex/`):**
+- `2786ac9` feat(broadcast): cortex-broadcast skill initial — Task 2 (307 lines)
+- `850e56c` fix(broadcast): clarify zero-candidate branch, pending-merge APPEND — Task 2 re-review fixes (+42 lines)
+- `b86d16b` feat(broadcast): /cortex:broadcast command — Task 3
+- `e281ee8` feat(distill): distill SKILL Step 9 — Task 4
+- (pending: OBS-1 fix appending `no extractable content` to eligibility filter regex + this rollout notes commit)
+
+**Vault repo (`/synosrc/cortex/`):**
+- `d8d7dbb` distill: decline broadcast for syno-naxos — Task 7 (n-path acceptance)
+- `03a01e8` broadcast: update synooauth flow chart from webapi-Notification — Task 5 (page edit)
+- `21e324a` broadcast: finalize 141013_session_webapi-Notification — Task 5 (marker + log)
+
+### Acceptance test outcomes
+
+| Path | Raw | Outcome | Verified |
+|---|---|---|---|
+| pending-merge → merged | `141013_session_webapi-Notification.md` (0.48) | merged → [[synooauth flow chart]] | page edit + marker APPEND + log entry |
+| `n` decline path | `180605_session_syno-naxos.md` | `\| no-broadcast: 2026-04-20` marker | excluded from queue |
+| queue membership | `170916_session_syno-build-mcp.md` (new) | present in eligible queue | grep confirms |
+
+### Success criteria — all pass
+
+1. ✅ Compounding visible — `synooauth flow chart.md` gained a "Testing Coverage" section noting TestSYNOCoreNotificationMailOauth skip + integration gap.
+2. ✅ Every broadcast produces log + marker — log entry `[2026-04-20 10:38]` + marker APPEND present.
+3. ✅ Per-page commit audit trail — `git log --grep='^broadcast:'` shows 2 commits (page edit + finalize).
+4. ✅ `--list` wired (structure verified; cache constraint prevents live Skill-tool invocation, same as Phase 1).
+5. ✅ Phase 1 pending-merge seed consumed naturally — no migration required, original pending-merge segment preserved via APPEND.
+6. ✅ Contradictions feature wired but not exercised — target page had no claims contradicted by Raw (log `contradictions_flagged` correctly omitted per spec).
+
+### Review iterations captured
+
+Task 2's initial commit `2786ac9` passed spec review but failed code quality review with 1 Critical + 3 Important + 4 Minor issues:
+- **Critical**: Zero-candidates branch was undefined — LLM could not distinguish `(no candidates)` from `(no changes)` in Step 9. Fix added explicit "If no candidates pass the threshold" subsection in Step 5.
+- **Important #2 (highest-risk)**: Step 9.1 pending-merge table cell said "replace pending-merge: ... with merged:" — an LLM following the first sentence literally would DELETE the pending-merge segment. Fix rewrote to unambiguous **APPEND** semantics with explicit "Do NOT remove" directive.
+- **Important #3**: Keyword collision — `cancel` at menu vs `cancel/abort` mid-conversation. Fix renamed menu keyword to `quit` and added a clarifying note.
+- **Important #4**: Query heuristic wording diverged from distill Stage 2. Unified to "most content-ful bullet with concrete referents".
+- 4 Minor issues: menu example, LLM-self-assess response set, inline-detection note, zero-contradictions log example.
+
+Task 5 (live broadcast) exercised the APPEND fix directly — the marker transitioned from `pending-merge: ... (0.48)` to `pending-merge: ... (0.48) | merged: 2026-04-20 → [[synooauth flow chart]]`. The `pending-merge:` segment survived intact, as intended.
+
+### OBS-1 — Legacy marker queue pollution (fixed during wrap-up)
+
+Task 6 verification surfaced that the eligibility filter's `grep -LE '(skip: routine|no insight)'` did not exclude pre-Phase-1 legacy markers `(no extractable content)`. 11 such Raws were appearing in the eligible queue incorrectly. Fixed by appending the legacy pattern to the exclusion regex:
+
+```
+grep -LE '(skip: routine|no insight|no extractable content)'
+```
+
+After fix, the queue returns the expected 2 Phase-1-processed Raws (170916_session_syno-build-mcp, 172109_session_cortex) plus any not-yet-distilled ones (which should be rare).
+
+### Paths not covered by live test
+
+- **Auto-dispatch `pending-merge` via score ≥ 0.60**: no natural Raw in the vault reached that score (max observed in this session was 0.48 for webapi-Notification → [[synooauth flow chart]]). The marker/log write logic was verified via interactive-(p) pathway, which shares the same write code.
+- **Contradiction flagging**: target page had no claims contradicted by the Raw — the `⚠️ Contradicts [[raw]]` flow is wired but the first live contradiction awaits an organic trigger.
+- **cortex-vec unavailable fallback**: skill fallback logic complete; live trigger (network outage or command removal) not exercised in this session.
+- **Multi-page broadcast session**: Task 5 only touched 1 page (the pending-merge target). A session with 3-5 target pages will exercise the `Processing [i/N]` counter and multiple-commit flow. First live occurrence will populate this.
+
+### Phase 2 end state
+
+- **broadcast-eligible queue size after Phase 2**: 2 real Phase 1 Raws (170916_session_syno-build-mcp, 172109_session_cortex).
+- **pending-merge queue size**: 0 (Phase 1 seed consumed).
+- **Total chroma entries**: 106 → 106 (broadcast upserted but didn't add a new document; synooauth flow chart's embedding was refreshed).
+- **Total log entries**: 6 → 7 (added the broadcast entry).
+
+### Neither repo pushed
+
+Per convention, plugin repo and vault repo stay local. Plugin branch is 18 commits ahead of `origin/plugin` (11 pre-existing + 7 Phase 2). Vault repo has the 4 new commits. Push decision deferred to user.
