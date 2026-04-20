@@ -178,3 +178,39 @@ git commit -m "distill: extract N entries from Raw"
 ```
 
 If `auto_push` is true in config: `git push`.
+
+## Step 9: Ask — Broadcast Now?
+
+For each Raw where the terminal outcome was `new` or `pending-merge` (i.e.,
+broadcast-eligible), prompt the user once before moving to the next Raw:
+
+```
+Raw <filename> processed (outcome: <outcome>). Broadcast now? (y/n/l)
+  y = enter broadcast conversation immediately
+  n = decline (mark as no-broadcast; will not re-prompt later)
+  l = later (stays in broadcast-eligible queue)
+```
+
+### Dispatch
+
+- **y** → dispatch to the `cortex-broadcast` skill for this single Raw. When
+  broadcast completes, return here and move to the next unprocessed Raw.
+- **l** → no action. The Raw's Phase 1 marker is unchanged; it is
+  automatically eligible for later `/cortex:broadcast` invocation.
+- **n** → append a terminal segment to the Raw's marker using the Edit
+  tool. Transform:
+  - `<!-- distilled: YYYY-MM-DD → <path> -->`
+    becomes
+    `<!-- distilled: YYYY-MM-DD → <path> | no-broadcast: <today> -->`
+  - `<!-- distilled: YYYY-MM-DD → pending-merge: <path> (<score>) -->`
+    becomes
+    `<!-- distilled: YYYY-MM-DD → pending-merge: <path> (<score>) | no-broadcast: <today> -->`
+
+Date format: `YYYY-MM-DD`.
+
+For outcomes `skip-routine` and `no-insight`, do not prompt — those Raws
+are ineligible by definition.
+
+If the `n` path ran, stage the Raw and amend into the existing batch commit
+for this distill run (or, if the commit already closed, make a follow-up
+commit `chore(distill): record no-broadcast declines`).
