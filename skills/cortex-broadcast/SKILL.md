@@ -95,8 +95,9 @@ Read:
 
 ## Step 5: Find Candidate Pages
 
-Pick the **longest Discovery or Decision bullet** from the Raw as the vec
-search query (same heuristic as cortex-distill Stage 2).
+Pick the **most content-ful Discovery or Decision bullet** — the longest bullet
+with concrete referents (symbols, file paths, bug mechanisms). This is the same
+heuristic as cortex-distill Stage 2 uses.
 
 Run:
 
@@ -108,6 +109,20 @@ If the Raw's frontmatter has `repo:`, also pass `--repo <name>` when the
 query topic looks repo-specific. Omit otherwise.
 
 Filter results to those with `score >= target_min_score`.
+
+### If no candidates pass the threshold
+
+If `cortex-vec` ran successfully but zero results meet `score >= target_min_score`:
+
+- For outcome `new`: skip Steps 6–8 entirely. Jump to Step 9 with `pages_touched = []` and tag the terminal state as `no-candidates` (distinct from `no-changes`). Step 9.1 will produce the marker `broadcast: <today> → (no candidates)`.
+- For outcome `pending-merge`: the original pending-merge target is still pre-selected in Step 6 regardless of threshold (per Step 6's "absent" clause). Proceed to Step 7 as normal with a single-entry menu.
+
+Announce to the user before jumping:
+
+```
+No candidate pages scored at or above <threshold> for this Raw.
+Finalizing as broadcast: (no candidates). Marker will reflect this.
+```
 
 ### Fallback if `cortex-vec` is unavailable
 
@@ -130,6 +145,12 @@ If the Raw's outcome is `pending-merge`:
     `(below current threshold)`. Original distill intent overrides current
     threshold.
 
+Example of the menu line in this case:
+
+````
+[x] 1. Projects/libsynosysnotify/synooauth flow chart.md (0.48)  ← pending-merge target (below current threshold)
+````
+
 All other candidates default to unchecked `[ ]`.
 
 ## Step 7: Present Menu and Confirm
@@ -145,7 +166,7 @@ Broadcast target candidates for <raw-filename>:
   ...
 
 Toggle: number (1–N) to flip, 'a' all, 'n' none, then Enter to confirm.
-Cancel: type 'cancel' to abort without marking the Raw.
+Cancel: type 'quit' to abort the menu without marking the Raw (no commits have been made yet).
 ```
 
 Read the user's toggles until they confirm. Build the final selected list.
@@ -179,6 +200,9 @@ For each selected page, in menu order:
 7. Stop condition — whichever comes first:
    - You (the LLM) have no further useful changes to propose; announce
      "No more proposals for this page." and await user confirmation.
+     Valid user responses at this point: `y` / `yes` / `done` / `next` /
+     Enter → proceed to write the page. Any free-form text → interpret
+     as a new change request and restart proposals.
    - User types `done` / `next` / `skip` to end this page.
    - User types `abort` / `cancel` to end the entire session (see Abort).
 8. Apply the accumulated approved changes to the page file using the Edit
@@ -212,6 +236,8 @@ If the Raw contains a claim that directly contradicts a claim in the page:
      → rewrite the old claim with new info; no `⚠️` flag
 4. Each accepted flag increments a counter for the log entry.
 
+(Note: `abort`/`cancel` during page conversation is distinct from `quit` at the menu stage — `quit` happens before any page commits, `abort` may leave prior committed pages intact.)
+
 ### Abort Mid-Page
 
 If the user types `abort` / `cancel` during page conversation:
@@ -239,7 +265,7 @@ based on outcome and result:
 | Outcome `new`, ≥1 page committed | `\| broadcast: <today> → [[page1]], [[page2]]` |
 | Outcome `new`, 0 pages (menu empty or all unchecked) | `\| broadcast: <today> → (no changes)` |
 | Outcome `new`, no candidates returned | `\| broadcast: <today> → (no candidates)` |
-| Outcome `pending-merge`, ≥1 page committed | replace `pending-merge: ... (score)` with `merged: <today> → [[page1]], [[page2]]`. Keep the original `→ pending-merge:` prefix *before* replacement so the line now reads `distilled: ... → pending-merge: ... (score) \| merged: ...` |
+| Outcome `pending-merge`, ≥1 page committed | **Append** ` \| merged: <today> → [[page1]], [[page2]]` after the existing `pending-merge: ... (score)` segment. Do NOT remove or modify the `pending-merge:` text. Final line: `<!-- distilled: YYYY-MM-DD → pending-merge: <path> (<score>) \| merged: <today> → [[page1]], [[page2]]` + closing `-->`. |
 | Outcome `pending-merge`, 0 pages committed | append `\| broadcast: <today> → (no changes)` after the existing `pending-merge:` segment |
 
 Date format: `YYYY-MM-DD`.
@@ -273,6 +299,16 @@ Field rules:
   If empty: write `pages_touched: (none)`.
 - `contradictions_flagged`: integer count of accepted `⚠️` flags. Omit
   the line if zero.
+
+  Example log entry with zero contradictions (`contradictions_flagged` line absent):
+
+  ````markdown
+  ## [2026-04-20 14:32] broadcast | <raw>.md
+  - source_outcome: new
+  - pages_touched: [[page1]]
+  - repo: (none)
+  ````
+
 - `repo`: from Raw frontmatter `repo:` or `(none)`.
 - If Step 5 fallback ran (cortex-vec unavailable), add
   `candidates_source: llm-fallback` as a final line.
@@ -288,6 +324,12 @@ git commit -m "broadcast: finalize <raw-filename>"
 ```
 
 ## Step 10: Offer Next Raw
+
+The calling distill skill (when invoking broadcast via the inline `y` path) passes
+a conventional signal — either a positional argument or an environment hint — that
+tells this skill it is running in inline mode. If unclear, assume inline mode when
+dispatched from within an active distill session and standalone mode when invoked
+from a fresh `/cortex:broadcast` shell.
 
 If:
 
