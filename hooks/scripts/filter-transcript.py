@@ -60,6 +60,10 @@ CLASSIFIER_INPUT_CAP = 8 * 1024
 SAMPLE_HEAD_LINES = 20
 SAMPLE_TAIL_LINES = 20
 
+TOOL_HDR = "> [tool]"
+CLAUDE_HDR = "### Claude"
+USER_HDR = "### User"
+
 TOOL_ARG_PREVIEW = {
     "Bash": ("command", 200),
     "Read": ("file_path", 200),
@@ -126,7 +130,7 @@ def sample_block(text: str, reason: str) -> str:
     omitted = len(lines) - SAMPLE_HEAD_LINES - SAMPLE_TAIL_LINES
     return (
         f"{head}\n"
-        f"\n... ⟨{reason}: {omitted} lines omitted, {len(text)} bytes total⟩ ...\n\n"
+        f"\n... [{reason}: {omitted} lines omitted, {len(text)} bytes total] ...\n\n"
         f"{tail}"
     )
 
@@ -174,10 +178,10 @@ def fmt_tool_use_header(block: dict) -> str:
     if key and key in inp:
         val = str(inp[key]).replace("\n", " ")
         if len(val) > limit:
-            val = val[:limit] + "…"
-        return f"> 🔧 **{name}**: `{val}`"
+            val = val[:limit] + "..."
+        return f"{TOOL_HDR} **{name}**: `{val}`"
     keys = ", ".join(inp.keys())
-    return f"> 🔧 **{name}**({keys})"
+    return f"{TOOL_HDR} **{name}**({keys})"
 
 
 def extract_bash_command(inp: dict) -> str:
@@ -305,7 +309,7 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
                     if btype == "text":
                         txt = (block.get("text") or "").strip()
                         if txt:
-                            chunks.append(f"### 🤖 Claude\n\n{txt}\n")
+                            chunks.append(f"{CLAUDE_HDR}\n\n{txt}\n")
                     elif btype == "tool_use":
                         tid = block.get("id")
                         if tid:
@@ -317,7 +321,7 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
                 if isinstance(content, str):
                     body = process_user_text(content, state)
                     if body:
-                        chunks.append(f"### 💬 User\n\n{body}\n")
+                        chunks.append(f"{USER_HDR}\n\n{body}\n")
                 elif isinstance(content, list):
                     for block in content:
                         btype = block.get("type")
@@ -325,7 +329,7 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
                             raw = block.get("text") or ""
                             body = process_user_text(raw, state)
                             if body:
-                                chunks.append(f"### 💬 User\n\n{body}\n")
+                                chunks.append(f"{USER_HDR}\n\n{body}\n")
                         elif btype == "tool_result":
                             tid = block.get("tool_use_id")
                             tu = tool_uses.get(tid, {})
@@ -336,13 +340,13 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
                             suffix = fmt_tool_output(processed)
                             if suffix and chunks:
                                 last = chunks[-1]
-                                if last.startswith("> 🔧"):
+                                if last.startswith(TOOL_HDR):
                                     chunks[-1] = last + suffix
 
     out: list[str] = []
     tool_buf: list[str] = []
     for c in chunks:
-        if c.startswith("> 🔧"):
+        if c.startswith(TOOL_HDR):
             tool_buf.append(c)
         else:
             if tool_buf:

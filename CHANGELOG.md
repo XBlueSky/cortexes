@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-04-21
+
+### Changed
+- Transcript filter renders Raw/ with plain-text section markers
+  (`### Claude`, `### User`, `> [tool]`) instead of emoji, aligning Raw
+  output with user preference for emoji-free content. Marker strings are
+  factored into `TOOL_HDR` / `CLAUDE_HDR` / `USER_HDR` constants so render
+  and detection stay in sync.
+
 ## [0.9.0] - 2026-04-17
 
 ### Added
