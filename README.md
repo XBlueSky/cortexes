@@ -2,6 +2,8 @@
 
 Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval, weekly reports.
 
+![Cortex architecture](docs/images/architecture.png)
+
 ## What It Does
 
 Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索、產生週報。
@@ -47,6 +49,7 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 「存到 cortex」     → 手動存入知識
 「查 cortex」       → 語意搜尋 vault
 「提煉」           → 從 Raw/ 萃取知識
+「broadcast」      → 把新 Raw 融合進既有頁面
 「整理週報」       → 產生週報
 ```
 
@@ -57,9 +60,10 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 | Command | Description |
 |---------|-------------|
 | `/cortex:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
-| `/cortex:evolve` | 手動存入知識到 Notes 或 Projects |
-| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects |
-| `/cortex:weekly` | 整理週報（distill + GitLab activity + CSS tickets） |
+| `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
+| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（兩階段評估 + pending-merge 出口） |
+| `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
+| `/cortex:weekly` | 產 Friday 週報（distill + GitLab activity + CSS tickets） |
 
 ### Skills（自動觸發）
 
@@ -67,6 +71,7 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 |-------|---------|
 | cortex-evolve | 「存到 cortex」「記一下」「save to cortex」 |
 | cortex-distill | 「提煉」「整理 raw」「distill」 |
+| cortex-broadcast | 「broadcast」「merge pending-merge」「把這個融入 vault」 |
 | cortex-weekly | 「整理週報」「產生週報」「weekly report」 |
 | cortex-query | 「查 cortex」「之前有記過」「cortex 裡有沒有」 |
 
@@ -74,8 +79,14 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 
 | Hook | Event | Behavior |
 |------|-------|----------|
-| Session Report | Stop | session 結束時產出完整報告，確認後寫到 Raw/ |
-| Memory Injection | SessionStart | 偵測當前 repo，詢問是否載入 cortex memory |
+| Session Report | Stop | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
+| Memory Injection | SessionStart | 互動式選單：偵測 vault 狀態（週報/backlog）後詢問下一步 |
+
+#### Transcript Filter（0.9.0+）
+
+Stop hook 在寫進 Raw/ 前會跑一條 TOML-driven filter pipeline，把不具知識價值的
+tool 輸出（例如 `ls`、卷冊清單、重複的 build log）過濾掉——你可以針對個別 slash
+command 寫客製 filter，讓 Raw 存下來的是真正有訊號的內容。
 
 ## Architecture
 
@@ -97,6 +108,7 @@ Notes/<category>/              ← 提煉後的技術知識
 Projects/<repo-name>/          ← 以 repo 為主的專案筆記
 Weekly/YYYY/                   ← 整理後的週報
 _index.md                      ← 全 vault 摘要索引
+log.md                         ← evolve/distill 的時序歷程
 ```
 
 ### Data Flow
@@ -108,12 +120,13 @@ _index.md                      ← 全 vault 摘要索引
   session 結束 → Stop hook → 確認 → Raw/
 
 隨時:
-  /cortex:evolve → Notes/Projects + _index.md + vector store
-  /cortex:query → vector search → 精確讀檔
+  /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
+  /cortex:query     → vector search → 精確讀檔
 
 定期:
-  /cortex:distill → Raw → Notes/Projects + _index.md
-  /cortex:weekly → distill + GitLab + CSS → Weekly/
+  /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
+  /cortex:broadcast → pending-merge → 融合進既有 Notes/Projects
+  /cortex:weekly    → distill + GitLab + CSS → Weekly/
 ```
 
 ### Retrieval Strategy
@@ -126,7 +139,9 @@ _index.md                      ← 全 vault 摘要索引
 
 ## cortex-vec CLI
 
-Vault 的語意索引工具，用 ChromaDB + OpenAI embedding。
+Vault 的語意索引工具，用 ChromaDB + OpenAI `text-embedding-3-small`，搭配
+`gpt-4o-mini` 產雙語 summary 作為第二組 embedding（dual-vector）以提升中英混合
+查詢的 recall。
 
 ```bash
 cortex-vec status                          # 查看索引狀態
@@ -180,6 +195,10 @@ cortex-vec delete Notes/Nginx/old.md       # 刪除文件
 pip install -e ./cortex-vec
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ## License
 
-Private — for personal use.
+Licensed under the [Apache License 2.0](LICENSE) — see `LICENSE` for full text.
