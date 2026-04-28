@@ -43,9 +43,39 @@ else
   weekly_status="尚未產生"
 fi
 
+# --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
+# Gives the model grounding to recognize when an incoming user request
+# matches an existing vault topic, so cortex-query triggers proactively.
+notes_topics=""
+projects_topics=""
+if [[ -d "$CORTEX_DIR/Notes" ]]; then
+  notes_topics=$(find "$CORTEX_DIR/Notes" -mindepth 1 -maxdepth 1 \
+    \( -type d -o -name '*.md' \) -printf '%f\n' 2>/dev/null \
+    | sed 's/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g')
+fi
+if [[ -d "$CORTEX_DIR/Projects" ]]; then
+  projects_topics=$(find "$CORTEX_DIR/Projects" -mindepth 1 -maxdepth 1 \
+    \( -type d -o -name '*.md' \) -printf '%f\n' 2>/dev/null \
+    | sed 's/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g')
+fi
+[[ -z "$notes_topics" ]] && notes_topics="(空)"
+[[ -z "$projects_topics" ]] && projects_topics="(空)"
+
 # --- Build interactive menu prompt ---
 read -r -d '' context <<'PROMPT_TEMPLATE' || true
-[Cortex] 你目前在 __REPO__ repo。Cortex vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。在你第一次回覆使用者時，呈現以下格式：
+[Cortex] 你目前在 __REPO__ repo。Cortex vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。
+
+Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex）：
+  - Notes/: __NOTES_TOPICS__
+  - Projects/: __PROJECTS_TOPICS__
+
+主動查詢規則（由 using-cortex skill 強制執行，無論使用者是否選 1-4 都生效）：
+- 若使用者後續的請求**命中**上述任一主題，**先**用 cortex-query 查 vault 再回答，不要憑印象或重新探索。
+- 若使用者問的是 ongoing project / 內部工具 / 重複出現過的領域，預設假設 vault 有 prior context，先查再說。
+- 「主動查」的成本遠低於「答錯後重來」。寧可多查一次。
+- 詳細規則見 using-cortex skill。
+
+在你第一次回覆使用者時，呈現以下格式：
 
 先顯示 vault 狀態：
   - 本週週報__WEEKLY_STATUS__
@@ -61,12 +91,15 @@ read -r -d '' context <<'PROMPT_TEMPLATE' || true
 - 不要在使用者選擇前預先掃描 Raw/
 - 使用者可以回覆編號或直接說需求
 - 保持簡短，不要過度解釋每個選項
+- 即使使用者選 4「直接開始工作」，主動查詢規則仍生效
 PROMPT_TEMPLATE
 
 # Substitute placeholders
 context="${context//__REPO__/$repo_name}"
 context="${context//__VAULT__/$CORTEX_DIR}"
 context="${context//__WEEKLY_STATUS__/$weekly_status}"
+context="${context//__NOTES_TOPICS__/$notes_topics}"
+context="${context//__PROJECTS_TOPICS__/$projects_topics}"
 
 # Use jq for safe JSON encoding
 jq -n --arg ctx "$context" \
