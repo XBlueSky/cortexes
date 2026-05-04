@@ -23,6 +23,11 @@ allowed-tools:
   - mcp__plugin_synology-workflows_gitlab__get_issue
   - mcp__plugin_synology-workflows_gitlab__list_events
   - mcp__plugin_syno-robinhood_robinhood__css_get_activities
+  - mcp__plugin_syno-robinhood_robinhood__css_get_ticket
+  - mcp__plugin_syno-robinhood_robinhood__chat_my_recent_activity
+  - mcp__plugin_syno-robinhood_robinhood__mailplus_list_mailboxes
+  - mcp__plugin_syno-robinhood_robinhood__mailplus_list_threads
+  - mcp__plugin_syno-robinhood_robinhood__mailplus_get
 ---
 
 You are the weekly-compiler agent for the cortex vault.
@@ -110,22 +115,58 @@ For each ticket, extract root cause and resolution. Rules:
 
 CSS entries go into `inbound.`.
 
-### 6. Resolve Workplus titles (feat. groups only)
+### 6. Fetch ChatPlus posts (self-authored)
+
+Call `chat_my_recent_activity` with `since_epoch_ms = start_ms` to pull the
+user's authored posts across all active channels. Aggregate by `thread_id`
+(or `post_id` when `thread_id == 0`).
+
+Drop hard-default categories: pure social chatter ("kk", "ok", greetings,
+meeting links), MR-link broadcasts that duplicate Source B, DM channels
+(`channel_name == ""`) unless clearly substantive.
+
+Keep substantive technical contributions only. One bullet per thread,
+summarizing the user's overall contribution. These go into `inbound.`.
+
+### 7. Fetch MailPlus threads (Sent folder)
+
+INBOX is unfilterable (tens of thousands of auto-notifications). Use the
+**Sent folder (`mailbox_id = -4`)** instead — it directly identifies threads
+the user replied to.
+
+Call `mailplus_list_threads` with `mailbox_id = -4` and
+`since_epoch = start_seconds` (note: seconds, not milliseconds — the MCP
+APIs differ on this between chat and mail). For each surviving thread,
+call `mailplus_get` with `kind = "thread"` to read content.
+
+Drop: HR / recruiting / interview, calendar invites, mass announcements,
+mailing-list digests, purely-logistical replies.
+
+Keep: build/release/patch escalations, technical RFC discussions,
+cross-team technical coordination where the user's reply is substantive.
+
+Strip `Re:` / `Fwd:` prefixes from subjects. These go into `inbound.`.
+
+### 8. Resolve Workplus titles (feat. groups only)
 
 For each unique issue key that anchors a `feat.` group (not `fix.`, not
 `inbound.`), call Workplus MCP `get_issue` and cache the `title`. Use
 the title **verbatim** in the group heading — do not paraphrase.
 
-### 7. Merge, Deduplicate, Hand Off
+### 9. Merge, Deduplicate, Hand Off
 
 - Dedupe: same MR URL in Raw and GitLab → keep Raw's description
+- **Cross-source dedup for chat/mail**: if a chat thread or mail thread
+  merely announces or coordinates around an MR/issue/wit/css already
+  represented elsewhere in this report, drop it.
 - Classify per SKILL.md's Step 5 table:
   - Self MR, type=fix → `fix.`
   - Self MR, type=feat with issue ref → `feat.` (grouped by issue)
   - Self MR, supporting chore/docs sharing an issue with a feat group
     → fold into that `feat.` group
   - Others' MR review / wit issue (replied this week) / CSS ticket
-    (this-week activity) → `inbound.`
+    (this-week activity) / ChatPlus thread (substantive) /
+    MailPlus thread (substantive reply) → `inbound.`
   - Self side-project MRs with no issue ref → `misc.`
 
 Return a structured dataset with the four buckets ready for the skill
@@ -137,5 +178,5 @@ skill's Step 6 owns that.
 Return to the caller:
 - `fix`: list of `{ mr_title, mr_url }`
 - `feat`: list of `{ issue_key, issue_url, workplus_title, is_draft, mrs: [{ mr_title, mr_url, description, sub_details? }] }`
-- `inbound`: list of `{ kind: "mr_review" | "wit" | "css", ... }`
+- `inbound`: list of `{ kind: "mr_review" | "wit" | "css" | "chat" | "mail", ... }`
 - `misc`: list of `{ project, shape: "version" | "mrs", ... }`

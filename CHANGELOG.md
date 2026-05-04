@@ -5,6 +5,51 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-05-04
+
+### Added
+- **Weekly report — ChatPlus source** (`skills/cortex-weekly`): Source F
+  pulls self-authored ChatPlus posts via `chat_my_recent_activity`,
+  aggregates by `thread_id`, drops social chatter / MR-link broadcasts /
+  DM noise, and emits substantive technical contributions into
+  `inbound.` as `[chat: <channel>]: topic → 我的貢獻`.
+- **Weekly report — MailPlus source** (`skills/cortex-weekly`): Source G
+  reads the Sent folder (`mailbox_id = -4`) instead of the unfilterable
+  INBOX, fetches each thread via `mailplus_get`, drops HR / calendar /
+  mass-announcement / logistics replies, and emits work-substantive
+  threads into `inbound.` as `[mail: <subject>]: topic → 我的回應`
+  (with `Re:` / `Fwd:` prefix stripping).
+- `agents/weekly-compiler` allowed-tools extended with
+  `chat_my_recent_activity`, `mailplus_list_mailboxes`,
+  `mailplus_list_threads`, `mailplus_get`, and `css_get_ticket`.
+
+### Changed
+- `references/draft-template.md` documents the inbound shapes for
+  ChatPlus and MailPlus, with a worked example covering both sources.
+- Cross-source dedup rule added to Step 4: chat/mail entries that merely
+  announce or coordinate around an MR/issue/wit/css already represented
+  elsewhere are dropped.
+- Frontmatter description for `cortex-weekly` lists ChatPlus and MailPlus
+  alongside Raw/, GitLab, and CSS as report inputs.
+
+### Fixed
+- `references/draft-template.md` previously cross-referenced "Source C
+  filter" for the wit-issue reply rule; corrected to "Source D filter".
+
+## [0.9.2] - 2026-04-28
+
+### Added
+- **Proactive cortex triggering** — three-layer enforcement so the model
+  consults the vault before guessing or asking, instead of waiting for
+  explicit "查 cortex" phrases:
+  - `skills/cortex-query` description gains proactive trigger clauses
+    (ongoing projects, internal tooling, prior-work topics).
+  - New `skills/using-cortex` meta-skill establishes vault-first
+    discipline at conversation start, regardless of SessionStart menu
+    choice (option 4 no longer bypasses the vault).
+  - `hooks/scripts/session-start-inject.sh` injects Notes/ and Projects/
+    topic list as grounding evidence so topic-match triggers fire.
+
 ## [0.9.1] - 2026-04-21
 
 ### Changed

@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "description": "Personal knowledge vault plugin — session recording, memory distillation, weekly reports, indexed retrieval",
   "author": {
     "name": "tonyhu",

@@ -84,17 +84,22 @@ Rules (apply to both `fix.` and `feat.`):
 	- [mr-title](mr-url)
 	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
 	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → root cause → response
+	- [chat: <channel-or-DM>]: topic → 我的貢獻
+	- [mail: <subject>]: topic → 我的回應
 ```
 
 Rules:
 - **MR review**: `[mr-title](mr-url)`. Append ` / [KEY](issue-url)` only when the MR's commit messages carry a `Ref:` trailer.
-- **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`). List only when the configured user posted a note within the week window (see Source C filter).
+- **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`). List only when the configured user posted a note within the week window (see Source D filter).
 - **CSS ticket**: `[css#ticket-id](url): symptom → root cause → response` — three-segment form based on reading the actual ticket thread, not an `outcome` summary.
   - `symptom`: what the customer reported
   - `root cause`: what the user diagnosed in their reply (paraphrased, one clause)
   - `response`: what the user did or routed the ticket to
   - Never include customer, colleague, or personal identifiers.
-- Do not prefix items with `(reviewed)`. The link shape (MR URL vs `wit#` vs `css#`) already disambiguates the source.
+- **ChatPlus thread**: `[chat: <channel>]: topic → 我的貢獻` — plain text, no URL (the MCP exposes no canonical thread URL). Use `DM` for direct-message channels (`channel_name == ""`). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
+- **MailPlus thread**: `[mail: <subject>]: topic → 我的回應` — plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
+- For chat and mail, **never include other participants' names, user IDs, customer info, or personal identifiers.**
+- Do not prefix items with `(reviewed)`. The link / prefix shape already disambiguates the source (`mr-url` vs `wit#` vs `css#` vs `[chat:` vs `[mail:`).
 
 ## `misc.` — self side projects, flat list
 
@@ -134,6 +139,8 @@ source: cortex
 	- [fix(fsdn): recover spk backup from remote when identity mismatch](https://git.synology.inc/synology/synopkg/-/merge_requests/1458) / [DSM-173132](https://workplus.synology.inc/key/DSM/issues/173132)
 	- [docs(synology-coverity): note project -gandalf postfix in stream inference](https://git.synology.inc/wit/synology-dev-kit/-/merge_requests/26)
 	- [css#3978941](https://cssnew.synology.com/ticket/3978941): package install/start failure → improper shutdown wiped /var/log/nginx, nginx cascade → restart nginx, back to L1
+	- [chat: WIT]: nextwebd routing for /sharing → confirmed exact-match upstream wiring, pointed to libsynow3!263
+	- [mail: [Bad Version] DSM v120060 patch bad (master)]: patch bad on master → identified offending commit, replied with fix sha and rebuild scope
 - misc.
 	- cortex: cortex-vec Python package migration, session-start interactive menu, weekly Friday alignment
 	- synology-dev-kit: Monitor tool for build progress, build workflow skill extraction, hardlink breakage docs

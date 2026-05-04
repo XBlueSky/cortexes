@@ -5,8 +5,9 @@ description: >
   "產生週報", "generate weekly", "weekly report", or invokes
   /cortex:weekly. Compiles the Friday-meeting weekly report by
   pulling from Raw/, GitLab activity (authored MRs, MR reviews,
-  wit issue replies), and CSS tickets, then merges and classifies
-  entries into fix./feat./inbound./misc. sections.
+  wit issue replies), CSS tickets, ChatPlus self-authored posts,
+  and MailPlus Sent threads, then merges and classifies entries
+  into fix./feat./inbound./misc. sections.
 ---
 
 # Cortex Weekly — Compile Weekly Report
@@ -122,11 +123,62 @@ Use this flow:
    - Never include customer, colleague, or personal identifiers.
    - If a Workplus issue was filed, append ` / [KEY](issue-url)` after the response segment.
 
+### Source F — ChatPlus self-authored posts
+
+Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the week window in epoch milliseconds). The tool returns posts the configured user authored across all active channels.
+
+**ChatPlus is high-noise; default behavior is to drop.** Aggregate posts by `thread_id` (use `post_id` itself when `thread_id == 0`) so that a back-and-forth conversation is one bullet, not many. For each thread, evaluate:
+
+1. **Drop hard-default categories.**
+   - Pure social / status chatter ("kk", "ok", "thanks", "晚點看", greetings, lunch coordination, meeting links).
+   - **MR-link broadcasts** — posts whose body is one or more `git.synology.inc/.../merge_requests/N` URLs and nothing else. These duplicate Source B; the MR is already in `fix.` / `feat.` / `inbound.`.
+   - Shared meeting / Google Meet links, calendar coordination.
+   - Direct-message channels (`channel_name == ""`, `team_id == 0`) unless the content is clearly a substantive technical exchange — DMs default to drop.
+2. **Keep substantive technical contributions.** Threads where the user diagnosed an issue, gave a root-cause explanation, made a design decision, answered a technical question, shared a workaround, flagged a regression, or coordinated a cross-team technical action.
+3. **One bullet per thread**, not per post. If the user posted multiple messages in the same thread, summarize the overall contribution in one clause.
+
+Surviving threads go into `inbound.` as:
+
+```
+[chat: <channel-name-or-"DM">]: topic → 我的貢獻
+```
+
+- ChatPlus has no canonical thread URL exposed by the MCP — do **not** invent one. Use plain text `[chat: <channel>]` (no link).
+- For public channels use `channel_name`; for DMs (`channel_name == ""`) use `DM`.
+- `topic`: what the thread is about (very short, no participant names).
+- `我的貢獻`: paraphrased one-clause summary of what the user contributed.
+- Never include other participants' names, user IDs, or personal identifiers.
+
+### Source G — MailPlus work mail
+
+Use the **Sent folder as the primary source**, not INBOX. The user's INBOX is dominated by automated notifications (Gandalf / CI Report / Build System / Bug Tracker — tens of thousands of unread); filtering INBOX is impractical. The Sent folder directly answers "which threads did I reply to this week".
+
+Procedure:
+
+1. Call `mailplus_list_threads` with `mailbox_id = -4` (Sent) and `since_epoch = start_seconds`. Note the unit: this API uses **seconds**, not milliseconds (differs from `chat_my_recent_activity`).
+2. For each returned thread, call `mailplus_get` with `kind = "thread"` and the `thread_id` to fetch the full conversation. Read the user's own messages within the week window.
+3. **Filter strictly — keep only work-substantive threads.**
+   - Drop: HR / recruiting / interview coordination, calendar invites, social mail, mass company-wide announcements, mailing-list digests, anything where the user's reply is purely logistical ("ok", "received", scheduling).
+   - Keep: build/release/patch escalations (e.g. "[Bad Version]" patch bad fixes), cross-team technical RFC discussions, vendor/partner technical exchanges, post-mortem coordination, escalations where the user gave a substantive technical response.
+
+Surviving threads go into `inbound.` as:
+
+```
+[mail: <subject>]: topic → 我的回應
+```
+
+- **Strip reply prefixes** (`Re:`, `Fwd:`, `RE:`, `FW:`, including repeated stacks like `Re: Re: Fwd:`) from `<subject>`.
+- MailPlus has no canonical public thread URL — do **not** invent one. Use plain text `[mail: <subject>]` (no link).
+- `topic`: paraphrased thread subject / context.
+- `我的回應`: one-clause summary of what the user replied / decided / coordinated.
+- Never include sender, recipient, customer, or colleague names.
+
 ## Step 4: Merge and Deduplicate
 
 1. Start with Raw/ entries as the base
 2. For each GitLab MR: same URL in Raw → keep Raw's description; MR absent from Raw → add it
-3. Add `inbound.` items (MR reviews, wit issues filtered by reply, CSS tickets filtered by this-week action)
+3. Add `inbound.` items (MR reviews, wit issues filtered by reply, CSS tickets filtered by this-week action, ChatPlus threads filtered for substance, MailPlus threads filtered for substance)
+4. **Cross-source dedup for ChatPlus / MailPlus.** A chat post or mail thread that merely announces or coordinates around an MR/issue already represented elsewhere in this report is redundant — drop it. Keep the chat/mail entry only when it carries information not already conveyed by a Raw/, MR, wit, or CSS entry.
 
 ## Step 5: Classify
 
@@ -136,7 +188,7 @@ Four sections, selected primarily by **Workplus issue type**, not commit type. C
 |---------|----------|
 | `fix.` | Self-authored MR whose Workplus issue has `type = BUG` (groups MRs by issue) |
 | `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` (groups MRs by issue) |
-| `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on — all within the cutoff window |
+| `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window |
 | `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) |
 
 ### Classification procedure
@@ -170,7 +222,7 @@ The group heading only appears when at least two MRs share the issue — it exis
 
 ### `inbound.` and `misc.`
 
-- **`inbound.`** is a flat list. See `references/draft-template.md` for the three shapes (MR review, wit issue, CSS ticket).
+- **`inbound.`** is a flat list. See `references/draft-template.md` for the five shapes (MR review, wit issue, CSS ticket, ChatPlus thread, MailPlus thread).
 - **`misc.`** is a flat list — one bullet per side project, short summary only.
 
 ### Resolve Workplus issue titles and types
