@@ -7,7 +7,7 @@ from pathlib import Path
 CORTEX_CONFIG = Path.home() / ".cortex" / "config.json"
 VECTORSTORE_DIR = Path.home() / ".cortex" / "vectorstore"
 COLLECTION_NAME = "cortex"
-SUMMARY_MODEL = "gpt-4o-mini"
+SUMMARY_MODEL = "gpt-5.4-mini"
 
 
 def load_config():

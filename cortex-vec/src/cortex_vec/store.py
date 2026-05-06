@@ -54,7 +54,8 @@ def _generate_summary(title, tags, body):
                     "content": _SUMMARY_PROMPT.format(title=title, tags=tags, body=body[:3000]),
                 }
             ],
-            max_tokens=200,
+            max_completion_tokens=400,
+            reasoning_effort="none",
         )
         return resp.choices[0].message.content.strip()
     except Exception:
