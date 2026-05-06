@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-05-06
+
+### Changed
+- `cortex-vec`: summary model upgraded from `gpt-4o-mini` to
+  `gpt-5.4-mini`. The new model produces tighter bilingual summaries
+  with cleaner inline gloss (e.g. `retrieval recall（檢索召回率）`)
+  and no longer leaks prompt-rule examples into output.
+- `cortex-vec/store.py`: `_generate_summary()` now uses
+  `max_completion_tokens=400` (replaces deprecated `max_tokens`) and
+  passes `reasoning_effort="none"` — required for the gpt-5.4 family.
+- `cortex-vec` bumped to `0.3.1`.
+
+### Notes
+- Existing Chroma `::summary` entries are not regenerated automatically;
+  they continue to reflect summaries written by `gpt-4o-mini`. Newly
+  added/updated documents will use `gpt-5.4-mini`.
+- The embedding model (`text-embedding-3-small`, 1536 dim) is unchanged;
+  no Chroma collection rebuild is required.
+
 ## [0.10.0] - 2026-05-04
 
 ### Added
