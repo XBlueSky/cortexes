@@ -100,9 +100,15 @@ Rules:
   - `root cause`: what the user diagnosed in their reply (paraphrased, one clause)
   - `response`: what the user did or routed the ticket to
   - Never include customer, colleague, or personal identifiers.
-- **ChatPlus thread**: `[chat: <channel>]: topic → 我的貢獻` — plain text, no URL (the MCP exposes no canonical thread URL). Use `DM` for direct-message channels (`channel_name == ""`). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
-- **MailPlus thread**: `[mail: <subject>]: topic → 我的回應` — plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
-- For chat and mail, **never include other participants' names, user IDs, customer info, or personal identifiers.**
+- **ChatPlus thread**: plain text, no URL (the MCP exposes no canonical thread URL). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
+  - Public channel (`channel_name != ""`): `[chat: <channel-name>]: topic → 我的貢獻`.
+  - 1:1 DM (one non-self participant): `[chat: @username]: topic → 我的貢獻`.
+  - Group DM with 2–3 other participants: `[chat: @user_a, @user_b[, @user_c]]: topic → 我的貢獻`.
+  - 4+ other participants: `[chat: DM]: topic → 我的貢獻` (fall back).
+- **MailPlus thread**: plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
+  - 1-on-1 thread (one non-self address across all messages): `[mail: <subject>] (@username): topic → 我的回應`.
+  - Multi-recipient / mailing list (2+ non-self addresses): `[mail: <subject>]: topic → 我的回應`.
+- For chat and mail, **never include customer info or external personal identifiers** (phone numbers, emails, addresses). Internal Synology usernames are allowed and encouraged for 1-on-1 attribution.
 - Do not prefix items with `(reviewed)`. The link / prefix shape already disambiguates the source (`mr-url` vs `wit#` vs `css#` vs `[chat:` vs `[mail:`).
 
 ## `misc.` — self side projects, flat list
@@ -154,3 +160,37 @@ source: cortex
 ```
 
 Note: `fix.` omitted because no stand-alone fix existed this week (`synowebbenchmark!26` was folded into the `DSM-167678` feat group).
+
+## Same-title MR dedup (universal)
+
+When 2+ MRs share an exact title within `fix.`, `feat.`, or `inbound.`, collapse them into a single top-level bullet inside that section:
+
+```
+- <title> — [!N1](mr-url) / [KEY1](issue-url)、[!N2](mr-url) / [KEY2](issue-url)、...
+```
+
+Rules:
+- Plain-text title (not a link); each MR remains individually clickable.
+- Pair each MR with its own `Ref:` issue when present. If an MR has no `Ref:` trailer, drop only the `/ [KEY](url)` segment for that entry.
+- Order MRs by `merged_at` ascending — master / earliest first; backports follow.
+- The dedup bullet sits at the section's top level. MRs that participate in dedup are pulled out of any Workplus-issue group they would otherwise belong to.
+- Single-MR cases (no duplicate title) are not affected — they keep `[title](url)` (with `/ [KEY](url)` if applicable).
+
+Worked example (`inbound.` cherry-pick cluster):
+
+```
+- inbound.
+	- fix(api-upload): strip all _tmp params and repair upload Attr wiring — [!695](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/695) / [BSM-1375](https://workplus.synology.inc/key/BSM/issues/1375)、[!696](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/696) / [BSM-1376](https://workplus.synology.inc/key/BSM/issues/1376)、[!698](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/698) / [AEM-22355](https://workplus.synology.inc/key/AEM/issues/22355)
+```
+
+Worked example (`fix.` group with cross-issue cherry-picks):
+
+```
+- fix.
+	- <Workplus title for issue-X> - ([DSM-X](https://workplus.synology.inc/key/DSM/issues/X))
+		- [mr-title-A](url): description
+		- [mr-title-B](url): description
+	- fix(<scope>): same-title fix on 3 branches — [!N1](url) / [DSM-Y](url)、[!N2](url) / [BSM-Z](url)、[!N3](url) / [AEM-W](url)
+```
+
+The dedup bullet sits alongside the regular issue group; it is not nested under any heading.
