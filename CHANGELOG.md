@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-05-08
+
+### Changed
+- `cortex-weekly` (Source F — ChatPlus): DM threads no longer auto-drop —
+  they go through the same substance filter as public channels. Surviving
+  DM threads attribute to `@username` (1:1) or `@user_a, @user_b[, @user_c]`
+  (group DM with 2–3 others). 4+ other participants fall back to
+  `[chat: DM]`.
+- `cortex-weekly` (Source G — MailPlus): 1-on-1 threads attribute to
+  `@username` via the `[mail: <subject>] (@username)` shape. Multi-recipient
+  threads keep `[mail: <subject>]`.
+- `cortex-weekly` redaction rule scoped to customer info / external personal
+  identifiers only. Internal Synology usernames are now allowed (and
+  recommended for 1-on-1 attribution).
+- `cortex-weekly`: same-title MR dedup. Within `fix.`, `feat.`, or `inbound.`,
+  2+ MRs sharing an exact title collapse into one bullet of the form
+  `<title> — [!N1](url) / [KEY1](url)、[!N2](url) / [KEY2](url)、...`.
+  Single-MR cases keep their existing shape.
+
+### Notes
+- Past weekly reports are not regenerated.
+- Plugin consumers who relied on the strict-redaction rule (e.g., publishing
+  weeklies externally) should review before publishing or fork the skill.
+
 ## [0.10.1] - 2026-05-06
 
 ### Changed
