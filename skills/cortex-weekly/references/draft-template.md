@@ -103,7 +103,8 @@ Rules:
 - **ChatPlus thread**: plain text, no URL (the MCP exposes no canonical thread URL). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
   - Public channel (`channel_name != ""`): `[chat: <channel-name>]: topic → 我的貢獻`.
   - 1:1 DM (one non-self participant): `[chat: @username]: topic → 我的貢獻`.
-  - Group DM with 2–3 other participants: `[chat: @user_a, @user_b[, @user_c]]: topic → 我的貢獻`.
+  - Group DM with 2 other participants: `[chat: @user_a, @user_b]: topic → 我的貢獻`.
+  - Group DM with 3 other participants: `[chat: @user_a, @user_b, @user_c]: topic → 我的貢獻`.
   - 4+ other participants: `[chat: DM]: topic → 我的貢獻` (fall back).
 - **MailPlus thread**: plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
   - 1-on-1 thread (one non-self address across all messages): `[mail: <subject>] (@username): topic → 我的回應`.
