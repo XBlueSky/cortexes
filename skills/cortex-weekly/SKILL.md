@@ -133,21 +133,28 @@ Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the wee
    - Pure social / status chatter ("kk", "ok", "thanks", "晚點看", greetings, lunch coordination, meeting links).
    - **MR-link broadcasts** — posts whose body is one or more `git.synology.inc/.../merge_requests/N` URLs and nothing else. These duplicate Source B; the MR is already in `fix.` / `feat.` / `inbound.`.
    - Shared meeting / Google Meet links, calendar coordination.
-   - Direct-message channels (`channel_name == ""`, `team_id == 0`) unless the content is clearly a substantive technical exchange — DMs default to drop.
 2. **Keep substantive technical contributions.** Threads where the user diagnosed an issue, gave a root-cause explanation, made a design decision, answered a technical question, shared a workaround, flagged a regression, or coordinated a cross-team technical action.
 3. **One bullet per thread**, not per post. If the user posted multiple messages in the same thread, summarize the overall contribution in one clause.
+
+> **Note:** DMs (`channel_name == ""`, `team_id == 0`) are NOT auto-dropped — they go through the same substance filter above as public channels. The MR-link / meeting-link / social-chatter drops still apply.
+
+**Then, for surviving DM threads, resolve participants.** Each `chat_my_recent_activity` post carries a `channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate the thread's posts, collect distinct `creator_id` values that are not self, then call `chat_list_users` once per run to map ids → usernames. Cache the lookup table for the rest of the run.
 
 Surviving threads go into `inbound.` as:
 
 ```
-[chat: <channel-name-or-"DM">]: topic → 我的貢獻
+[chat: <channel-or-@username(s)>]: topic → 我的貢獻
 ```
 
-- ChatPlus has no canonical thread URL exposed by the MCP — do **not** invent one. Use plain text `[chat: <channel>]` (no link).
-- For public channels use `channel_name`; for DMs (`channel_name == ""`) use `DM`.
-- `topic`: what the thread is about (very short, no participant names).
+- ChatPlus has no canonical thread URL exposed by the MCP — do **not** invent one. Use plain text `[chat: ...]` (no link).
+- Channel label rules:
+  - Public channel (`channel_name != ""`): `[chat: <channel-name>]`.
+  - 1:1 DM (exactly one non-self `creator_id` in the thread): `[chat: @username]`.
+  - Group DM with 2–3 other participants: `[chat: @user_a, @user_b]` or `[chat: @user_a, @user_b, @user_c]`.
+  - 4+ other participants: `[chat: DM]` (fall back; participant list too long to be useful).
+- `topic`: what the thread is about (very short).
 - `我的貢獻`: paraphrased one-clause summary of what the user contributed.
-- Never include other participants' names, user IDs, or personal identifiers.
+- Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via `chat_list_users`) are allowed.
 
 ### Source G — MailPlus work mail
 
