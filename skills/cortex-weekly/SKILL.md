@@ -97,7 +97,7 @@ Use `list_issues` with `project_id: "wit/wit_issues"` (project ID 31865) to find
 **Filter strictly — `updated_at` in range is insufficient.** Bots, label changes, and others' comments all bump `updated_at`. For each candidate:
 
 1. Call `list_issue_discussions` to fetch notes
-2. Keep the issue only if at least one note has `author.username == <configured user>` AND `created_at ∈ [start, end)`
+2. Keep the issue only if at least one note has `author.username == weekly.gitlab_username` (**literal string match** — no inference of alternate identities or substring matches) AND `created_at ∈ [start, end)`
 3. Otherwise drop
 
 Matching issues go into `inbound.`.
@@ -109,7 +109,9 @@ CSS tickets you merely own do NOT all count — the report lists only tickets yo
 Use this flow:
 
 1. **Widen the candidate pool.** Call `css_list_tickets` with multiple `list_type` values (`user_all`, `agent_all`) filtered by `last_update_from`/`last_update_to` spanning the week.
-2. **Filter by actual action.** For each candidate, call `css_get_activities` and keep the ticket only if there is at least one entry with `user == <configured user>` and `datetime ∈ [start, end)`.
+2. **Filter by actual action.** For each candidate, call `css_get_activities` and keep the ticket only if there is at least one entry with `user == <css_username>` (defined below) and `datetime ∈ [start, end)`.
+   - `<css_username>` defaults to `weekly.gitlab_username`. Override via `weekly.css_username` in `~/.cortex/config.json` when the user's CSS SSO differs from their GitLab username.
+   - **Literal string match only.** Do not infer alternate usernames (e.g. don't treat `jhu` as a variant of `tonyhu` because both end in `hu`). Substring overlap is not a match. If no activity entry has `user` exactly equal to the configured username, the user has no CSS activity in the window — return zero CSS bullets.
 3. **Read the reply content.** For every surviving ticket, call `css_get_ticket` and read the thread. Locate the user's own message(s) within the week window.
 4. **Refine to three segments.** From the message content, compose the `inbound.` line as:
 

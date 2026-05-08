@@ -24,6 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `<title> — [!N1](url) / [KEY1](url)、[!N2](url) / [KEY2](url)、...`.
   Single-MR cases keep their existing shape.
 
+### Fixed
+- `cortex-weekly` (Source D, Source E): username matching is now strictly
+  literal. The skill no longer infers alternate identities (e.g. `jhu` is
+  NOT treated as a variant of `tonyhu`) or accepts substring matches. If
+  no activity entry has `user` exactly equal to the configured username,
+  the source returns zero bullets for that section. Prevents false-positive
+  CSS / wit entries from being attributed to users with similar-looking
+  names.
+- New optional config key `weekly.css_username` (default: same as
+  `weekly.gitlab_username`) for users whose CSS SSO differs from their
+  GitLab username.
+
 ### Notes
 - Past weekly reports are not regenerated.
 - Plugin consumers who relied on the strict-redaction rule (e.g., publishing
