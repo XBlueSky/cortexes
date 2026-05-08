@@ -168,17 +168,20 @@ Procedure:
    - Drop: HR / recruiting / interview coordination, calendar invites, social mail, mass company-wide announcements, mailing-list digests, anything where the user's reply is purely logistical ("ok", "received", scheduling).
    - Keep: build/release/patch escalations (e.g. "[Bad Version]" patch bad fixes), cross-team technical RFC discussions, vendor/partner technical exchanges, post-mortem coordination, escalations where the user gave a substantive technical response.
 
+**Then, for surviving 1-on-1 threads, resolve the counterparty.** Aggregate every distinct address across `From` and `To` headers in the thread (excluding the user's own address). If exactly one non-self address remains, extract `@username` (strip `<>` form, take the local-part of the email or the bracketed display name `@<id>` if MailPlus exposes one). If 2+ non-self addresses remain, treat as multi-recipient.
+
 Surviving threads go into `inbound.` as:
 
 ```
-[mail: <subject>]: topic → 我的回應
+[mail: <subject>] (@username): topic → 我的回應    ← 1-on-1 thread
+[mail: <subject>]: topic → 我的回應                ← multi-recipient / mailing list
 ```
 
 - **Strip reply prefixes** (`Re:`, `Fwd:`, `RE:`, `FW:`, including repeated stacks like `Re: Re: Fwd:`) from `<subject>`.
-- MailPlus has no canonical public thread URL — do **not** invent one. Use plain text `[mail: <subject>]` (no link).
+- MailPlus has no canonical public thread URL — do **not** invent one. Use plain text `[mail: ...]` (no link).
 - `topic`: paraphrased thread subject / context.
 - `我的回應`: one-clause summary of what the user replied / decided / coordinated.
-- Never include sender, recipient, customer, or colleague names.
+- Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via the From / To headers) are allowed.
 
 ## Step 4: Merge and Deduplicate
 
