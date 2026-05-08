@@ -249,6 +249,27 @@ If the title begins with `[` or contains `][` (e.g. `[thread+fork][synoscgi] ...
 
 Read `weekly.experimental_repos` from `~/.cortex/config.json` (list of `namespace/project` strings). For each group heading (in `fix.` or `feat.`), if **every** MR in the group targets a repo in that list, prefix the heading bullet with `**[draft]** ` (bold, trailing space). Mixed groups get no prefix. Single-MR flat bullets are never draft-labelled.
 
+### Same-title MR dedup (universal)
+
+After classification (above) but before composing the draft, scan MRs across `fix.`, `feat.`, and `inbound.` for exact-title duplicates.
+
+Procedure:
+
+1. Group MRs by exact `title` string.
+2. If 2+ MRs share a title, the cluster collapses into one bullet:
+   - Pull the cluster MRs out of any Workplus-issue grouping (they no longer participate in the `fix.` / `feat.` per-issue layout).
+   - Render the cluster as one top-level bullet inside its section:
+     ```
+     - <title> — [!N1](mr-url) / [KEY1](issue-url)、[!N2](mr-url) / [KEY2](issue-url)、...
+     ```
+   - Pair each MR with its own `Ref:` issue when present. If an MR has no `Ref:` trailer, drop only the `/ [KEY](url)` segment for that one entry.
+   - Order MRs by `merged_at` ascending (master / earliest first; backports follow).
+3. Single MRs (no duplicate title) keep their existing flat shape:
+   - With `Ref:`: `[mr-title](mr-url) / [KEY](issue-url)`
+   - Without `Ref:`: `[mr-title](mr-url)`
+
+The dedup bullet always sits at its section's top level — never nested under a Workplus-issue heading. This means a `fix.` section that previously contained two single-MR Workplus groups with the same title now shows one collapsed bullet instead.
+
 ## Step 6: Generate Draft
 
 Compose the draft using the nested-bullet format defined in `references/draft-template.md`. The reference covers:
