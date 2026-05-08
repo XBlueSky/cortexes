@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-05-08
+
+### Fixed
+- `cortex-weekly` (Source D, Source E): username matching is now strictly
+  literal. The skill no longer infers alternate identities (e.g. `jhu` is
+  NOT treated as a variant of `tonyhu`) or accepts substring matches. If
+  no activity entry has `user` exactly equal to the configured username,
+  the source returns zero bullets for that section. Prevents false-positive
+  CSS / wit entries from being attributed to users with similar-looking
+  names.
+- New optional config key `weekly.css_username` (default: same as
+  `weekly.gitlab_username`) for users whose CSS SSO differs from their
+  GitLab username.
+- `cortex-weekly` (Source F, Source G): chat/mail bullets now wrap
+  `@username` in backticks (e.g. `` `@yannyliu` `` instead of `@yannyliu`)
+  so GitLab does not turn them into mention notifications when the weekly
+  is pasted into a wiki / MR / issue. Same content, no surprise pings.
+
 ## [0.10.2] - 2026-05-08
 
 ### Changed
@@ -23,22 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2+ MRs sharing an exact title collapse into one bullet of the form
   `<title> — [!N1](url) / [KEY1](url)、[!N2](url) / [KEY2](url)、...`.
   Single-MR cases keep their existing shape.
-
-### Fixed
-- `cortex-weekly` (Source D, Source E): username matching is now strictly
-  literal. The skill no longer infers alternate identities (e.g. `jhu` is
-  NOT treated as a variant of `tonyhu`) or accepts substring matches. If
-  no activity entry has `user` exactly equal to the configured username,
-  the source returns zero bullets for that section. Prevents false-positive
-  CSS / wit entries from being attributed to users with similar-looking
-  names.
-- New optional config key `weekly.css_username` (default: same as
-  `weekly.gitlab_username`) for users whose CSS SSO differs from their
-  GitLab username.
-- `cortex-weekly` (Source F, Source G): chat/mail bullets now wrap
-  `@username` in backticks (e.g. `` `@yannyliu` `` instead of `@yannyliu`)
-  so GitLab does not turn them into mention notifications when the weekly
-  is pasted into a wiki / MR / issue. Same content, no surprise pings.
 
 ### Notes
 - Past weekly reports are not regenerated.
