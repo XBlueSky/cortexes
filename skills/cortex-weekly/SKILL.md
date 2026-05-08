@@ -149,11 +149,12 @@ Surviving threads go into `inbound.` as:
 ```
 
 - ChatPlus has no canonical thread URL exposed by the MCP — do **not** invent one. Use plain text `[chat: ...]` (no link).
-- Channel label rules:
-  - Public channel (`channel_name != ""`): `[chat: <channel-name>]`.
-  - 1:1 DM (exactly one non-self `creator_id` in the thread): `[chat: @username]`.
-  - Group DM with 2–3 other participants: `[chat: @user_a, @user_b]` or `[chat: @user_a, @user_b, @user_c]`.
-  - 4+ other participants: `[chat: DM]` (fall back; participant list too long to be useful).
+- Channel label rules (note: usernames are wrapped in backticks so GitLab does not ping the user when the report is pasted into a wiki / MR / issue):
+  - Public channel (`channel_name != ""`): `` [chat: <channel-name>] ``.
+  - 1:1 DM (exactly one non-self `creator_id` in the thread): `` [chat: `@username`] ``.
+  - Group DM with 2 other participants: `` [chat: `@user_a`, `@user_b`] ``.
+  - Group DM with 3 other participants: `` [chat: `@user_a`, `@user_b`, `@user_c`] ``.
+  - 4+ other participants: `` [chat: DM] `` (fall back; participant list too long to be useful).
 - `topic`: what the thread is about (very short).
 - `我的貢獻`: paraphrased one-clause summary of what the user contributed.
 - Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via `chat_list_users`) are allowed.
@@ -175,12 +176,13 @@ Procedure:
 Surviving threads go into `inbound.` as:
 
 ```
-[mail: <subject>] (@username): topic → 我的回應    ← 1-on-1 thread
-[mail: <subject>]: topic → 我的回應                ← multi-recipient / mailing list
+[mail: <subject>] (`@username`): topic → 我的回應    ← 1-on-1 thread
+[mail: <subject>]: topic → 我的回應                  ← multi-recipient / mailing list
 ```
 
 - **Strip reply prefixes** (`Re:`, `Fwd:`, `RE:`, `FW:`, including repeated stacks like `Re: Re: Fwd:`) from `<subject>`.
 - MailPlus has no canonical public thread URL — do **not** invent one. Use plain text `[mail: ...]` (no link).
+- **Wrap `@username` in backticks** so GitLab does not turn it into a mention/notification when the weekly is pasted into a wiki / MR / issue.
 - `topic`: paraphrased thread subject / context.
 - `我的回應`: one-clause summary of what the user replied / decided / coordinated.
 - Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via the From / To headers) are allowed.

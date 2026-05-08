@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New optional config key `weekly.css_username` (default: same as
   `weekly.gitlab_username`) for users whose CSS SSO differs from their
   GitLab username.
+- `cortex-weekly` (Source F, Source G): chat/mail bullets now wrap
+  `@username` in backticks (e.g. `` `@yannyliu` `` instead of `@yannyliu`)
+  so GitLab does not turn them into mention notifications when the weekly
+  is pasted into a wiki / MR / issue. Same content, no surprise pings.
 
 ### Notes
 - Past weekly reports are not regenerated.

@@ -86,10 +86,10 @@ Rules (apply to both `fix.` and `feat.`):
 	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
 	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → root cause → response
 	- [chat: <channel-name>]: topic → 我的貢獻
-	- [chat: @username]: topic → 我的貢獻
-	- [chat: @user_a, @user_b]: topic → 我的貢獻
+	- [chat: `@username`]: topic → 我的貢獻
+	- [chat: `@user_a`, `@user_b`]: topic → 我的貢獻
 	- [mail: <subject>]: topic → 我的回應
-	- [mail: <subject>] (@username): topic → 我的回應
+	- [mail: <subject>] (`@username`): topic → 我的回應
 ```
 
 Rules:
@@ -101,14 +101,15 @@ Rules:
   - `response`: what the user did or routed the ticket to
   - Never include customer, colleague, or personal identifiers.
 - **ChatPlus thread**: plain text, no URL (the MCP exposes no canonical thread URL). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
-  - Public channel (`channel_name != ""`): `[chat: <channel-name>]: topic → 我的貢獻`.
-  - 1:1 DM (one non-self participant): `[chat: @username]: topic → 我的貢獻`.
-  - Group DM with 2 other participants: `[chat: @user_a, @user_b]: topic → 我的貢獻`.
-  - Group DM with 3 other participants: `[chat: @user_a, @user_b, @user_c]: topic → 我的貢獻`.
-  - 4+ other participants: `[chat: DM]: topic → 我的貢獻` (fall back).
+  - Public channel (`channel_name != ""`): `` [chat: <channel-name>]: topic → 我的貢獻 ``.
+  - 1:1 DM (one non-self participant): `` [chat: `@username`]: topic → 我的貢獻 ``.
+  - Group DM with 2 other participants: `` [chat: `@user_a`, `@user_b`]: topic → 我的貢獻 ``.
+  - Group DM with 3 other participants: `` [chat: `@user_a`, `@user_b`, `@user_c`]: topic → 我的貢獻 ``.
+  - 4+ other participants: `` [chat: DM]: topic → 我的貢獻 `` (fall back).
 - **MailPlus thread**: plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
-  - 1-on-1 thread (one non-self address across all messages): `[mail: <subject>] (@username): topic → 我的回應`.
-  - Multi-recipient / mailing list (2+ non-self addresses): `[mail: <subject>]: topic → 我的回應`.
+  - 1-on-1 thread (one non-self address across all messages): `` [mail: <subject>] (`@username`): topic → 我的回應 ``.
+  - Multi-recipient / mailing list (2+ non-self addresses): `` [mail: <subject>]: topic → 我的回應 ``.
+- **Wrap `@username` in single backticks** in chat/mail bullets — `` `@yannyliu` `` instead of `@yannyliu`. GitLab parses the bare form as a mention and pings the user when the weekly is pasted into a wiki / MR / issue.
 - For chat and mail, **never include customer info or external personal identifiers** (phone numbers, emails, addresses). Internal Synology usernames are allowed and encouraged for 1-on-1 attribution.
 - Do not prefix items with `(reviewed)`. The link / prefix shape already disambiguates the source (`mr-url` vs `wit#` vs `css#` vs `[chat:` vs `[mail:`).
 
