@@ -228,7 +228,7 @@ Field rules:
 
 ```bash
 cd <vault>
-git add Raw/ Notes/ Projects/ _index.md log.md
+git add Raw/ Notes/ Projects/ Summary/ _index.md log.md
 git commit -m "distill: extract N entries from Raw"
 ```
 
