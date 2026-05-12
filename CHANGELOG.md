@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-05-12
+
+### Added
+- `cortex-distill` Step 5.5: writes a per-Raw summary sidecar at
+  `Summary/YYYY/MM/DD/<filename>.md` for every processed Raw,
+  regardless of outcome (`new`, `pending-merge`, `skip-routine`,
+  `no-insight`). Sidecar has 3-field frontmatter (`raw`, `repo`,
+  `distilled`) and a 1–5 sentence prose body. The body deliberately
+  does NOT enumerate commits, MR URLs, or issue keys — those are
+  GitLab's canonical territory.
+- New top-level vault directory `Summary/` mirrors `Raw/`'s date
+  tree. Tracked in git alongside Notes/Projects. Not indexed by
+  `cortex-vec`, not listed in `_index.md` (it is `cortex-weekly`'s
+  internal cache, not user-browsable content).
+
+### Changed
+- `cortex-weekly` Source A reads from `Summary/` instead of `Raw/`.
+  Per-Raw token cost for the weekly compile drops by roughly the
+  ratio between full Raw body size and the ~60–300 char summary.
+  Boundary-Friday HHMMSS filter rules carry over unchanged (Summary
+  filenames mirror Raw filenames exactly).
+- `cortex-weekly` Step 4 dedup against GitLab MRs (Source B) now
+  joins MR ↔ Summary by **repo + date** instead of URL-string
+  matching inside Raw body. The date window is `[merged_at - 1 day,
+  merged_at]` to capture sessions that ran late and crossed midnight
+  before the MR was merged the next morning.
+- `cortex-weekly` Step 2 (Run Distill) now documented as a hard
+  precondition for Source A — if a Raw in the window has no
+  corresponding Summary after Step 2 runs, weekly surfaces the
+  orphan list to the user and does NOT silently fall back to reading
+  the Raw body.
+
+### Notes
+- Raw remains immutable. This change adds an additional derived
+  artifact (the sidecar), it does not modify any Raw content,
+  frontmatter, or existing `<!-- distilled: ... -->` marker.
+- No backfill: only Raws distilled after 0.11.0 ships get a Summary.
+  Older Raws appearing in a weekly window will trigger the orphan
+  prompt; resolution is to re-run distill on those specific files.
+- `cortex-broadcast` and `cortex-query` are unaffected — both still
+  read full Raw / Notes / Projects respectively.
+
 ## [0.10.3] - 2026-05-08
 
 ### Fixed
