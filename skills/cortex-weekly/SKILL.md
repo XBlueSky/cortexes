@@ -58,6 +58,8 @@ Then: `End = meeting Friday @ cutoff hour`, `Start = End − 7 days`.
 
 Invoke the cortex-distill skill to process any unprocessed Raw/ files from the target week before compiling the report.
 
+**Why this is a hard precondition for Source A:** Source A reads from `Summary/`, and a Summary file is only written as a side effect of distill (cortex-distill Step 5.5). Skipping Step 2 means Source A sees fewer sessions than actually happened. If distill fails or is skipped for any Raw, Source A surfaces those orphans explicitly and refuses to silently fall back to reading the Raw body.
+
 ## Step 3: Collect Sources
 
 ### Source A — Summary/
