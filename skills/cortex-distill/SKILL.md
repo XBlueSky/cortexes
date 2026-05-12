@@ -129,6 +129,61 @@ Append exactly one marker to the Raw file, chosen by Step 3 outcome:
 Score formatting: two decimal places (e.g., `0.62`, not `0.62345`).
 Date: today, `YYYY-MM-DD`.
 
+## Step 5.5: Write Summary File
+
+For **every** Raw processed in this run — regardless of outcome (`new`,
+`pending-merge`, `skip-routine`, `no-insight`) — write a summary sidecar
+file. The summary is consumed by `cortex-weekly` Source A; it is NOT
+indexed by `cortex-vec` and NOT listed in `_index.md`.
+
+### 5.5.1 Compose the summary
+
+The summary is a prose-only paragraph describing what the session was
+about — work done, what shipped, non-obvious findings. Guideline:
+
+- 1–5 sentences, roughly 60–300 characters (soft target; a session that
+  genuinely needs 400 characters to be coherent gets 400).
+- **Do NOT** enumerate commits, MR URLs, or issue keys. Those are
+  GitLab's canonical territory (`cortex-weekly` Source B). Weekly joins
+  MRs to summaries by repo + date, not by URL-string matching inside
+  the summary prose.
+- **Do NOT** repeat deep-dive content that this distill run wrote into
+  Notes/Projects. Summary is "session view"; Notes/Projects is
+  "topic view".
+- For sessions with no commits / no shipped output, describe honestly
+  ("探索 X 的行為、未產出代碼" / "reviewed Y MR, no self-authored
+  commits").
+- For `no-insight` outcome: still produce a summary. Weekly cares about
+  sessions that didn't yield insights but still represent work hours.
+
+### 5.5.2 Compose the frontmatter
+
+Fixed 3-field schema, no other fields:
+
+```yaml
+---
+raw: <vault-relative path to the source Raw file>
+repo: <value from Raw frontmatter `repo:` field, or `(none)` if absent>
+distilled: <today, YYYY-MM-DD>
+---
+```
+
+### 5.5.3 Write the sidecar file
+
+Destination path: `<vault_path>/Summary/YYYY/MM/DD/<same-filename-as-Raw>.md`
+(mirror Raw's date tree, identical filename).
+
+Use the Write tool. If the file already exists (re-distill case),
+**overwrite** it — no merge, no append. The Write tool's overwrite
+semantics are the intended behavior here.
+
+Create parent directories as needed (the Write tool handles this).
+
+### 5.5.4 Stage for commit
+
+The sidecar file is added to git in Step 8's `git add` list (see Step 8).
+No extra commit here.
+
 ## Step 6: Update Index (only for `new` outcome)
 
 Skip this step entirely for `pending-merge`, `skip-routine`, `no-insight`.
