@@ -60,19 +60,49 @@ Invoke the cortex-distill skill to process any unprocessed Raw/ files from the t
 
 ## Step 3: Collect Sources
 
-### Source A — Raw/
+### Source A — Summary/
 
-Glob `<vault_path>/Raw/YYYY/MM/DD/*.md` for every date the range touches (start Friday through end Friday, inclusive — typically 8 days).
+Glob `<vault_path>/Summary/YYYY/MM/DD/*.md` for every date the range
+touches (start Friday through end Friday, inclusive — typically 8 days).
 
-Raw filenames are `HHMMSS_session_<repo>.md`. On the two boundary days, filter by the first 6 chars of the filename:
+Summary filenames mirror Raw filenames exactly (`HHMMSS_session_<repo>.md`),
+so the boundary-Friday HHMMSS filter ports verbatim:
 
 - **Start Friday:** keep files where `HHMMSS >= "110000"`
 - **End Friday:** keep files where `HHMMSS < "110000"`
 - **Days in between:** keep all files
 
-(`110000` = cutoff hour 11 as `HHMMSS`. Regenerate this literal if `weekly.cutoff.hour` changes.)
+(`110000` = cutoff hour 11 as `HHMMSS`. Regenerate this literal if
+`weekly.cutoff.hour` changes.)
 
-Read each matched file and extract commits, discoveries, decisions, other work.
+For each surviving Summary file, read frontmatter + body:
+
+- `repo:` from frontmatter → the session's target repo (use directly;
+  do NOT open the corresponding Raw file).
+- Body prose → the session description.
+
+**Weekly never opens the corresponding Raw file.** The Summary is a
+self-contained record for weekly's purposes; Raw remains immutable
+source. If repo or other context is missing from the Summary, that is
+a bug in distill's Step 5.5, not a reason to fall back to reading Raw.
+
+#### Fallback — Raw with no Summary
+
+Should not happen, because Step 2 (Run Distill) ensures every pending
+Raw is distilled (and therefore has a Summary written) before Source A
+runs.
+
+If a Raw in the week's window still has no corresponding Summary file
+after Step 2:
+
+1. Collect the list of orphan Raws (Raw files whose mirrored Summary
+   path does not exist).
+2. Tell the user: "N Raw files in this window have no Summary. Distill
+   may have failed or been skipped. Resolve before continuing: (1)
+   re-run distill on these files, or (2) explicitly opt to read full
+   Raw bodies as a one-off."
+3. Do **not** silently read the Raw body. Silent fallback hides
+   pipeline bugs and defeats the token-savings purpose of this source.
 
 ### Source B — GitLab MRs authored by the user
 
