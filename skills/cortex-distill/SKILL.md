@@ -29,20 +29,36 @@ Show the pending list count and ask to proceed.
 
 For each unprocessed Raw file:
 
-1. Read the full content.
-2. Check `## Discoveries` or `## Decisions` sections.
-   - No such sections → `no-insight`, go to Step 5 (mark) + Step 7 (log).
-   - Sections exist → apply the **has_insight** rule below.
+1. Read the full content (frontmatter + transcript + any inline analysis).
+2. Apply `has_insight()` judgment to the **entire body**. Do NOT gate on
+   the presence of specific section headers — insight may live anywhere
+   in the Raw.
 
 ### `has_insight()` rule
 
-Answer **Yes** iff at least one bullet in Discoveries or Decisions contains one of:
+Answer **Yes** iff at least one passage anywhere in the Raw contains one of:
 
 - A specific symbol / file path / line number (e.g. `src/main.rs:226`, `checkDockerImage()`, `SynoBuildConf/unit-test`).
 - A specific bug mechanism or root-cause statement (e.g. "filter must fully match repository, substring not supported").
 - A specific decision rationale in the form "X over Y because Z" — not bare "use X".
 
-Answer **No** if the section contains only vague statements like "fixed it", "works now", "tested successfully" without concrete referents.
+Insight commonly appears in any of these locations; treat them all as
+first-class:
+
+- `★ Insight ─────` callouts inside `### Claude` blocks (Claude Code
+  learning-mode output).
+- Tables comparing options, summarizing a bug, or laying out an attack
+  chain.
+- Prose paragraphs that walk through analysis, root cause, or
+  trade-off rationale.
+- Legacy `## Discoveries` / `## Decisions` sections (manually-edited
+  Raws — still valid but not required).
+
+Answer **No** only when the entire Raw genuinely lacks concrete
+referents — e.g., commands executed with no surrounding analysis, or
+vague statements like "fixed it" / "works now" / "tested successfully"
+without any mechanism / file / symbol / decision rationale anywhere in
+the body.
 
 - Yes → proceed to Step 3 (Stage 2).
 - No → `no-insight`, go to Step 5 (mark) + Step 7 (log).
@@ -76,7 +92,12 @@ Defaults: `new = 0.45`, `pending = 0.60`.
 
 ### 3.2 Query dedup
 
-Pick the **most content-ful Discovery or Decision bullet** as the query text (longest bullet with concrete referents). Run:
+Pick the **most content-ful insight passage** anywhere in the Raw as the
+query text — typically the densest `★ Insight ─────` callout, the
+clearest analysis paragraph naming specific referents, or (for legacy
+Raws) the longest Discovery/Decision bullet. Aim for one self-contained
+chunk that mentions the concrete symbol / mechanism / decision; trim
+to roughly one paragraph. Run:
 
 ```bash
 cortex-vec search "<bullet text>" --n 3

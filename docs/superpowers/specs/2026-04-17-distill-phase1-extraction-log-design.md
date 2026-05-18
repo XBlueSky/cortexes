@@ -1,9 +1,49 @@
 # Distill Phase 1 — Extraction Quality + Log Foundation
 
 **Date:** 2026-04-17
-**Status:** Draft
+**Status:** Superseded in part — see Revision 2026-05-18 below
 **Builds on:** `docs/specs/2026-04-14-distill-query-redesign.md`
 **Related future phases:** Phase 2 (broadcast ingest), Phase 3 (lint)
+
+## Revision 2026-05-18 — `has_insight()` no longer gates on section headers
+
+The original Stage 1 design (Section 1 below) anchored `has_insight()`
+on the presence of `## Discoveries` or `## Decisions` sections. The
+SessionEnd capture pipeline (`hooks/scripts/session-end-record.sh`) never
+produces those sections — it writes frontmatter plus filtered transcript
+— so ~92% of real Raws were false-negative `(no insight)` (verified
+against `/synosrc/cortex/Raw/2026/05/`: 10/125 had structured sections,
+91/125 had inline `★ Insight ─────` callouts).
+
+Rationale for the change: cortex follows the llm-wiki pattern where the
+LLM (already in the distill loop, already loading the Raw to draft a
+refined note) is the right judge for "has insight"; pre-LLM string
+matching on section headers is premature optimization that breaks
+whenever Claude Code's output style shifts. The judgment cost was
+imaginary — the agent reads the Raw anyway.
+
+What changed in `skills/cortex-distill/SKILL.md`:
+
+- **Step 2** — `has_insight()` is now applied to the entire Raw body.
+  Section headers are no longer a gate. Insight is recognized whether
+  it appears in `★ Insight ─────` callouts, tables, prose analysis, or
+  legacy `## Discoveries` / `## Decisions` sections.
+- **Step 3.2** — dedup query text is the most content-ful insight
+  passage anywhere in the Raw (callout / paragraph / bullet), no longer
+  restricted to Discovery / Decision bullets.
+
+What is unchanged: Stage 2 threshold logic, marker formats, log entry
+schema, Chroma rules, two-stage architecture.
+
+Backlog handling: existing Raws marked `(no insight)` under the old
+rule are NOT auto-reprocessed. They keep their markers. The fix applies
+forward from 2026-05-18.
+
+The rest of this document records the original 2026-04-17 design for
+historical reference.
+
+---
+
 
 ## Problem
 

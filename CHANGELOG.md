@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-05-18
+
+### Fixed
+- `cortex-distill` Stage 1 `has_insight()` no longer gates on the
+  presence of `## Discoveries` / `## Decisions` sections. The
+  SessionEnd capture pipeline never produces those sections — it
+  writes frontmatter plus filtered transcript — so ~92% of real Raws
+  were false-negative `(no insight)` (verified against
+  `/synosrc/cortex/Raw/2026/05/`: 10/125 had structured sections,
+  91/125 had inline `★ Insight ─────` callouts). The rule now applies
+  to the entire Raw body and recognizes insight in `★ Insight`
+  callouts, tables, prose analysis, or legacy structured sections
+  alike.
+- `cortex-distill` Step 3.2 dedup query text picker correspondingly
+  scans the entire Raw for the most content-ful insight passage
+  instead of restricting to Discovery/Decision bullets.
+
+### Notes
+- Existing Raws marked `(no insight)` under the old rule are NOT
+  auto-reprocessed. The fix applies forward from 2026-05-18.
+- Spec: see `docs/superpowers/specs/2026-04-17-distill-phase1-extraction-log-design.md`
+  "Revision 2026-05-18" section.
+
 ## [0.11.0] - 2026-05-12
 
 ### Added
