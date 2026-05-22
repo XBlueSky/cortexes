@@ -328,7 +328,7 @@ If the title begins with `[` or contains `][` (e.g. `[thread+fork][synoscgi] ...
 
 ### Experimental repos (draft label)
 
-Read `weekly.experimental_repos` from `~/.cortex/config.json` (list of `namespace/project` strings). For each group heading (in `fix.` or `feat.`), if **every** MR in the group targets a repo in that list, prefix the heading bullet with `**[draft]** ` (bold, trailing space). Mixed groups get no prefix. Single-MR flat bullets are never draft-labelled.
+Read `weekly.experimental_repos` from `~/.cortex/config.json` (list of `namespace/project` strings). For each `feat.` group heading, if **every** MR in the group targets a repo in that list, prefix the heading bullet with `**[draft]** ` (bold, trailing space). Mixed groups get no prefix. Single-MR flat bullets are never draft-labelled. (Does not apply to `fix.` — `fix.` has no group headings.)
 
 ### Same-title MR dedup (universal)
 

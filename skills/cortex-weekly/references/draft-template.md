@@ -52,31 +52,41 @@ Four top-level bullet items, not headings:
 
 Any section with no content is omitted.
 
-## `fix.` and `feat.` — grouped by Workplus issue
+## `fix.` and `feat.` — section layouts
 
-Both sections follow the **same layout rules**. The only difference is what lands in each: `fix.` for Workplus issues with `type = BUG`, `feat.` for `type = FEATURE`.
+Section choice is by Workplus issue type: `fix.` for `type = BUG`, `feat.` for `type = FEATURE`. Layout differs:
 
-### Single MR per issue → flat bullet
+- **`fix.` is always flat.** One bullet per MR. No Workplus-title group headings, regardless of how many MRs share an issue.
+- **`feat.` groups by Workplus issue.** Single MR → flat bullet; multiple MRs sharing one issue → group heading with indented MR bullets.
+
+### `fix.` — always flat
 
 ```
 - fix.
-	- [mr-title](mr-url)
+	- [mr-title-a](mr-url) / [<ISSUE-KEY-A>](<issue-url>)
+	- [mr-title-b](mr-url) / [<ISSUE-KEY-A>](<issue-url>)
+	- [mr-title-c](mr-url) / [<ISSUE-KEY-B>](<issue-url>)
+```
+
+Even when multiple MRs share the same Workplus BUG issue (e.g. `mr-title-a` and `mr-title-b` both ref `ISSUE-KEY-A`), each is listed as its own bullet. No group heading collapses them.
+
+Per-bullet form: `[mr-title](mr-url) / [KEY](issue-url)`. The `/ [KEY](url)` segment is dropped only when the MR has no effective issue ref.
+
+### `feat.` — single MR per issue → flat bullet
+
+```
 - feat.
 	- [mr-title](mr-url)
 ```
 
 No description, no group heading. The MR title carries the story.
 
-### Multiple MRs per issue → group heading + indented bullets
+### `feat.` — multiple MRs per issue → group heading + indented bullets
 
 ```
-- fix.
-	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
-		- [mr-title](mr-url): one-line description of what the MR does
-		- [mr-title](mr-url): one-line description
 - feat.
 	- <Workplus-title-verbatim> - ([<ISSUE-KEY>](<issue-url>))
-		- [mr-title](mr-url): one-line description
+		- [mr-title](mr-url): one-line description of what the MR does
 		- [mr-title](mr-url): one-line description
 			- sub-detail when the MR change is genuinely large
 			- sub-detail
@@ -84,7 +94,7 @@ No description, no group heading. The MR title carries the story.
 		- [mr-title](mr-url): description
 ```
 
-Rules (apply to both `fix.` and `feat.`):
+Rules (apply to `feat.` group headings only — `fix.` does not use them):
 - Group-heading bullet is plain text followed by parenthesized issue link. Title is **not** wrapped in `[...]` — intentional so titles like `[webapi] morpheus: ...` do not collide with markdown link syntax.
 - **Backtick-escape group titles** that start with `[` or contain `][` (e.g. `[thread+fork][synoscgi] ...`). GFM can mis-parse these as reference-style links:
   ```
@@ -253,17 +263,16 @@ Worked example (`inbound.` cherry-pick cluster):
 	- fix(api-upload): strip all _tmp params and repair upload Attr wiring — [!695](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/695) / [BSM-1375](https://workplus.synology.inc/key/BSM/issues/1375)、[!696](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/696) / [BSM-1376](https://workplus.synology.inc/key/BSM/issues/1376)、[!698](https://git.synology.inc/synology/webapi-DSM5/-/merge_requests/698) / [AEM-22355](https://workplus.synology.inc/key/AEM/issues/22355)
 ```
 
-Worked example (`fix.` group with cross-issue cherry-picks):
+Worked example (`fix.` with cross-issue cherry-picks — `fix.` is flat, so the dedup bullet just sits at the top of the section):
 
 ```
 - fix.
-	- <Workplus title for issue-X> - ([DSM-X](https://workplus.synology.inc/key/DSM/issues/X))
-		- [mr-title-A](url): description
-		- [mr-title-B](url): description
+	- [mr-title-a](url) / [DSM-X](url)
+	- [mr-title-b](url) / [DSM-X](url)
 	- fix(<scope>): same-title fix on 3 branches — [!N1](url) / [DSM-Y](url)、[!N2](url) / [BSM-Z](url)、[!N3](url) / [AEM-W](url)
 ```
 
-The dedup bullet sits alongside the regular issue group; it is not nested under any heading.
+The dedup bullet sits alongside other flat MRs at the section's top level. (Group headings never appear in `fix.`; the in-group dedup placement applies only to `feat.` — see below.)
 
 Worked example (`feat.` group with same-issue dedup pulled inside):
 
