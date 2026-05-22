@@ -336,19 +336,45 @@ After classification (above) but before composing the draft, scan MRs across `fi
 Procedure:
 
 1. Group MRs by exact `title` string.
-2. If 2+ MRs share a title, the cluster collapses into one bullet:
-   - Pull the cluster MRs out of any Workplus-issue grouping (they no longer participate in the `fix.` / `feat.` per-issue layout).
-   - Render the cluster as one top-level bullet inside its section:
+2. If 2+ MRs share a title, the cluster collapses into **one** bullet.
+   The bullet's position depends on the cluster's effective-issue
+   distribution:
+   - **All cluster MRs share the same effective issue AND that issue
+     has a group heading** (the `feat.` section will render a
+     Workplus-title heading because the issue holds ≥2 MRs total,
+     including or excluding the dedup'd ones — count the unique MR
+     number under the issue): render the dedup'd cluster as **one
+     indented bullet inside the group**, with no per-MR `/ [KEY](url)`
+     segments (the group heading already carries the issue):
+
+     ```
+     - <Workplus-title> - ([<KEY>](<issue-url>))
+     	- [other-mr-title](url): description
+     	- <dedup-title> — [!N1](mr-url)、[!N2](mr-url)
+     ```
+
+   - **Cluster MRs reference different issues** (or some have no
+     effective issue): render as one **flat top-level bullet** in the
+     section, pairing each MR with its own issue ref:
+
      ```
      - <title> — [!N1](mr-url) / [KEY1](issue-url)、[!N2](mr-url) / [KEY2](issue-url)、...
      ```
-   - Pair each MR with its own `Ref:` issue when present. If an MR has no `Ref:` trailer, drop only the `/ [KEY](url)` segment for that one entry.
-   - Order MRs by `merged_at` ascending (master / earliest first; backports follow).
-3. Single MRs (no duplicate title) keep their existing flat shape:
-   - With `Ref:`: `[mr-title](mr-url) / [KEY](issue-url)`
-   - Without `Ref:`: `[mr-title](mr-url)`
 
-The dedup bullet always sits at its section's top level — never nested under a Workplus-issue heading. This means a `fix.` section that previously contained two single-MR Workplus groups with the same title now shows one collapsed bullet instead.
+     Drop the `/ [KEY](url)` segment for entries whose MR has no
+     effective issue.
+
+   - In both cases, order MRs by `merged_at` ascending (master /
+     earliest first; backports follow).
+3. Single MRs (no duplicate title) keep their existing flat shape:
+   - With effective issue: `[mr-title](mr-url) / [KEY](issue-url)`
+   - Without: `[mr-title](mr-url)`
+
+The new in-group rule fixes the case where `fix(renderer): route
+no-app desktop request through AllChunks` was rendered as a flat
+bullet beside the `NextGen-Web-Core` group even though both MRs
+ref'd DSM-167678 — it now sits inside the group as one indented
+dedup bullet.
 
 ## Step 6: Generate Draft
 
