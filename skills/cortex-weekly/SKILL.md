@@ -266,17 +266,34 @@ Four sections, selected primarily by **Workplus issue type**, not commit type. C
 
 ### Classification procedure
 
-For each self-authored MR:
+For each self-authored MR, determine its **effective issue key**:
 
-1. If the MR's commit messages contain a `Ref: <KEY>` trailer:
-   - Call Workplus `get_issue` on the key; cache the returned `title` **and** `type`
-   - `type == "BUG"` → `fix.` under that issue
-   - `type == "FEATURE"` → `feat.` under that issue
-   - Any other type (rare — e.g. `TASK`) → treat as `FEATURE` for layout purposes
-2. If no `Ref:` trailer:
-   - Send to `misc.` regardless of commit type. Side-project work does not belong with issue-driven fix/feat.
+1. If the MR's commit messages contain a `Ref: <KEY>` trailer → effective key = `<KEY>`.
+2. Else, if the MR's repo (last path segment of `references.full`) is
+   a key in `weekly.repo_issue_map` AND the value list contains
+   **exactly one** candidate → effective key = that candidate.
+3. Else, if the repo is in `repo_issue_map` with **two or more**
+   candidates → ambiguous; treat as no effective key (the MR cannot
+   be auto-attributed because the per-MR signal — `Ref:` — is missing
+   and the map cannot disambiguate). Send to `misc.`.
+4. Else → no effective key. Send to `misc.`.
 
-This rule is intentionally simple: **Workplus owns the semantics**. A DSM-169641 cleanup that ships seven `chore` MRs is a bug fix because the issue says so, not because any individual commit says `fix(...)`.
+Then, when there IS an effective key:
+
+- Call Workplus `get_issue` on the key; cache the returned `title` and `type`.
+- `type == "BUG"` → `fix.` under that issue.
+- `type == "FEATURE"` → `feat.` under that issue.
+- Any other type (rare — e.g. `TASK`) → treat as `FEATURE` for layout purposes.
+
+This rule is intentionally simple: **Workplus issue type owns the
+section choice**. A DSM-169641 cleanup that ships seven `chore` MRs
+is a bug fix because the issue says so, not because any individual
+commit says `fix(...)`. Conversely, an MR with `fix:` commit title
+referencing a FEATURE issue goes to `feat.` — commit type is
+irrelevant to section selection.
+
+`fix.` is always flat (no group headings). Workplus-title group
+headings appear only in `feat.`.
 
 ### Grouping rule — same for `fix.` and `feat.`
 
