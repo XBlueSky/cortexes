@@ -227,13 +227,29 @@ Surviving threads go into `inbound.` as:
 ## Step 4: Merge and Deduplicate
 
 1. Start with Raw/ entries as the base
-2. For each GitLab MR, join to Source A summaries by **repo + date**, not by URL string matching:
-   - Find Summary files where `repo:` matches the MR's target repo AND the Summary's date is either the same date as the MR's `merged_at` or the immediately preceding date (to capture sessions that ran late and crossed midnight before the MR was merged the next morning).
-   - Exactly one match → use that Summary's prose body as the MR's session-context description text in the weekly draft.
-   - Multiple matches → choose the Summary whose `HHMMSS` is closest to the MR's `merged_at` timestamp. If still ambiguous, concatenate them, each as its own session contribution.
-   - No match → the MR stands alone; commit title + Workplus issue title carry the description (same as the previous "MR absent from Raw" branch).
+2. For each GitLab MR, join to Source A summaries:
+   - **Preferred: issue-aware join.** If the MR has a `Ref: KEY`
+     trailer (or its repo is in `repo_issue_map` and only one
+     candidate, see Step 5 Classification fallback), and the Summary
+     has `issue: KEY` matching, that's the join. Date is no longer
+     consulted in this branch — issue is canonical.
+   - **Fallback: repo + date.** When either side lacks the issue
+     field, fall back to the original join: Summary's `repo:` matches
+     the MR's last-segment repo AND the Summary's date is the same
+     date as the MR's `merged_at` or the immediately preceding date.
+   - Exactly one match → use that Summary's prose body as the MR's
+     session-context description text in the weekly draft.
+   - Multiple matches (issue or repo+date branch) → choose the
+     Summary whose `HHMMSS` is closest to the MR's `merged_at`
+     timestamp. If still ambiguous, concatenate them, each as its own
+     session contribution.
+   - No match → the MR stands alone; commit title + Workplus issue
+     title carry the description.
 
-   Rationale: Summary prose intentionally does NOT enumerate MR URLs (see `cortex-distill` Step 5.5 guideline), so URL-string matching breaks. Repo + date is the structural replacement.
+   Rationale: Summary prose intentionally does NOT enumerate MR URLs
+   (see `cortex-distill` Step 5.5 guideline). When distill knows the
+   issue (Step 5.6) we can join structurally on that, which is
+   sharper than the repo+date heuristic.
 3. Add `inbound.` items (MR reviews, wit issues filtered by reply, CSS tickets filtered by this-week action, ChatPlus threads filtered for substance, MailPlus threads filtered for substance)
 4. **Cross-source dedup for ChatPlus / MailPlus.** A chat post or mail thread that merely announces or coordinates around an MR/issue already represented elsewhere in this report is redundant — drop it. Keep the chat/mail entry only when it carries information not already conveyed by a Raw/, MR, wit, or CSS entry.
 
