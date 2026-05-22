@@ -52,10 +52,26 @@ Create `~/.cortex/` directory if needed, then write `~/.cortex/config.json`:
   },
   "weekly": {
     "gitlab_username": "<username>",
-    "categories": ["fix", "feat", "misc"]
+    "categories": ["fix", "feat", "misc"],
+    "repo_issue_map": {}
   }
 }
 ```
+
+The `repo_issue_map` field (object, optional, defaults to `{}`) maps a bare repo name to a list of Workplus issue keys. Lets repos whose work has no `Ref:` trailer be promoted from `misc.` into `feat.` / `fix.` under a Workplus issue.
+
+Example:
+
+```json
+"repo_issue_map": {
+  "morpheus": ["DSM-172916"]
+}
+```
+
+- Key form: bare repo name (matches `repo:` frontmatter in Raw/Summary). When matching a GitLab MR target like `wit/morpheus`, weekly takes the last path segment.
+- Value form: list of issue keys (1:N — a repo can host work for multiple concurrent features).
+- When a MR has a `Ref:` trailer, the trailer wins; the map is a fallback for MRs without `Ref:` and for vault-only Summary entries (no MR merged this week).
+- When the map is absent or empty, weekly behaves as before — no vault-only promotion, no warning.
 
 ### 5. Initialize vault structure
 
