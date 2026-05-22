@@ -376,6 +376,54 @@ bullet beside the `NextGen-Web-Core` group even though both MRs
 ref'd DSM-167678 — it now sits inside the group as one indented
 dedup bullet.
 
+## Step 5b: Vault-only Entries
+
+After Step 5 classification + dedup completes (and before Step 6
+draft generation), surface Workplus-tracked work that has Summaries
+this week but no merged MR.
+
+Procedure:
+
+1. Collect the set of effective issue keys already attributed to
+   MRs in `fix.` / `feat.` (call this `mr_covered_issues`).
+2. For each `(repo, issue_key)` pair derived from this week's
+   Summary files:
+   - Skip if `issue_key` is absent / null (the Summary covers
+     off-topic / general maintenance work — it falls through to
+     `misc.` aggregation, same as repos not in the map).
+   - Skip if `issue_key` is already in `mr_covered_issues` — the
+     MR-derived entry already represents this work, and Step 4's
+     issue-aware join has already merged the Summary's body into
+     that MR's description.
+3. Group the surviving Summaries by `issue_key`.
+4. For each `issue_key`:
+   - `title, type = workplus_get_issue(issue_key)`.
+   - Section = `feat.` if `type == FEATURE`, else `fix.`.
+   - Compose a one-line description ≤60 characters, derived from
+     the aggregated body prose of all Summaries in this group.
+     Style: outcome-focused ("做了什麼"), not session-by-session
+     log. Drop file paths, test counts, benchmark numbers unless
+     they're the punchline.
+   - Emit under the chosen section as:
+
+     ```
+     - <Workplus-title> - ([<KEY>](<issue-url>)): <description>
+     ```
+
+     Apply the same backtick-escape rule as group headings: if
+     `<title>` starts with `[` or contains `][`, wrap in backticks.
+
+5. Summaries whose `issue_key` is null (or whose repo is not in
+   `repo_issue_map`) flow through to `misc.` aggregation (Step 6
+   handles that, but they're collected here as the pool from
+   which misc. draws vault-only bullets).
+
+The vault-only bullet form (`<title> - ([KEY](url)): description`)
+co-exists with the MR-group form (`<title> - ([KEY](url))` with
+indented MR children) in the same section. They're visually
+distinct: vault-only ends with `: description`, MR-group ends with
+`)` followed by nested bullets.
+
 ## Step 6: Generate Draft
 
 Compose the draft using the nested-bullet format defined in `references/draft-template.md`. The reference covers:
