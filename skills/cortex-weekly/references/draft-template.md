@@ -104,11 +104,11 @@ Rules (apply to both `fix.` and `feat.`):
 	- <title> — [!N1](mr-url) / [KEY1](issue-url)、[!N2](mr-url) / [KEY2](issue-url)、...   ← same-title dedup
 	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
 	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → root cause → response
-	- [chat: <channel-name>]: topic → 我的貢獻
-	- [chat: `@username`]: topic → 我的貢獻
-	- [chat: `@user_a`, `@user_b`]: topic → 我的貢獻
-	- [mail: <subject>]: topic → 我的回應
-	- [mail: <subject>] (`@username`): topic → 我的回應
+	- [chat] <channel-name>: topic → 我的貢獻
+	- [chat] `@username`: topic → 我的貢獻
+	- [chat] `@user_a`、`@user_b`: topic → 我的貢獻
+	- [mail] <subject>: topic → 我的回應
+	- [mail] <subject> (`@username`): topic → 我的回應
 ```
 
 Rules:
@@ -120,17 +120,24 @@ Rules:
   - `response`: what the user did or routed the ticket to
   - Never include customer, colleague, or personal identifiers.
 - **ChatPlus thread**: plain text, no URL (the MCP exposes no canonical thread URL). One bullet per `thread_id`, summarizing the user's overall contribution. Drop social chatter, MR-link broadcasts, and meeting-link coordination.
-  - Public channel (`channel_name != ""`): `` [chat: <channel-name>]: topic → 我的貢獻 ``.
-  - 1:1 DM (one non-self participant): `` [chat: `@username`]: topic → 我的貢獻 ``.
-  - Group DM with 2 other participants: `` [chat: `@user_a`, `@user_b`]: topic → 我的貢獻 ``.
-  - Group DM with 3 other participants: `` [chat: `@user_a`, `@user_b`, `@user_c`]: topic → 我的貢獻 ``.
-  - 4+ other participants: `` [chat: DM]: topic → 我的貢獻 `` (fall back).
+  - Public channel (`channel_name != ""`): `` [chat] <channel-name>: topic → 我的貢獻 ``.
+  - 1:1 DM (one non-self participant): `` [chat] `@username`: topic → 我的貢獻 ``.
+  - Group DM with 2 other participants: `` [chat] `@user_a`、`@user_b`: topic → 我的貢獻 ``.
+  - Group DM with 3 other participants: `` [chat] `@user_a`、`@user_b`、`@user_c`: topic → 我的貢獻 ``.
+  - 4+ other participants: `` [chat] DM: topic → 我的貢獻 `` (fall back).
 - **MailPlus thread**: plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
-  - 1-on-1 thread (one non-self address across all messages): `` [mail: <subject>] (`@username`): topic → 我的回應 ``.
-  - Multi-recipient / mailing list (2+ non-self addresses): `` [mail: <subject>]: topic → 我的回應 ``.
+  - 1-on-1 thread (one non-self address across all messages): `` [mail] <subject> (`@username`): topic → 我的回應 ``.
+  - Multi-recipient / mailing list (2+ non-self addresses): `` [mail] <subject>: topic → 我的回應 ``.
 - **Wrap `@username` in single backticks** in chat/mail bullets — `` `@yannyliu` `` instead of `@yannyliu`. GitLab parses the bare form as a mention and pings the user when the weekly is pasted into a wiki / MR / issue.
 - For chat and mail, **never include customer info or external personal identifiers** (phone numbers, emails, addresses). Internal Synology usernames are allowed and encouraged for 1-on-1 attribution.
-- Do not prefix items with `(reviewed)`. The link / prefix shape already disambiguates the source (`mr-url` vs `wit#` vs `css#` vs `[chat:` vs `[mail:`).
+- Do not prefix items with `(reviewed)`. The link / prefix shape already disambiguates the source (`mr-url` vs `wit#` vs `css#` vs `[chat]` vs `[mail]`).
+- **Why `[chat]` / `[mail]` instead of `[chat: ...]` / `[mail: ...]`?** GFM
+  treats `[label]: <text>` as a reference-link-definition (where
+  `<text>` is interpreted as a URL + optional title). When the
+  bracket contains both the tag *and* the subject, the trailing `:`
+  triggers that parser and the bullet renders mangled. Putting only
+  the source tag inside the bracket keeps the `]:` sequence outside
+  the bracket, where it parses cleanly as inline text.
 
 ## `misc.` — self side projects, flat list
 
@@ -170,8 +177,8 @@ source: cortex
 	- [fix(fsdn): recover spk backup from remote when identity mismatch](https://git.synology.inc/synology/synopkg/-/merge_requests/1458) / [DSM-173132](https://workplus.synology.inc/key/DSM/issues/173132)
 	- [docs(synology-coverity): note project -gandalf postfix in stream inference](https://git.synology.inc/wit/synology-dev-kit/-/merge_requests/26)
 	- [css#3978941](https://cssnew.synology.com/ticket/3978941): package install/start failure → improper shutdown wiped /var/log/nginx, nginx cascade → restart nginx, back to L1
-	- [chat: WIT]: nextwebd routing for /sharing → confirmed exact-match upstream wiring, pointed to libsynow3!263
-	- [mail: [Bad Version] DSM v120060 patch bad (master)]: patch bad on master → identified offending commit, replied with fix sha and rebuild scope
+	- [chat] WIT: nextwebd routing for /sharing → confirmed exact-match upstream wiring, pointed to libsynow3!263
+	- [mail] [Bad Version] DSM v120060 patch bad (master): patch bad on master → identified offending commit, replied with fix sha and rebuild scope
 - misc.
 	- cortex: cortex-vec Python package migration, session-start interactive menu, weekly Friday alignment
 	- synology-dev-kit: Monitor tool for build progress, build workflow skill extraction, hardlink breakage docs
