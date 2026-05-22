@@ -81,6 +81,11 @@ For each surviving Summary file, read frontmatter + body:
 
 - `repo:` from frontmatter → the session's target repo (use directly;
   do NOT open the corresponding Raw file).
+- `issue:` from frontmatter (optional) → the Workplus issue this
+  session contributes to, as judged by distill Step 5.6. When absent
+  or empty, the session is treated as repo-level work with no issue
+  attribution (this is the normal case for repos not listed in
+  `weekly.repo_issue_map`).
 - Body prose → the session description.
 
 **Weekly never opens the corresponding Raw file.** The Summary is a
