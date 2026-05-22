@@ -20,6 +20,25 @@ source: cortex
 ---
 ```
 
+## Description budgets
+
+The weekly is consumed by team meeting attendees who skim, not by
+vault readers who want depth. Keep descriptions short. Hard ceilings
+per surface:
+
+| Surface | Cap | Style |
+|---|---|---|
+| `feat.` group-MR description | ≤40 chars (Chinese characters or English words counted as 1 each) | "做了什麼" — outcome only. No file paths, no test counts, no benchmark numbers unless they're the punchline. |
+| `feat.` / `fix.` vault-only entry description | ≤60 chars | One sentence summarising the issue's progress this week. |
+| `inbound.` mail | ≤30 chars after `<subject>: ` | `topic → 我的回應` form. Drop investigation steps, root-cause walkthroughs. |
+| `inbound.` wit | ≤60 chars after `: ` | Main answer only. Drop follow-up details and stretch-goal additions. |
+| `inbound.` CSS | ≤60 chars after `: ` | Three-segment `symptom → root cause → response` still applies; just keep each segment short. |
+| `inbound.` chat | ≤60 chars after `: ` | One-clause `topic → 我的貢獻`. |
+| `misc.` per-project | ≤10 chars short tag + MR link, OR a short prose summary when no MR exists (no link in that case). |
+
+When a session genuinely needs more, prefer a sub-bullet under the
+MR / group heading rather than blowing the cap on the main line.
+
 ## Top-level structure
 
 Four top-level bullet items, not headings:
