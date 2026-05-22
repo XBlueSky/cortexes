@@ -179,22 +179,20 @@ Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the wee
 
 **Then, for surviving DM threads, resolve participants.** Each `chat_my_recent_activity` post carries a `channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate the thread's posts, collect distinct `creator_id` values that are not self, then call `chat_list_users` once per run to map ids → usernames. Cache the lookup table for the rest of the run.
 
-Surviving threads go into `inbound.` as:
+Surviving threads go into `inbound.`. **Bullet shape is defined in
+`references/draft-template.md` § `inbound.` chat rules.** Do not
+duplicate the shape here — formatting drift between SKILL.md and
+the template caused the 2026-05-22 GFM-rendering regression. Two
+load-bearing reminders that are easy to lose:
 
-```
-[chat: <channel-or-@username(s)>]: topic → 我的貢獻
-```
-
-- ChatPlus has no canonical thread URL exposed by the MCP — do **not** invent one. Use plain text `[chat: ...]` (no link).
-- Channel label rules (note: usernames are wrapped in backticks so GitLab does not ping the user when the report is pasted into a wiki / MR / issue):
-  - Public channel (`channel_name != ""`): `` [chat: <channel-name>] ``.
-  - 1:1 DM (exactly one non-self `creator_id` in the thread): `` [chat: `@username`] ``.
-  - Group DM with 2 other participants: `` [chat: `@user_a`, `@user_b`] ``.
-  - Group DM with 3 other participants: `` [chat: `@user_a`, `@user_b`, `@user_c`] ``.
-  - 4+ other participants: `` [chat: DM] `` (fall back; participant list too long to be useful).
-- `topic`: what the thread is about (very short).
-- `我的貢獻`: paraphrased one-clause summary of what the user contributed.
-- Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via `chat_list_users`) are allowed.
+- ChatPlus has no canonical thread URL exposed by the MCP — do
+  **not** invent one. The `[chat] …` bracket carries only the
+  source tag; no link.
+- Usernames are wrapped in single backticks so GitLab does not ping
+  the user when the report is pasted into a wiki / MR / issue.
+- Never include customer info or external personal identifiers
+  (phone numbers, emails, addresses). Internal Synology usernames
+  (resolved via `chat_list_users`) are allowed.
 
 ### Source G — MailPlus work mail
 
@@ -210,23 +208,25 @@ Procedure:
 
 **Then, for surviving 1-on-1 threads, resolve the counterparty.** Aggregate every distinct address across `From` and `To` headers in the thread (excluding the user's own address). If exactly one non-self address remains, extract `@username` (strip `<>` form, take the local-part of the email or the bracketed display name `@<id>` if MailPlus exposes one). If 2+ non-self addresses remain, treat as multi-recipient.
 
-Surviving threads go into `inbound.` as:
+Surviving threads go into `inbound.`. **Bullet shape is defined in
+`references/draft-template.md` § `inbound.` mail rules.** Two
+load-bearing reminders:
 
-```
-[mail: <subject>] (`@username`): topic → 我的回應    ← 1-on-1 thread
-[mail: <subject>]: topic → 我的回應                  ← multi-recipient / mailing list
-```
-
-- **Strip reply prefixes** (`Re:`, `Fwd:`, `RE:`, `FW:`, including repeated stacks like `Re: Re: Fwd:`) from `<subject>`.
-- MailPlus has no canonical public thread URL — do **not** invent one. Use plain text `[mail: ...]` (no link).
-- **Wrap `@username` in backticks** so GitLab does not turn it into a mention/notification when the weekly is pasted into a wiki / MR / issue.
-- `topic`: paraphrased thread subject / context.
-- `我的回應`: one-clause summary of what the user replied / decided / coordinated.
-- Never include customer info or external personal identifiers (phone numbers, emails, addresses). Internal Synology usernames (resolved via the From / To headers) are allowed.
+- **Strip reply prefixes** (`Re:`, `Fwd:`, `RE:`, `FW:`, including
+  repeated stacks like `Re: Re: Fwd:`) from `<subject>` before
+  emitting.
+- MailPlus has no canonical public thread URL — do **not** invent
+  one. The `[mail] …` bracket carries only the source tag; no link.
+- **Wrap `@username` in backticks** so GitLab does not turn it into
+  a mention/notification when the weekly is pasted into a wiki /
+  MR / issue.
+- Never include customer info or external personal identifiers
+  (phone numbers, emails, addresses). Internal Synology usernames
+  (resolved via the From / To headers) are allowed.
 
 ## Step 4: Merge and Deduplicate
 
-1. Start with Raw/ entries as the base
+1. Start with Source A Summary entries as the base
 2. For each GitLab MR, join to Source A summaries:
    - **Preferred: issue-aware join.** If the MR has a `Ref: KEY`
      trailer (or its repo is in `repo_issue_map` and only one
@@ -257,12 +257,12 @@ Surviving threads go into `inbound.` as:
 
 Four sections, selected primarily by **Workplus issue type**, not commit type. Commit type is a fallback only when no issue ref exists.
 
-| Section | Criteria |
-|---------|----------|
-| `fix.` | Self-authored MR whose Workplus issue has `type = BUG` (groups MRs by issue) |
-| `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` (groups MRs by issue) |
-| `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window |
-| `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) |
+| Section | Criteria | Layout |
+|---------|----------|--------|
+| `fix.` | Self-authored MR whose Workplus issue has `type = BUG` | Always flat — one MR per bullet, no Workplus-title group headings |
+| `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` | Multiple MRs sharing one issue → grouped under Workplus-title heading; single MR → flat bullet |
+| `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window | Flat list |
+| `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) | Flat list |
 
 ### Classification procedure
 
@@ -292,12 +292,13 @@ commit says `fix(...)`. Conversely, an MR with `fix:` commit title
 referencing a FEATURE issue goes to `feat.` — commit type is
 irrelevant to section selection.
 
-`fix.` is always flat (no group headings). Workplus-title group
-headings appear only in `feat.`.
+### Grouping rule (feat. only)
 
-### Grouping rule — same for `fix.` and `feat.`
+`fix.` is **always flat** — one bullet per MR, regardless of how
+many MRs share an issue. No Workplus-title group headings in
+`fix.`.
 
-Within `fix.` and `feat.`, MRs are grouped by Workplus issue:
+`feat.`-only: MRs are grouped by Workplus issue:
 
 - **Single MR in an issue** → flat one-line bullet:
   `- [mr-title](mr-url)` (no group heading, no description)
