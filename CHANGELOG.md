@@ -5,6 +5,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-05-22
+
+### Added
+- `weekly.repo_issue_map` config field (1:N repo → Workplus issue
+  mapping). Backward compatible — absent / empty defaults to no
+  promotion.
+- `cortex-distill` Step 5.6: judges which mapped issue a Raw
+  contributes to and writes `issue:` into Summary frontmatter
+  (optional 4th field).
+- `cortex-weekly` Step 5b: surfaces vault-only Workplus-tracked
+  progress as `<Workplus-title> - ([KEY](url)): <one-line>` under
+  `feat.` / `fix.`. Lets repos like morpheus (vault-only work,
+  no MR this week) appear in the right section instead of `misc.`.
+- Per-surface description budgets in `references/draft-template.md`:
+  `feat.` group-MR ≤40 chars, `misc.` tag ≤10, `inbound.` mail ≤30,
+  others ≤60. Trim weekly for team-meeting paste.
+
+### Changed
+- `cortex-weekly` Source A now reads `issue:` from Summary
+  frontmatter (when present).
+- `cortex-weekly` Step 4 prefers issue-aware MR ↔ Summary join,
+  falls back to repo + date when either side lacks the issue field.
+- `cortex-weekly` Step 5 classification: `repo_issue_map` is a
+  `Ref:` fallback; commit type explicitly does NOT decide section.
+- `cortex-weekly` Same-title MR dedup: when all cluster MRs share
+  the same effective issue AND that issue has a group heading, the
+  dedup bullet now sits **indented inside the group** instead of
+  flat at the section top level. Different-issue clusters still go
+  flat (current behaviour).
+- `[chat]` / `[mail]` brackets in `inbound.` no longer wrap the
+  subject — the bracket carries only the source tag, subject moves
+  outside. Fixes GFM reference-link-definition collision that
+  mangled rendering.
+- Same-topic chat thread dedup rule documented: 2+ threads on the
+  same topic collapse to one bullet listing all participants.
+
+### Notes
+- See `docs/specs/2026-05-22-weekly-skill-revision-design.md` for
+  full rationale and `docs/plans/2026-05-22-weekly-skill-revision.md`
+  for the per-task implementation history.
+- All new fields are optional; existing `~/.cortex/config.json`
+  files without `repo_issue_map` continue to work unchanged.
+
 ## [0.11.1] - 2026-05-18
 
 ### Fixed
