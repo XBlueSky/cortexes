@@ -179,12 +179,13 @@ about — work done, what shipped, non-obvious findings. Guideline:
 
 ### 5.5.2 Compose the frontmatter
 
-Fixed 3-field schema, no other fields:
+Fixed 4-field schema (one optional), no other fields:
 
 ```yaml
 ---
 raw: <vault-relative path to the source Raw file>
 repo: <value from Raw frontmatter `repo:` field, or `(none)` if absent>
+issue: <Workplus issue key (e.g. DSM-172916), only when distill judged a match — see Step 5.6>
 distilled: <today, YYYY-MM-DD>
 ---
 ```
