@@ -95,6 +95,27 @@ Rules (apply to both `fix.` and `feat.`):
 - Group includes **every** MR sharing the issue ref, regardless of individual commit type (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`). The Workplus issue type decides `fix.` vs `feat.`; the group pulls in all the MRs that serve that issue.
 - Prefix a group heading with `**[draft]** ` (bold, trailing space) when every MR in the group targets a repo listed in `weekly.experimental_repos`. Single-MR flat bullets are never draft-labelled.
 
+### Vault-only entry (no MR this week)
+
+When a repo in `weekly.repo_issue_map` has Summary entries this week
+but no merged MR ref'ing the issue, the weekly emits a one-line
+"vault-only" bullet under `feat.` (if Workplus type is FEATURE) or
+`fix.` (if BUG). The format extends the group-heading form with a
+trailing `: description`:
+
+````
+- feat.
+	- [webapi] morpheus: webapi http server framework - ([DSM-172916](url)): prefork worker SIGUSR1 死鎖加 setup_graceful_drain 修
+````
+
+Rules:
+- Same backtick-escape applies as for group headings — wrap the
+  title in backticks when it starts with `[` or contains `][`.
+- Description budget: ≤60 chars (see Description budgets).
+- The vault-only bullet co-exists with the MR-group form; visually
+  distinct by the trailing `: description`.
+- See `cortex-weekly` Step 5b for when this shape is emitted.
+
 ## `inbound.` — externally-initiated work this week
 
 ```
@@ -213,9 +234,16 @@ When 2+ MRs share an exact title within `fix.`, `feat.`, or `inbound.`, collapse
 
 Rules:
 - Plain-text title (not a link); each MR remains individually clickable.
-- Pair each MR with its own `Ref:` issue when present. If an MR has no `Ref:` trailer, drop only the `/ [KEY](url)` segment for that entry.
+- **Placement depends on issue distribution**:
+  - All cluster MRs share the same effective issue AND that issue
+    has a group heading → the dedup bullet sits **indented inside
+    the group**, with no per-MR `/ [KEY](url)` segments (the group
+    heading already carries the issue).
+  - Cluster MRs reference different issues (or some have no
+    effective issue) → the dedup bullet sits **flat at the section's
+    top level**, with each MR paired to its own `/ [KEY](url)` (drop
+    the segment when the MR has no effective issue).
 - Order MRs by `merged_at` ascending — master / earliest first; backports follow.
-- The dedup bullet sits at the section's top level. MRs that participate in dedup are pulled out of any Workplus-issue group they would otherwise belong to.
 - Single-MR cases (no duplicate title) are not affected — they keep `[title](url)` (with `/ [KEY](url)` if applicable).
 
 Worked example (`inbound.` cherry-pick cluster):
@@ -236,3 +264,20 @@ Worked example (`fix.` group with cross-issue cherry-picks):
 ```
 
 The dedup bullet sits alongside the regular issue group; it is not nested under any heading.
+
+Worked example (`feat.` group with same-issue dedup pulled inside):
+
+````
+- feat.
+	- NextGen-Web-Core - ([DSM-167678](https://workplus.synology.inc/key/DSM/issues/167678))
+		- [fix(vite): make AppId→chunk lookup 1-to-1](url): 加 schema version + 1-to-1 lookup 修白屏
+		- [revert(vite): drop ... template slot](url): importmap 必須最先 fetch、slot 害 module 被 ignore
+		- [feat(vite): add AllChunks tag for ...](url): 加 AllChunks tag 處理 no-app desktop CSS
+		- fix(renderer): route no-app desktop request through AllChunks — [!337](url)、[!20](url)
+````
+
+The last bullet is a same-title dedup (`!337` and `!20` both titled
+"fix(renderer): route no-app desktop request through AllChunks"),
+indented inside the NextGen-Web-Core group because both MRs ref
+DSM-167678. The per-MR `/ [DSM-167678](url)` segments are dropped
+since the group heading carries the issue.
