@@ -206,6 +206,41 @@ Create parent directories as needed (the Write tool handles this).
 The sidecar file is added to git in Step 8's `git add` list (see Step 8).
 No extra commit here.
 
+## Step 5.6: Judge Workplus Issue (optional)
+
+Skip this step when:
+
+- `~/.cortex/config.json` has no `weekly.repo_issue_map` field, OR
+- The Raw's `repo:` is not a key in the map, OR
+- The outcome is `pending-merge` or `skip-routine` (these don't get a
+  fresh Summary rewrite for issue judgment).
+
+Otherwise:
+
+1. Let `candidates = repo_issue_map[repo]` (a non-empty list).
+2. If `len(candidates) == 1`:
+   - `issue = candidates[0]` — no LLM call needed.
+3. Else (`len(candidates) >= 2`):
+   - Read the Raw body (the full `### User` / `### Claude` exchange,
+     not just the frontmatter).
+   - For each candidate key, fetch `workplus_get_issue(key).title`
+     (cache across distill runs in this batch).
+   - Prompt the LLM (one call): "Given the Raw body below and the
+     candidate Workplus issues with their titles, which single
+     candidate best fits this session's work? Reply with the issue
+     key or `null` if no candidate fits."
+   - `issue = LLM response` (either a key from `candidates` or `null`).
+4. Update the Summary sidecar's frontmatter:
+   - When `issue` is a key → write `issue: <KEY>`.
+   - When `issue` is `null` or step skipped → **omit** the `issue:`
+     field entirely (do not write `issue: null` or `issue: ""`).
+
+### Cost
+
+At most one extra LLM call per Raw, only for Raws whose `repo:` is
+in the map AND has 2+ candidates. Repos with 1 candidate take no
+extra LLM call.
+
 ## Step 6: Update Index (only for `new` outcome)
 
 Skip this step entirely for `pending-merge`, `skip-routine`, `no-insight`.
