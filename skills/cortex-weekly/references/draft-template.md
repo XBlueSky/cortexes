@@ -125,6 +125,20 @@ Rules:
   - Group DM with 2 other participants: `` [chat] `@user_a`、`@user_b`: topic → 我的貢獻 ``.
   - Group DM with 3 other participants: `` [chat] `@user_a`、`@user_b`、`@user_c`: topic → 我的貢獻 ``.
   - 4+ other participants: `` [chat] DM: topic → 我的貢獻 `` (fall back).
+- **Same-topic dedup across threads**: when 2+ chat threads cover
+  the same topic (judged by thread subject — e.g. multiple
+  conversations about the same CVE, the same MR, the same feature),
+  collapse them into one bullet listing all participants:
+
+  ```
+  - [chat] `@user_a`、`@user_b`: <topic> → 我的貢獻
+  ```
+
+  The order of usernames follows the chronological order of when
+  each thread started. The contribution clause merges the
+  user-facing answer across threads — don't repeat the same
+  technical point twice. Validation-only / acknowledgement-only
+  threads stay dropped (substance filter from Source F).
 - **MailPlus thread**: plain text, no URL. Strip `Re:` / `Fwd:` (and stacked variants) from `<subject>`. List only threads the user replied to in the Sent folder this week with substantive technical content. Drop HR / recruiting / calendar / mailing-list / pure-logistics replies.
   - 1-on-1 thread (one non-self address across all messages): `` [mail] <subject> (`@username`): topic → 我的回應 ``.
   - Multi-recipient / mailing list (2+ non-self addresses): `` [mail] <subject>: topic → 我的回應 ``.
