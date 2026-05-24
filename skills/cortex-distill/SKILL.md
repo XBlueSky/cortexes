@@ -60,8 +60,33 @@ vague statements like "fixed it" / "works now" / "tested successfully"
 without any mechanism / file / symbol / decision rationale anywhere in
 the body.
 
-- Yes → proceed to Step 3 (Stage 2).
-- No → `no-insight`, go to Step 5 (mark) + Step 7 (log).
+### Present judgment to user (mandatory)
+
+The `has_insight()` result above is a **candidate verdict**, not a
+dispatch decision. **Always present the candidate to the user and wait
+for confirmation**, even when the verdict feels obvious. The user's
+answer is binding regardless of the agent's tilt.
+
+Use `AskUserQuestion` with:
+
+- **Evidence**: 1–3 concrete excerpts from the Raw supporting the
+  candidate (file:line, ★ Insight callout, decision rationale, table,
+  etc.). When the candidate is `No`, note explicitly that no concrete
+  referent was found anywhere in the body.
+- **Candidate verdict**: `Yes (has insight)` or `No (no insight)`.
+- **Options**:
+  - `(y)es — agree with candidate`
+  - `(n)o — override to opposite`
+  - `(s)kip-routine — Raw not worth dedup nor recording` (use when the
+    Raw is essentially a tool-recap / git-log dump that technically
+    passed `has_insight` on a symbol but has no surrounding analysis)
+
+### Dispatch on user's answer
+
+- User confirms `Yes` → proceed to Step 3 (Stage 2).
+- User confirms `No` → `no-insight`, go to Step 5 (mark) + Step 7 (log).
+- User picks `skip-routine` → `skip-routine`, go to Step 5 + 7 + 8.
+  No broadcast prompt (Step 9 is skipped for skip-routine).
 
 ### Three-filter tags (categorization hint, not a gate)
 
@@ -109,22 +134,39 @@ Extract top-1 `score` from the JSON output.
 
 If `cortex-vec` is unavailable (command errors, ECONNREFUSED, etc.): treat as `score = 0.0`, log `dedup_top1: unavailable`, prefer false-positive `new` over losing the insight.
 
-### 3.3 Decide outcome
+### 3.3 Present score + candidate outcome to user (mandatory)
 
-| Condition | Outcome |
-|-----------|---------|
-| score < `dedup_threshold_new` | `new` |
-| `dedup_threshold_new` ≤ score < `dedup_threshold_pending` | interactive — ask user `(n)ew / (p)ending / (s)kip` |
-| score ≥ `dedup_threshold_pending` | `pending-merge` |
+**Always ask the user**, regardless of where score falls. The threshold
+table below degrades from gate to *candidate-outcome heuristic* — it
+shapes the recommendation the agent surfaces, but never decides
+unilaterally.
 
-**Escape hatch — `skip-routine`:** Independent of score. Triggered when Stage 1 passed on a symbol that turns out to be only a commit line with no surrounding analysis (e.g., a Raw that is essentially a git log dump plus a `"Discoveries"` bullet mentioning one file path). Use sparingly.
+Use `AskUserQuestion` with:
 
-### 3.4 Dispatch
+- **Score**: two decimals (e.g. `0.62`).
+- **Top-1 hit**: `[[wikilink]]` + ≤1-line excerpt from that page.
+- **Candidate outcome**: chosen per the heuristic table below.
+- **Options**: `(n)ew / (p)ending-merge / (s)kip-routine`.
 
-- `new` → go to Step 4 (create) + Step 5 + 6 + 7 + 8.
-- `pending-merge` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only. **Do not write any new file or touch existing pages.**
-- `skip-routine` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only.
-- Interactive: user's choice governs the branch above. Specifically: `(n)ew` → `new`, `(p)ending` → `pending-merge`, `(s)kip` → `skip-routine` (treat as escape-hatch equivalent; marker is `(skip: routine)`).
+| Score band | Candidate outcome to propose |
+|------------|------------------------------|
+| `score < dedup_threshold_new` | `new` (low overlap with existing pages) |
+| `dedup_threshold_new ≤ score < dedup_threshold_pending` | describe both `new` and `pending-merge` neutrally; no strong tilt |
+| `score ≥ dedup_threshold_pending` | `pending-merge` (strong overlap with top-1) |
+
+**When to tilt toward `skip-routine`** (independent of score): the Raw
+passed Stage 1 only because of an isolated symbol mention with no
+surrounding analysis — e.g., a git-log dump that happens to name a file
+path. Surface `(s)kip-routine` as a real candidate in such cases rather
+than forcing `new` / `pending-merge`.
+
+### 3.4 Dispatch on user's answer
+
+- `(n)ew` → go to Step 4 (create) + Step 5 + 6 + 7 + 8.
+- `(p)ending-merge` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only.
+  **Do not write any new file or touch existing pages.**
+- `(s)kip-routine` → skip Steps 4 and 6; go to Step 5 + 7 + 8 only.
+  Marker writes as `(skip: routine)`.
 
 ## Step 4: Create Refined Note
 
