@@ -333,38 +333,44 @@ git commit -m "distill: extract N entries from Raw"
 
 If `auto_push` is true in config: `git push`.
 
-## Step 9: Ask — Broadcast Now?
+## Step 9: Broadcast (always, inline)
 
-For each Raw where the terminal outcome was `new` or `pending-merge` (i.e.,
-broadcast-eligible), prompt the user once before moving to the next Raw:
+For each Raw whose terminal outcome was `new` or `pending-merge`,
+**dispatch to the `cortex-broadcast` skill inline** immediately after
+Step 8's commit. Do not prompt the user — every broadcast-eligible Raw
+is broadcast.
+
+Announce before dispatching:
 
 ```
-Raw <filename> processed (outcome: <outcome>). Broadcast now? (y/n/l)
-  y = enter broadcast conversation immediately
-  n = decline (mark as no-broadcast; will not re-prompt later)
-  l = later (stays in broadcast-eligible queue)
+Dispatching broadcast for <raw-filename>...
 ```
 
-### Dispatch
+When broadcast completes, return here and move to the next unprocessed
+Raw.
 
-- **y** → dispatch to the `cortex-broadcast` skill for this single Raw. When
-  broadcast completes, return here and move to the next unprocessed Raw.
-- **l** → no action. The Raw's Phase 1 marker is unchanged; it is
-  automatically eligible for later `/cortex:broadcast` invocation.
-- **n** → append a terminal segment to the Raw's marker using the Edit
-  tool. Transform:
-  - `<!-- distilled: YYYY-MM-DD → <path> -->`
-    becomes
-    `<!-- distilled: YYYY-MM-DD → <path> | no-broadcast: <today> -->`
-  - `<!-- distilled: YYYY-MM-DD → pending-merge: <path> (<score>) -->`
-    becomes
-    `<!-- distilled: YYYY-MM-DD → pending-merge: <path> (<score>) | no-broadcast: <today> -->`
+For outcomes `skip-routine` and `no-insight`, broadcast is skipped by
+definition (those Raws are ineligible).
 
-Date format: `YYYY-MM-DD`.
+### Escape hatch lives inside broadcast, not here
 
-For outcomes `skip-routine` and `no-insight`, do not prompt — those Raws
-are ineligible by definition.
+The broadcast skill carries its own abort semantics — there is no gate
+at this layer:
 
-If the `n` path ran, stage the Raw and amend into the existing batch commit
-for this distill run (or, if the commit already closed, make a follow-up
-commit `chore(distill): record no-broadcast declines`).
+- Inside broadcast Step 7 (candidate menu): user types `quit` to abort
+  before any page commits. The Raw stays in the broadcast-eligible
+  queue (no `| broadcast:` marker is written), so it can be picked up
+  by a future standalone `/cortex:broadcast` run.
+- Inside broadcast Step 8 (per-page conversation): user types `abort`
+  / `cancel` to end the session. Prior committed pages stand; the Raw
+  marker is left unchanged.
+
+To opt out entirely at the very first prompt broadcast surfaces, the
+user just types `quit` at the Step 7 menu.
+
+### Backward compatibility
+
+Raws historically marked `| no-broadcast: <date>` (from the previous
+prompt-based gate design) are still filtered out by cortex-broadcast
+Step 2's queue builder. This skill no longer produces that marker, but
+it remains a recognized legacy opt-out signal.

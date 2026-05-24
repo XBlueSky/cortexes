@@ -5,7 +5,7 @@ description: >
   pages when a Raw has been distilled. Use when the user says "broadcast",
   "跑 broadcast", "compound this into the vault", "merge pending-merge",
   "process broadcast queue", or when cortex-distill invokes broadcast inline
-  after a per-Raw prompt (y/later answer).
+  after Step 8 commit (automatic dispatch for every new / pending-merge Raw).
 ---
 
 # Cortex Broadcast — Compounding Ingest
@@ -325,13 +325,16 @@ git commit -m "broadcast: finalize <raw-filename>"
 
 ## Step 10: Offer Next Raw
 
-The calling distill skill (when invoking broadcast via the inline `y` path) passes
-a conventional signal — either a positional argument or an environment hint — that
-tells this skill it is running in inline mode. If unclear, assume inline mode when
-dispatched from within an active distill session and standalone mode when invoked
-from a fresh `/cortex:broadcast` shell.
+Detect the invocation mode:
 
-If:
+- **Inline mode**: dispatched from within an active cortex-distill session
+  (Step 9 dispatches broadcast for every new / pending-merge Raw
+  automatically). Return cleanly to the distill flow when finalized —
+  do not prompt for next Raw; distill manages its own iteration.
+- **Standalone mode**: invoked by `/cortex:broadcast` (with or without
+  args) from a fresh shell — i.e., not from within distill.
+
+In standalone mode, if:
 
 - Skill was invoked by `/cortex:broadcast` without args, AND
 - The eligible queue still has entries after this run,
@@ -344,6 +347,3 @@ Process next eligible Raw (<count> remaining)? (y/n)
 
 - `y` → return to Step 4 with next queue entry.
 - `n` → exit with summary: "Broadcast session complete. <M> Raws processed."
-
-If invoked via distill inline (spec Section 2 `y` answer), do not ask.
-Return cleanly to distill flow.
