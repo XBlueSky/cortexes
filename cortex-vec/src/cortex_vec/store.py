@@ -11,7 +11,8 @@ import os
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
-from .config import COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
+from .bm25 import BM25Index
+from .config import BM25_DIR, COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
 from .parser import classify_path, extract_summary, parse_document
 
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -141,6 +142,15 @@ def cmd_status(_args):
         bodies = 0
         summaries = 0
 
+    try:
+        bm25_index = BM25Index(BM25_DIR)
+        bm25_index.load()
+        bm25_count = bm25_index.count()
+    except Exception:
+        bm25_count = 0
+    print(f"BM25:       {bm25_count} notes")
+    if total and not bm25_count:
+        print("  WARNING: BM25 index empty — run rebuild", file=sys.stderr)
     print(f"Collection: {COLLECTION_NAME}")
     print(f"Entries:    {total} ({bodies} body + {summaries} summary)")
     print(f"Embedding:  {EMBEDDING_MODEL} (OpenAI)")
@@ -162,6 +172,7 @@ def cmd_rebuild(_args):
     col = get_collection(client)
     scan_dirs = ["Notes", "Projects"]
     doc_count = 0
+    bm25_docs = []
 
     for scan_dir in scan_dirs:
         scan_path = vault / scan_dir
@@ -175,6 +186,7 @@ def cmd_rebuild(_args):
 
             text = md_file.read_text(encoding="utf-8", errors="replace")
             fm, body = parse_document(text)
+            bm25_docs.append(bm25_doc_from_fields(rel_path, fm, body))
 
             doc_type, category = classify_path(rel_path)
             title = fm.get("title", md_file.stem)
@@ -219,6 +231,10 @@ def cmd_rebuild(_args):
                 )
                 doc_count += 1
 
+    bm25_index = BM25Index(BM25_DIR)
+    bm25_index.build_from_docs(bm25_docs)
+    bm25_index.save()
+    print(f"BM25: {bm25_index.count()} notes indexed")
     print(f"Rebuilt: {doc_count} documents indexed")
 
 
@@ -280,6 +296,13 @@ def cmd_upsert(args):
             metadatas=[summary_metadata],
         )
 
+    bm25_index = BM25Index(BM25_DIR)
+    try:
+        bm25_index.load()
+    except FileNotFoundError:
+        bm25_index.build_from_docs([])
+    bm25_index.upsert(bm25_doc_from_fields(rel_path, fm, body))
+    bm25_index.save()
     print(f"Upserted: {rel_path}")
 
 
@@ -293,6 +316,14 @@ def cmd_delete(args):
     if not stale:
         print(f"Not found: {rel_path}", file=sys.stderr)
         sys.exit(1)
+
+    bm25_index = BM25Index(BM25_DIR)
+    try:
+        bm25_index.load()
+        bm25_index.delete(rel_path)
+        bm25_index.save()
+    except FileNotFoundError:
+        pass
 
     print(f"Deleted: {len(stale)} entries for {rel_path}")
 
@@ -310,6 +341,25 @@ def _build_where(repo=None, type=None, category=None):
     if len(clauses) > 1:
         return {"$and": clauses}
     return None
+
+
+def bm25_doc_from_fields(rel_path, fm, body):
+    """Build a BM25 doc record dict from a parsed note."""
+    doc_type, category = classify_path(rel_path)
+    repos_str = fm.get("repos", "")
+    repos = [r.strip() for r in repos_str.split(",") if r.strip()] if repos_str else []
+    if doc_type == "project" and category and category not in repos:
+        repos.insert(0, category)
+    return {
+        "id": rel_path,
+        "title": fm.get("title", rel_path.rsplit("/", 1)[-1].removesuffix(".md")),
+        "body": body,
+        "summary": extract_summary(body),
+        "tags": fm.get("tags", ""),
+        "repos": repos,
+        "type": doc_type,
+        "category": category,
+    }
 
 
 def vector_stream(query, n, where=None):
