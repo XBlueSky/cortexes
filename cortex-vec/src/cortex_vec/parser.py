@@ -59,3 +59,19 @@ def classify_path(rel_path):
     elif top == "Raw":
         return "raw", ""
     return "unknown", ""
+
+
+_WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
+
+
+def extract_wikilinks(text):
+    """Return unique wikilink targets from text. Strips surrounding whitespace
+    and drops any `|alias` suffix (Obsidian alias syntax)."""
+    targets = []
+    seen = set()
+    for raw in _WIKILINK_RE.findall(text):
+        target = raw.split("|", 1)[0].strip()
+        if target and target not in seen:
+            seen.add(target)
+            targets.append(target)
+    return targets
