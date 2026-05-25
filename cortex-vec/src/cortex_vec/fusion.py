@@ -106,10 +106,13 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
 
     ranked = {}
     display = {}
+    vec_score = {}  # doc_id -> vector cosine similarity (interpretable, 0-1)
     for name in _STREAM_ORDER:
         items = streams.get(name) or []
         for rank, item in enumerate(items):
             ranked.setdefault(name, []).append((item["id"], rank))
+            if name == "vector":
+                vec_score[item["id"]] = item.get("score", 0.0)
             disp = display.setdefault(item["id"], {})
             for key, val in item.items():
                 if key == "score":
@@ -127,10 +130,14 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
     take = max(n, rc["rerank_window"]) if use_rerank else n
 
     out = []
-    for doc_id, score in fused[:take]:
+    for doc_id, _rrf in fused[:take]:
         entry = dict(display.get(doc_id, {}))
         entry["id"] = doc_id
-        entry["score"] = round(score, 6)
+        # `score` reports the vector cosine similarity (0-1, interpretable) so
+        # absolute-threshold consumers (distill/broadcast dedup) keep working.
+        # RRF only determines ORDER (already baked into `fused`). bm25-only hits
+        # have no cosine score -> 0.0.
+        entry["score"] = round(vec_score.get(doc_id, 0.0), 4)
         out.append(entry)
 
     if use_rerank:

@@ -70,3 +70,18 @@ def test_degrades_to_bm25_when_no_api_key(monkeypatch):
     out = fusion.search("oom", n=5)
     assert out  # bm25-only results
     assert "Notes/Linux/oom.md" in [o["id"] for o in out]
+
+
+def test_score_is_vector_cosine_not_rrf(monkeypatch):
+    # Regression: the output `score` must stay the vector cosine similarity
+    # (0-1 scale that distill/broadcast dedup thresholds are calibrated for),
+    # NOT the tiny RRF fusion score (~0.01). RRF only orders results.
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec_items())
+    monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    out = fusion.search("nginx 憑證", n=5)
+    by_id = {o["id"]: o["score"] for o in out}
+    # vector hit keeps its cosine similarity (0.9), not an RRF score
+    assert by_id["Notes/Nginx/cert-renew.md"] == 0.9
+    # bm25-only hit has no cosine score -> 0.0
+    assert by_id["Notes/Linux/oom.md"] == 0.0
