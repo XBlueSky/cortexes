@@ -297,6 +297,68 @@ def cmd_delete(args):
     print(f"Deleted: {len(stale)} entries for {rel_path}")
 
 
+def _build_where(repo=None, type=None, category=None):
+    clauses = []
+    if repo:
+        clauses.append({"repo": repo})
+    if type:
+        clauses.append({"type": type})
+    if category:
+        clauses.append({"category": category})
+    if len(clauses) == 1:
+        return clauses[0]
+    if len(clauses) > 1:
+        return {"$and": clauses}
+    return None
+
+
+def vector_stream(query, n, where=None):
+    """Vector retrieval stream: dedup by base path, return display dicts sorted desc.
+
+    Returns the full deduped list (not sliced to n) so the fusion layer can rank it.
+    """
+    from pathlib import Path
+
+    client = get_client()
+    col = get_collection(client)
+    vault = get_vault_path()
+
+    kwargs = {
+        "query_texts": [query],
+        "n_results": n * 3,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if where:
+        kwargs["where"] = where
+
+    results = col.query(**kwargs)
+    docs = results["documents"][0]
+    metas = results["metadatas"][0]
+    dists = results["distances"][0]
+
+    seen = {}
+    for doc, meta, dist in zip(docs, metas, dists):
+        score = round(1 - dist, 4)
+        source = meta.get("source_path", "")
+        try:
+            rel_id = str(Path(source).relative_to(vault))
+        except (ValueError, TypeError):
+            rel_id = source
+        base = _base_path(rel_id)
+        if base not in seen or score > seen[base]["score"]:
+            seen[base] = {
+                "id": base,
+                "score": score,
+                "title": meta.get("title", ""),
+                "type": meta.get("type", ""),
+                "repo": meta.get("repo", ""),
+                "category": meta.get("category", ""),
+                "tags": meta.get("tags", ""),
+                "summary": extract_summary(doc),
+            }
+    return sorted(seen.values(), key=lambda x: -x["score"])
+
+
 def cmd_search(args):
     """Semantic search across the vault."""
     import json
