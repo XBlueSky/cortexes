@@ -24,7 +24,7 @@ class _FakeBM25:
     def load(self):
         pass
 
-    def search(self, query, n, where=None):
+    def search(self, query, n, where=None, synonym_weight=0.0):
         return _bm25_items()
 
 

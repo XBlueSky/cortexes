@@ -26,13 +26,13 @@ def rrf_fuse(ranked, weights, k=60):
     return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
 
 
-def _bm25_stream(query, n, where):
+def _bm25_stream(query, n, where, synonym_weight=0.0):
     """Load the persisted BM25 index and search; return [] on any failure."""
     from . import bm25
     try:
         idx = bm25.BM25Index(BM25_DIR)
         idx.load()
-        return idx.search(query, n, where)
+        return idx.search(query, n, where, synonym_weight=synonym_weight)
     except Exception:
         return []
 
@@ -66,7 +66,7 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True):
     if use_vector:
         streams["vector"] = _vector_stream(query, n, where)
     if use_bm25:
-        streams["bm25"] = _bm25_stream(query, n, where)
+        streams["bm25"] = _bm25_stream(query, n, where, synonym_weight=rc["synonym_weight"])
 
     ranked = {}
     display = {}
