@@ -144,7 +144,7 @@ log.md                         ← evolve/distill 的時序歷程
 ## cortex-vec CLI
 
 Vault 的語意索引工具，用 ChromaDB + OpenAI `text-embedding-3-small`，搭配
-`gpt-4o-mini` 產雙語 summary 作為第二組 embedding（dual-vector）以提升中英混合
+`gpt-5.4-mini` 產雙語 summary 作為第二組 embedding（dual-vector）以提升中英混合
 查詢的 recall。
 
 ```bash
@@ -184,6 +184,66 @@ cortex-vec eval run \
 
 支援的 adapter：`grep` / `vector` / `bm25` / `hybrid`。
 評測指標：P@5 / R@5 / MRR / hit。
+
+### 進階檢索（Plan 2，預設關閉）
+
+以下四項增強功能預設全部關閉，需明確設定才會啟用。**開啟前後請務必用 `cortex-vec eval run` 量測 P@5 / R@5 / MRR 的 lift**，再決定哪些值得設為預設開啟、哪些應該回退。
+
+#### Synonym 展開
+
+由 config `retrieval.synonym_weight`（`0` = 關閉；建議試 `0.7`）控制。BM25 流會把命中同義詞的文件以該權重加分，讓「OAuth」可以命中「SSO / 授權 / auth」等同義詞。
+
+同義詞表位於 `cortex-vec/src/cortex_vec/synonyms.py`（內含 Synology 黑話 + 常見中英技術詞），可自行擴充。
+
+#### Wikilink graph-boost
+
+透過 `cortex-vec search --graph`（或 config `retrieval.graph: true`）啟用。利用 vault 既有的 `[[wikilinks]]` 把「命中結果的鄰居頁面」加分，讓相關聯的筆記更容易浮現。
+
+可調整的細部參數：`retrieval.graph_hops`（傳播跳數）、`retrieval.graph_weight`（加權強度）、`retrieval.graph_top_k`（取前幾筆命中當作 BFS 種子，從這些種子的鄰居加分；非最終回傳筆數）。
+
+> **注意**：`graph_weight` 預設 `0.1`，相對 RRF 分數（量級約 0.01）偏強，實際效果因 vault 結構而異，請以 eval 結果為準再調整。
+
+#### LLM rerank
+
+透過 `cortex-vec search --rerank`（或 config `retrieval.rerank: true`）啟用。對初步 hybrid 結果的前 `retrieval.rerank_window`（預設 15）筆，呼叫 OpenAI（model 由 `retrieval.rerank_model` 指定，預設 `gpt-5.4-mini`）重新排序，以 LLM 判斷相關性取代純分數排名。任何失敗（API error / timeout）均自動回退原 RRF 順序，不影響搜尋可用性。
+
+#### max-per-repo 多樣化
+
+由 config `retrieval.max_per_repo`（`0` = 不限）控制，限制同一 repo 在前 k 結果中最多出現幾筆，避免某個大型 repo 淹沒其他來源的結果。
+
+#### 完整 `retrieval` 設定範例
+
+以下為 `~/.cortex/config.json` 中 `retrieval` 區塊的所有 Plan 2 新鍵與其預設值：
+
+```json
+{
+  "retrieval": {
+    "synonym_weight": 0,
+    "graph": false,
+    "graph_hops": 1,
+    "graph_weight": 0.1,
+    "graph_top_k": 5,
+    "rerank": false,
+    "rerank_model": "gpt-5.4-mini",
+    "rerank_window": 15,
+    "max_per_repo": 0
+  }
+}
+```
+
+搭配 CLI flag 的用法：
+
+```bash
+# 開啟 graph-boost + rerank（一次性測試）
+cortex-vec search "OAuth token" --graph --rerank
+
+# 設定 synonym_weight 後跑 eval 確認 lift
+cortex-vec eval run \
+  --queries eval-data/cortex-vault-v1.jsonl \
+  --adapters hybrid \
+  --k 5 \
+  --out docs/benchmarks/$(date +%Y-%m-%d)-synonym-0.7.md
+```
 
 ## Configuration
 
