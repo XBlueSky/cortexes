@@ -2,7 +2,7 @@
 import os
 
 from . import store
-from .config import BM25_DIR, get_retrieval_config
+from .config import BM25_DIR, get_retrieval_config, get_vault_path
 
 
 def rrf_fuse(ranked, weights, k=60):
@@ -53,6 +53,20 @@ def _vector_stream(query, n, where):
 _STREAM_ORDER = ("vector", "bm25")
 
 
+def _graph_boost(fused, rc):
+    """Boost fused candidates by wikilink proximity to the top hits. Returns
+    fused unchanged on any failure (e.g. vault not configured)."""
+    from . import graph as graph_mod
+    try:
+        adjacency = graph_mod.build_graph(get_vault_path())
+        return graph_mod.boost(
+            fused, adjacency,
+            top_k=rc["graph_top_k"], hops=rc["graph_hops"], weight=rc["graph_weight"],
+        )
+    except (Exception, SystemExit):
+        return fused
+
+
 def _diversify(fused, display, max_per_repo):
     """Cap results per repo: keep best-`max_per_repo` per repo first, then append
     the rest in original order (nothing dropped, only reordered). 0 = no-op.
@@ -75,7 +89,7 @@ def _diversify(fused, display, max_per_repo):
     return primary + overflow
 
 
-def search(query, n=5, where=None, use_bm25=True, use_vector=True):
+def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, rerank=None):
     """Hybrid search entry point. Returns up to n display dicts (best-first).
 
     Gracefully degrades: if a stream errors or is disabled, the other carries
@@ -104,6 +118,9 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True):
                     disp[key] = val
 
     fused = rrf_fuse(ranked, weights, k=rc["rrf_k"])
+    use_graph = rc["graph"] if graph is None else graph
+    if use_graph:
+        fused = _graph_boost(fused, rc)
     fused = _diversify(fused, display, rc["max_per_repo"])
 
     out = []
