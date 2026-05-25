@@ -53,6 +53,28 @@ def _vector_stream(query, n, where):
 _STREAM_ORDER = ("vector", "bm25")
 
 
+def _diversify(fused, display, max_per_repo):
+    """Cap results per repo: keep best-`max_per_repo` per repo first, then append
+    the rest in original order (nothing dropped, only reordered). 0 = no-op.
+    Docs with an empty repo are never capped.
+    """
+    if not max_per_repo:
+        return fused
+    counts = {}
+    primary, overflow = [], []
+    for doc_id, score in fused:
+        repo = (display.get(doc_id) or {}).get("repo", "")
+        if not repo:
+            primary.append((doc_id, score))
+            continue
+        if counts.get(repo, 0) < max_per_repo:
+            counts[repo] = counts.get(repo, 0) + 1
+            primary.append((doc_id, score))
+        else:
+            overflow.append((doc_id, score))
+    return primary + overflow
+
+
 def search(query, n=5, where=None, use_bm25=True, use_vector=True):
     """Hybrid search entry point. Returns up to n display dicts (best-first).
 
@@ -82,6 +104,7 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True):
                     disp[key] = val
 
     fused = rrf_fuse(ranked, weights, k=rc["rrf_k"])
+    fused = _diversify(fused, display, rc["max_per_repo"])
 
     out = []
     for doc_id, score in fused[:n]:
