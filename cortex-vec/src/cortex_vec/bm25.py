@@ -79,8 +79,13 @@ class BM25Index:
             self.docs = pickle.load(f)
         self._reindex()
 
-    def search(self, query, n=5, where=None):
-        """Return up to n display dicts, best-first, filtered by `where`."""
+    def search(self, query, n=5, where=None, synonym_weight=0.0):
+        """Return up to n display dicts, best-first, filtered by `where`.
+
+        If synonym_weight > 0, synonym tokens (from synonyms.synonyms_for) are
+        scored separately and added at the given weight, and are also admitted
+        to the token-overlap gate so synonym-only matches can surface.
+        """
         if not self.docs:
             return []
         if self._bm25 is None:
@@ -88,6 +93,12 @@ class BM25Index:
         q_toks = tokenize(query)
         q_tokens = set(q_toks)
         scores = self._bm25.get_scores(q_toks)
+        if synonym_weight > 0:
+            from .synonyms import synonyms_for
+            syn_toks = synonyms_for(q_toks)
+            if syn_toks:
+                scores = scores + synonym_weight * self._bm25.get_scores(syn_toks)
+                q_tokens |= set(syn_toks)
         ranked = sorted(
             zip(self.docs, scores), key=lambda pair: pair[1], reverse=True
         )
