@@ -410,75 +410,22 @@ def vector_stream(query, n, where=None):
 
 
 def cmd_search(args):
-    """Semantic search across the vault."""
+    """Hybrid search across the vault (vector + BM25, RRF-fused)."""
     import json
-    from pathlib import Path
 
-    client = get_client()
-    col = get_collection(client)
-    vault = get_vault_path()
+    from . import fusion
 
-    query = args.query
-    n = args.n or 5
-
-    where_clauses = []
-    if args.repo:
-        where_clauses.append({"repo": args.repo})
-    if args.type:
-        where_clauses.append({"type": args.type})
-    if args.category:
-        where_clauses.append({"category": args.category})
-
-    where = None
-    if len(where_clauses) == 1:
-        where = where_clauses[0]
-    elif len(where_clauses) > 1:
-        where = {"$and": where_clauses}
-
-    # Request extra results to account for deduplication
-    kwargs = {
-        "query_texts": [query],
-        "n_results": n * 3,
-        "include": ["documents", "metadatas", "distances"],
-    }
-    if where:
-        kwargs["where"] = where
-
-    try:
-        results = col.query(**kwargs)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    docs = results["documents"][0]
-    metas = results["metadatas"][0]
-    dists = results["distances"][0]
-
-    # Deduplicate: keep highest score per base path
-    seen = {}
-    for doc, meta, dist in zip(docs, metas, dists):
-        score = round(1 - dist, 4)
-        source = meta.get("source_path", "")
-        try:
-            rel_id = str(Path(source).relative_to(vault))
-        except (ValueError, TypeError):
-            rel_id = source
-
-        base = _base_path(rel_id)
-        if base not in seen or score > seen[base]["score"]:
-            seen[base] = {
-                "id": base,
-                "score": score,
-                "title": meta.get("title", ""),
-                "type": meta.get("type", ""),
-                "repo": meta.get("repo", ""),
-                "category": meta.get("category", ""),
-                "tags": meta.get("tags", ""),
-                "summary": extract_summary(doc),
-            }
-
-    # Sort by score descending and limit to n
-    deduped = sorted(seen.values(), key=lambda x: -x["score"])[:n]
-
-    for entry in deduped:
+    where = _build_where(
+        repo=getattr(args, "repo", None),
+        type=getattr(args, "type", None),
+        category=getattr(args, "category", None),
+    )
+    results = fusion.search(
+        args.query,
+        n=args.n or 5,
+        where=where,
+        use_bm25=not getattr(args, "no_bm25", False),
+        use_vector=not getattr(args, "no_vector", False),
+    )
+    for entry in results:
         print(json.dumps(entry, ensure_ascii=False))

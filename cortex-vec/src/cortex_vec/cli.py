@@ -25,6 +25,16 @@ def main():
     p_search.add_argument("--type", help="Filter by type (note/project/weekly)")
     p_search.add_argument("--category", help="Filter by category")
     p_search.add_argument("--n", type=int, default=5, help="Number of results")
+    p_search.add_argument("--no-bm25", action="store_true", help="Disable BM25 stream")
+    p_search.add_argument("--no-vector", action="store_true", help="Disable vector stream")
+
+    p_eval = sub.add_parser("eval", help="Run retrieval eval / propose queries")
+    p_eval.add_argument("action", choices=["run", "propose"], help="run scorecard or propose queries")
+    p_eval.add_argument("--queries", required=True, help="Path to queries.jsonl")
+    p_eval.add_argument("--adapters", default="grep,vector,bm25,hybrid",
+                        help="Comma-separated adapters to run")
+    p_eval.add_argument("--k", type=int, default=5, help="Cutoff K")
+    p_eval.add_argument("--out", help="Scorecard output path (markdown)")
 
     args = parser.parse_args()
 
@@ -35,12 +45,17 @@ def main():
     # Lazy import: chromadb (~2.7s) only loaded when store is needed
     from . import store
 
+    def _dispatch_eval(args):
+        from .eval import run
+        run.dispatch(args)
+
     commands = {
         "status": store.cmd_status,
         "rebuild": store.cmd_rebuild,
         "upsert": store.cmd_upsert,
         "delete": store.cmd_delete,
         "search": store.cmd_search,
+        "eval": _dispatch_eval,
     }
 
     commands[args.command](args)
