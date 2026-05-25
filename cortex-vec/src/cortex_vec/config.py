@@ -11,10 +11,20 @@ SUMMARY_MODEL = "gpt-5.4-mini"
 BM25_DIR = Path.home() / ".cortex" / "bm25"
 
 _RETRIEVAL_DEFAULTS = {
+    # Plan 1
     "rrf_k": 60,
     "w_bm25": 0.4,
     "w_vec": 0.6,
     "max_per_repo": 0,
+    # Plan 2
+    "synonym_weight": 0.0,      # 0 = synonym expansion off
+    "graph": False,
+    "graph_hops": 1,
+    "graph_weight": 0.1,
+    "graph_top_k": 5,
+    "rerank": False,
+    "rerank_model": "gpt-5.4-mini",
+    "rerank_window": 15,
 }
 
 
