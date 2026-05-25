@@ -48,3 +48,43 @@ def build_graph(vault):
 
     _cache[key] = adjacency
     return adjacency
+
+
+def _bfs_neighbors(adjacency, seeds, hops):
+    """Return {base_path: distance} reachable within `hops` from seeds (excluding seeds)."""
+    frontier = set(seeds)
+    visited = set(seeds)
+    dist = {}
+    for d in range(1, hops + 1):
+        nxt = set()
+        for node in frontier:
+            for nb in adjacency.get(node, ()):
+                if nb not in visited:
+                    visited.add(nb)
+                    dist[nb] = d
+                    nxt.add(nb)
+        frontier = nxt
+        if not frontier:
+            break
+    return dist
+
+
+def boost(fused, adjacency, top_k=5, hops=1, weight=0.1):
+    """Boost candidates that are wikilink-neighbors of the top-`top_k` hits.
+
+    fused: [(doc_id, score)] best-first. Only candidates already in `fused` are
+    boosted (no new docs introduced). Boost = weight / distance. Re-sorted.
+    """
+    if not fused or weight <= 0:
+        return fused
+    seeds = [doc_id for doc_id, _ in fused[:top_k]]
+    dist = _bfs_neighbors(adjacency, seeds, hops)
+    if not dist:
+        return fused
+    boosted = []
+    for doc_id, score in fused:
+        if doc_id in dist:
+            score = score + weight / dist[doc_id]
+        boosted.append((doc_id, score))
+    boosted.sort(key=lambda kv: kv[1], reverse=True)
+    return boosted
