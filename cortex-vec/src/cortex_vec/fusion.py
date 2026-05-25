@@ -123,10 +123,18 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
         fused = _graph_boost(fused, rc)
     fused = _diversify(fused, display, rc["max_per_repo"])
 
+    use_rerank = rc["rerank"] if rerank is None else rerank
+    take = max(n, rc["rerank_window"]) if use_rerank else n
+
     out = []
-    for doc_id, score in fused[:n]:
+    for doc_id, score in fused[:take]:
         entry = dict(display.get(doc_id, {}))
         entry["id"] = doc_id
         entry["score"] = round(score, 6)
         out.append(entry)
-    return out
+
+    if use_rerank:
+        from . import rerank as rerank_mod
+        out = rerank_mod.rerank(query, out, model=rc["rerank_model"], window=rc["rerank_window"])
+
+    return out[:n]
