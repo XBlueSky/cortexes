@@ -1,4 +1,6 @@
 """Hybrid retrieval: RRF fusion of vector + BM25 streams."""
+import os
+
 from . import store
 from .config import BM25_DIR, get_retrieval_config
 
@@ -36,6 +38,11 @@ def _bm25_stream(query, n, where):
 
 
 def _vector_stream(query, n, where):
+    # No API key -> embeddings unavailable; skip vector so the query degrades to
+    # BM25-only. (The embedding fn hard-exits via sys.exit on a missing key, and
+    # SystemExit is not caught by `except Exception`, so we must check up front.)
+    if not os.environ.get("OPENAI_API_KEY"):
+        return []
     try:
         return store.vector_stream(query, n, where)
     except Exception:

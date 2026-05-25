@@ -139,7 +139,7 @@ log.md                         ← evolve/distill 的時序歷程
 
 其他分層：
 
-3. **Raw Search**（按需）— 只在追溯時查詢原始 session 記錄
+1. **Raw Search**（按需）— 只在追溯時查詢原始 session 記錄
 
 ## cortex-vec CLI
 
@@ -209,7 +209,7 @@ cortex-vec eval run \
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key，用於 text-embedding-3-small |
+| `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
 | `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
 
 ## Dependencies

@@ -29,6 +29,7 @@ class _FakeBM25:
 
 
 def test_hybrid_merges_both(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec_items())
     monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
     out = fusion.search("nginx 憑證", n=5)
@@ -40,6 +41,7 @@ def test_hybrid_merges_both(monkeypatch):
 
 
 def test_degrades_to_bm25_when_vector_raises(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     def _boom(*a, **k):
         raise RuntimeError("no OPENAI_API_KEY")
     monkeypatch.setattr(store, "vector_stream", _boom)
@@ -50,7 +52,21 @@ def test_degrades_to_bm25_when_vector_raises(monkeypatch):
 
 
 def test_no_bm25_flag(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec_items())
     monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
     out = fusion.search("nginx", n=5, use_bm25=False)
     assert [o["id"] for o in out] == ["Notes/Nginx/cert-renew.md"]
+
+
+def test_degrades_to_bm25_when_no_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    def _should_not_be_called(*a, **k):
+        raise AssertionError("vector_stream must not be called when API key is absent")
+
+    monkeypatch.setattr(store, "vector_stream", _should_not_be_called)
+    monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    out = fusion.search("oom", n=5)
+    assert out  # bm25-only results
+    assert "Notes/Linux/oom.md" in [o["id"] for o in out]
