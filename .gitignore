@@ -10,6 +10,7 @@ _index.md
 # Python build artifacts from cortex-vec
 __pycache__/
 *.pyc
+*.egg-info/
 
 # Working design / plan notes for this branch — should not enter the repo
 docs/specs/2026-05-22-weekly-skill-revision-design.md
