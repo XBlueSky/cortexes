@@ -6,7 +6,8 @@ from cortex_vec import store, fusion
 def test_cmd_search_uses_fusion(monkeypatch, capsys):
     captured = {}
 
-    def fake_search(query, n=5, where=None, use_bm25=True, use_vector=True):
+    def fake_search(query, n=5, where=None, use_bm25=True, use_vector=True,
+                    rerank=None, graph=None):
         captured["query"] = query
         captured["where"] = where
         captured["use_bm25"] = use_bm25
@@ -28,7 +29,8 @@ def test_cmd_search_uses_fusion(monkeypatch, capsys):
 def test_cmd_search_no_bm25_flag(monkeypatch, capsys):
     seen = {}
     monkeypatch.setattr(fusion, "search",
-                        lambda query, n=5, where=None, use_bm25=True, use_vector=True:
+                        lambda query, n=5, where=None, use_bm25=True, use_vector=True,
+                               rerank=None, graph=None:
                         seen.update(use_bm25=use_bm25) or [])
     args = SimpleNamespace(query="x", repo=None, type=None, category=None,
                            n=5, no_bm25=True, no_vector=False)

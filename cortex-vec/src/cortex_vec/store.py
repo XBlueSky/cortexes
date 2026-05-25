@@ -426,6 +426,8 @@ def cmd_search(args):
         where=where,
         use_bm25=not getattr(args, "no_bm25", False),
         use_vector=not getattr(args, "no_vector", False),
+        rerank=getattr(args, "rerank", False) or None,
+        graph=getattr(args, "graph", False) or None,
     )
     for entry in results:
         print(json.dumps(entry, ensure_ascii=False))

@@ -27,6 +27,8 @@ def main():
     p_search.add_argument("--n", type=int, default=5, help="Number of results")
     p_search.add_argument("--no-bm25", action="store_true", help="Disable BM25 stream")
     p_search.add_argument("--no-vector", action="store_true", help="Disable vector stream")
+    p_search.add_argument("--rerank", action="store_true", help="Enable LLM rerank of top results")
+    p_search.add_argument("--graph", action="store_true", help="Enable wikilink graph-boost")
 
     p_eval = sub.add_parser("eval", help="Run retrieval eval / propose queries")
     p_eval.add_argument("action", choices=["run", "propose"], help="run scorecard or propose queries")
