@@ -85,16 +85,17 @@ class BM25Index:
             return []
         if self._bm25 is None:
             self._reindex()
-        q_tokens = set(tokenize(query))
-        scores = self._bm25.get_scores(tokenize(query))
+        q_toks = tokenize(query)
+        q_tokens = set(q_toks)
+        scores = self._bm25.get_scores(q_toks)
         ranked = sorted(
             zip(self.docs, scores), key=lambda pair: pair[1], reverse=True
         )
         out = []
         for rec, sc in ranked:
-            # Gate by token overlap, not score > 0: BM25Okapi IDF can be 0 when
-            # every query term is unique across a tiny corpus, which would drop a
-            # genuine match. Sharing at least one token is the reliable match test.
+            # Relevance gate by token overlap: BM25Okapi IDF can be <= 0 for terms
+            # that appear in >= half the corpus (and is degenerate on tiny corpora),
+            # which would zero out genuine matches. Token overlap is the reliable match test.
             if not (set(rec["tokens"]) & q_tokens):
                 continue
             if not _matches(rec, where):
