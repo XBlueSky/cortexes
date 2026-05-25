@@ -159,9 +159,39 @@ def cmd_status(_args):
     print(f"Vault:      {vault}")
 
 
-def cmd_rebuild(_args):
-    """Full rebuild of vector store from vault."""
+def _build_bm25_from_vault(vault):
+    """Build the BM25 index from all Notes/ + Projects/ notes (skip _archive).
+
+    Returns the note count. Does NOT touch ChromaDB or call any embedding API —
+    safe and free to run when only the BM25 index is stale.
+    """
+    bm25_docs = []
+    for scan_dir in ("Notes", "Projects"):
+        scan_path = vault / scan_dir
+        if not scan_path.is_dir():
+            continue
+        for md_file in scan_path.rglob("*.md"):
+            rel_path = str(md_file.relative_to(vault))
+            if "_archive" in rel_path:
+                continue
+            text = md_file.read_text(encoding="utf-8", errors="replace")
+            fm, body = parse_document(text)
+            bm25_docs.append(bm25_doc_from_fields(rel_path, fm, body))
+    bm25_index = BM25Index(BM25_DIR)
+    bm25_index.build_from_docs(bm25_docs)
+    bm25_index.save()
+    return bm25_index.count()
+
+
+def cmd_rebuild(args):
+    """Rebuild from vault. `--bm25-only` rebuilds just the BM25 index (no re-embed)."""
     vault = get_vault_path()
+
+    if getattr(args, "bm25_only", False):
+        count = _build_bm25_from_vault(vault)
+        print(f"BM25: {count} notes indexed (vector store untouched)")
+        return
+
     client = get_client()
 
     try:
@@ -172,7 +202,6 @@ def cmd_rebuild(_args):
     col = get_collection(client)
     scan_dirs = ["Notes", "Projects"]
     doc_count = 0
-    bm25_docs = []
 
     for scan_dir in scan_dirs:
         scan_path = vault / scan_dir
@@ -186,7 +215,6 @@ def cmd_rebuild(_args):
 
             text = md_file.read_text(encoding="utf-8", errors="replace")
             fm, body = parse_document(text)
-            bm25_docs.append(bm25_doc_from_fields(rel_path, fm, body))
 
             doc_type, category = classify_path(rel_path)
             title = fm.get("title", md_file.stem)
@@ -231,10 +259,8 @@ def cmd_rebuild(_args):
                 )
                 doc_count += 1
 
-    bm25_index = BM25Index(BM25_DIR)
-    bm25_index.build_from_docs(bm25_docs)
-    bm25_index.save()
-    print(f"BM25: {bm25_index.count()} notes indexed")
+    bm25_count = _build_bm25_from_vault(vault)
+    print(f"BM25: {bm25_count} notes indexed")
     print(f"Rebuilt: {doc_count} documents indexed")
 
 

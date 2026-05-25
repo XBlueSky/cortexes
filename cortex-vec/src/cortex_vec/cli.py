@@ -11,7 +11,12 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("status", help="Show index health")
-    sub.add_parser("rebuild", help="Full rebuild from vault")
+    p_rebuild = sub.add_parser("rebuild", help="Full rebuild from vault")
+    p_rebuild.add_argument(
+        "--bm25-only",
+        action="store_true",
+        help="Rebuild only the BM25 index from the vault (no re-embedding, free)",
+    )
 
     p_upsert = sub.add_parser("upsert", help="Add/update a document")
     p_upsert.add_argument("path", help="Relative path from vault root")
