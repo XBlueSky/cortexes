@@ -131,10 +131,14 @@ log.md                         ← evolve/distill 的時序歷程
 
 ### Retrieval Strategy
 
-分層檢索，避免 token 浪費：
+**Hybrid 檢索**（0.4.0+）— BM25 + vector 雙流，以 Reciprocal Rank Fusion（RRF, k=60）融合，預設權重 w_bm25=0.4 / w_vec=0.6：
 
-1. **Vector Search**（主要）— `cortex-vec search` 語意搜尋，ranked results
-2. **Grep Fallback**（補充）— 精確字串搜尋 Notes/Projects
+- **BM25 流** — 精確詞彙匹配（函數名、repo 名、issue ID 等），搭配 jieba CJK 分詞支援中英混合查詢。索引持久化於 `~/.cortex/bm25/`，由 `rebuild`/`upsert`/`delete` 與 ChromaDB 保持同步。
+- **Vector 流** — OpenAI `text-embedding-3-small` 語意搜尋，dual-vector（文件 body + 雙語 summary），覆蓋語意相近但詞彙不同的場景。
+- **降級策略** — 未設定 `OPENAI_API_KEY` 或離線時，自動退化為 BM25-only，不再依賴 skill-layer grep fallback。
+
+其他分層：
+
 3. **Raw Search**（按需）— 只在追溯時查詢原始 session 記錄
 
 ## cortex-vec CLI
@@ -152,6 +156,34 @@ cortex-vec search "sharing" --type project # 按類型過濾
 cortex-vec upsert Notes/Nginx/new.md       # 新增/更新單一文件
 cortex-vec delete Notes/Nginx/old.md       # 刪除文件
 ```
+
+### Hybrid 檢索（0.4.0+）
+
+`cortex-vec search` 現在預設走 BM25 + vector RRF hybrid，兼顧精確詞彙與語意相似度：
+
+```bash
+cortex-vec search "nginx certificate"           # hybrid（預設）
+cortex-vec search "nginx certificate" --no-bm25 # 只走 vector（debug/eval 用）
+cortex-vec search "nginx certificate" --no-vector # 只走 BM25（debug/eval 用）
+cortex-vec status                               # 同時顯示 vector 與 BM25 entry 數量
+```
+
+### 檢索評測
+
+```bash
+# Step 1：讓 LLM 草擬候選查詢，人工審閱並確認 gold paths 後才能使用
+cortex-vec eval propose --queries eval-data/cortex-vault-v1.jsonl
+
+# Step 2：跑所有 adapter，印出 NDJSON 結果，並寫 markdown 評分表
+cortex-vec eval run \
+  --queries eval-data/cortex-vault-v1.jsonl \
+  --adapters grep,vector,bm25,hybrid \
+  --k 5 \
+  --out docs/benchmarks/$(date +%Y-%m-%d)-cortex-vault-v1.md
+```
+
+支援的 adapter：`grep` / `vector` / `bm25` / `hybrid`。
+評測指標：P@5 / R@5 / MRR / hit。
 
 ## Configuration
 
