@@ -1,4 +1,4 @@
-# Cortex
+# Cortexes
 
 Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval, weekly reports.
 
@@ -20,11 +20,8 @@ Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code ses
 ### 1. 安裝 plugin
 
 ```bash
-# 從 GitLab
-/plugin marketplace add git@git.synology.inc:tonyhu/cortex.git#plugin
-
 # 從 GitHub
-/plugin marketplace add https://github.com/XBlueSky/cortex.git#plugin
+/plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
 ```
 
 ### 2. 安裝 cortex-vec CLI
