@@ -48,8 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Precise-term dedup scoring (boosting a low-cosine but exact-term
   match) remains intentionally deferred: a naive idf-coverage boost
   over-flags short queries, so it needs eval calibration first.
-- Design + per-task history in `docs/superpowers/specs/` and
-  `docs/superpowers/plans/` (`2026-05-25-hybrid-retrieval-*`).
 
 ## [0.13.0] - 2026-05-24
 

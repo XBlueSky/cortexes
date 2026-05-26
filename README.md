@@ -185,7 +185,7 @@ cortex-vec eval run \
 支援的 adapter：`grep` / `vector` / `bm25` / `hybrid`。
 評測指標：P@5 / R@5 / MRR / hit。
 
-### 進階檢索（Plan 2，預設關閉）
+### 進階檢索（預設關閉）
 
 以下四項增強功能預設全部關閉，需明確設定才會啟用。**開啟前後請務必用 `cortex-vec eval run` 量測 P@5 / R@5 / MRR 的 lift**，再決定哪些值得設為預設開啟、哪些應該回退。
 
@@ -213,7 +213,7 @@ cortex-vec eval run \
 
 #### 完整 `retrieval` 設定範例
 
-以下為 `~/.cortex/config.json` 中 `retrieval` 區塊的所有 Plan 2 新鍵與其預設值：
+以下為 `~/.cortex/config.json` 中 `retrieval` 區塊的進階鍵與其預設值：
 
 ```json
 {

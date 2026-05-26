@@ -12,6 +12,15 @@ __pycache__/
 *.pyc
 *.egg-info/
 
-# Working design / plan notes for this branch — should not enter the repo
-docs/specs/2026-05-22-weekly-skill-revision-design.md
-docs/plans/2026-05-22-weekly-skill-revision.md
+# Working design / plan / spec docs — process artifacts, keep local only
+# (docs/images/ stays tracked; only the design-doc dirs are excluded)
+docs/superpowers/
+docs/specs/
+docs/plans/
+
+# Personal / vault-specific eval corpus + scorecards — keep local
+cortex-vec/eval-data/
+docs/benchmarks/
+
+# Editor swap files
+*.swp
