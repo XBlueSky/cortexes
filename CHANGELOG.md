@@ -5,6 +5,62 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-05-26
+
+### Added
+- **Hybrid retrieval** — `cortex-vec search` now fuses BM25 + vector
+  via Reciprocal Rank Fusion (RRF, k=60). BM25 restores exact-term
+  recall (function names, repo names, issue IDs) that dense embeddings
+  blur; CJK-aware tokenization (jieba) handles mixed zh/en queries.
+- BM25 index persisted at `~/.cortex/bm25/`, kept in lockstep with the
+  vector store on `rebuild` / `upsert` / `delete`. `cortex-vec status`
+  now reports both vector and BM25 entry counts.
+- `cortex-vec rebuild --bm25-only` — rebuild just the BM25 index from
+  the vault in seconds, with no ChromaDB delete and no re-embedding.
+- **Retrieval eval harness** — `cortex-vec eval run` compares
+  grep / vector / bm25 / hybrid adapters on a hand-labeled query set,
+  emitting P@5 / R@5 / MRR / hit + an NDJSON log and a markdown
+  scorecard (`docs/benchmarks/`). `cortex-vec eval propose` drafts
+  candidate queries (LLM) for the user to confirm.
+- Optional, **default-off** retrieval enhancements (each independently
+  toggleable and eval-measurable): synonym expansion
+  (`retrieval.synonym_weight`), wikilink graph-boost (`--graph` /
+  `retrieval.graph`), LLM rerank (`--rerank` / `retrieval.rerank`),
+  and max-per-repo diversification (`retrieval.max_per_repo`).
+
+### Fixed
+- `cortex-vec search` reports the vector cosine similarity (0–1) as
+  `score`, not the RRF fusion score (~0.01). The RRF scale had
+  collapsed distill/broadcast dedup, whose thresholds
+  (`dedup_threshold_new` 0.45, `..._pending` 0.60,
+  `broadcast.target_min_score` 0.40) are calibrated for cosine — every
+  Raw was scoring far below threshold. RRF now only orders results.
+- `cortex-vec search` degrades to BM25-only when `OPENAI_API_KEY` is
+  absent (the embedding function's `sys.exit` no longer escapes the
+  stream guard and crashes the query).
+
+### Notes
+- `cortex-vec` package bumped to 0.4.0; new deps `rank-bm25`, `jieba`,
+  `snowballstemmer`. Search output JSON shape is unchanged.
+- With all enhancements off, `cortex-vec search` behaves as before
+  (vector-ranked). Run `cortex-vec eval run` to measure lift before
+  enabling synonym / graph / rerank as defaults.
+- Precise-term dedup scoring (boosting a low-cosine but exact-term
+  match) remains intentionally deferred: a naive idf-coverage boost
+  over-flags short queries, so it needs eval calibration first.
+- Design + per-task history in `docs/superpowers/specs/` and
+  `docs/superpowers/plans/` (`2026-05-25-hybrid-retrieval-*`).
+
+## [0.13.0] - 2026-05-24
+
+### Changed
+- `cortex-distill` Step 2 (has_insight) and Step 3.3 (placement) now
+  mandate `AskUserQuestion`: the agent surfaces a candidate verdict and
+  waits for user confirmation instead of dispatching unilaterally.
+- `cortex-distill` Step 9 drops the (y/n/l) broadcast prompt and
+  dispatches `cortex-broadcast` inline for every new / pending-merge
+  Raw; escape hatches now live inside broadcast's own quit/abort paths.
+
 ## [0.12.0] - 2026-05-22
 
 ### Added
