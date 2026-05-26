@@ -194,11 +194,11 @@ cortex-vec eval run \
 
 #### Wikilink graph-boost
 
-透過 `cortex-vec search --graph`（或 config `retrieval.graph: true`）啟用。利用 vault 既有的 `[[wikilinks]]` 把「命中結果的鄰居頁面」加分，讓相關聯的筆記更容易浮現。
+透過 `cortex-vec search --graph`（或 config `retrieval.graph: true`）啟用。把「命中結果的 `[[wikilink]]` 鄰居」當成**第三條 RRF 串流**融合進來——可把「被明顯命中的筆記連到、自己卻不直接匹配 query」的相關筆記浮上來（連 vector/BM25 漏掉的鄰居也能補進結果）。
 
-可調整的細部參數：`retrieval.graph_hops`（傳播跳數）、`retrieval.graph_weight`（加權強度）、`retrieval.graph_top_k`（取前幾筆命中當作 BFS 種子，從這些種子的鄰居加分；非最終回傳筆數）。
+可調整的細部參數：`retrieval.graph_hops`（傳播跳數）、`retrieval.w_graph`（graph 串流在 RRF 的權重，預設 `0.3`）、`retrieval.graph_top_k`（取前幾筆命中當 BFS 種子）。
 
-> **注意**：`graph_weight` 預設 `0.1`，相對 RRF 分數（量級約 0.01）偏強，實際效果因 vault 結構而異，請以 eval 結果為準再調整。
+> 採 rank-based RRF 融合（非加法 boost），所以**對一般查詢中性、不傷排序**，只在「連結型」查詢補 recall。eval 量過：20 題一般 corpus 開/關無差、wikilink-stress corpus R@5 0.50→0.667。
 
 #### LLM rerank
 
@@ -218,7 +218,7 @@ cortex-vec eval run \
     "synonym_weight": 0,
     "graph": false,
     "graph_hops": 1,
-    "graph_weight": 0.1,
+    "w_graph": 0.3,
     "graph_top_k": 5,
     "rerank": false,
     "rerank_model": "gpt-5.4-mini",

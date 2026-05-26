@@ -7,7 +7,7 @@ def test_plan2_retrieval_defaults(monkeypatch):
     assert rc["synonym_weight"] == 0.0
     assert rc["graph"] is False
     assert rc["graph_hops"] == 1
-    assert rc["graph_weight"] == 0.1
+    assert rc["w_graph"] == 0.3
     assert rc["graph_top_k"] == 5
     assert rc["rerank"] is False
     assert rc["rerank_model"] == "gpt-5.4-mini"

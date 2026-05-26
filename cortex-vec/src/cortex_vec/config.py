@@ -20,8 +20,8 @@ _RETRIEVAL_DEFAULTS = {
     "synonym_weight": 0.0,      # 0 = synonym expansion off
     "graph": False,
     "graph_hops": 1,
-    "graph_weight": 0.1,
-    "graph_top_k": 5,
+    "w_graph": 0.3,             # graph stream weight in RRF (rank-based, not additive)
+    "graph_top_k": 5,           # how many top hits to expand wikilink-neighbors from
     "rerank": False,
     "rerank_model": "gpt-5.4-mini",
     "rerank_window": 15,

@@ -53,18 +53,29 @@ def _vector_stream(query, n, where):
 _STREAM_ORDER = ("vector", "bm25")
 
 
-def _graph_boost(fused, rc):
-    """Boost fused candidates by wikilink proximity to the top hits. Returns
-    fused unchanged on any failure (e.g. vault not configured)."""
+def _graph_ranked(ranked, weights, rc, n):
+    """Build the graph RRF stream: wikilink-neighbors of the top vector/bm25 hits.
+
+    Returns (ranked_list, display_map) where ranked_list is [(doc_id, rank)] for
+    rrf_fuse and display_map carries display dicts for any graph-introduced docs.
+    ([], {}) on failure (e.g. vault unconfigured) or when graph yields nothing.
+    Rank-based (not additive), so it composes with the other streams via RRF
+    without the score-scale conflict that the old additive boost had.
+    """
     from . import graph as graph_mod
     try:
-        adjacency = graph_mod.build_graph(get_vault_path())
-        return graph_mod.boost(
-            fused, adjacency,
-            top_k=rc["graph_top_k"], hops=rc["graph_hops"], weight=rc["graph_weight"],
+        pre = rrf_fuse(ranked, weights, k=rc["rrf_k"])
+        seeds = [doc_id for doc_id, _ in pre[:rc["graph_top_k"]]]
+        if not seeds:
+            return [], {}
+        adjacency, meta = graph_mod.build_graph(get_vault_path())
+        stream = graph_mod.graph_stream(
+            adjacency, seeds, hops=rc["graph_hops"], max_n=max(n * 2, 10)
         )
+        gdisplay = {doc_id: meta[doc_id] for doc_id, _ in stream if doc_id in meta}
+        return stream, gdisplay
     except (Exception, SystemExit):
-        return fused
+        return [], {}
 
 
 def _diversify(fused, display, max_per_repo):
@@ -96,7 +107,7 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
     the query (RRF weight is redistributed in rrf_fuse).
     """
     rc = get_retrieval_config()
-    weights = {"vector": rc["w_vec"], "bm25": rc["w_bm25"]}
+    weights = {"vector": rc["w_vec"], "bm25": rc["w_bm25"], "graph": rc["w_graph"]}
 
     streams = {}
     if use_vector:
@@ -120,10 +131,20 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
                 if key not in disp or not disp.get(key):
                     disp[key] = val
 
-    fused = rrf_fuse(ranked, weights, k=rc["rrf_k"])
     use_graph = rc["graph"] if graph is None else graph
     if use_graph:
-        fused = _graph_boost(fused, rc)
+        g_ranked, g_display = _graph_ranked(ranked, weights, rc, n)
+        if g_ranked:
+            ranked["graph"] = g_ranked
+            for doc_id, disp in g_display.items():
+                d = display.setdefault(doc_id, {})
+                for key, val in disp.items():
+                    if key == "score":
+                        continue
+                    if key not in d or not d.get(key):
+                        d[key] = val
+
+    fused = rrf_fuse(ranked, weights, k=rc["rrf_k"])
     fused = _diversify(fused, display, rc["max_per_repo"])
 
     use_rerank = rc["rerank"] if rerank is None else rerank

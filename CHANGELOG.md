@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-05-26
+
+### Changed
+- Wikilink graph-boost reworked from an additive score boost into a
+  third RRF stream (rank-based). The additive form added a boost onto
+  RRF's compressed score band (~0.001–0.016) and corrupted ordering at
+  every weight (measured: MRR 0.875 → 0.49). As a rank-based stream it
+  composes cleanly — neutral on normal queries (no change on the
+  20-query eval corpus) and recovers wikilink-only-reachable notes
+  (R@5 0.50 → 0.667 on a wikilink-stress set), and can now surface
+  neighbors that vector/BM25 missed entirely.
+- Config key `retrieval.graph_weight` (additive strength) replaced by
+  `retrieval.w_graph` (graph RRF-stream weight, default 0.3).
+
+### Fixed
+- Test isolation: a `conftest` autouse fixture pins
+  `get_retrieval_config` to code defaults, so a local
+  `~/.cortex/config.json` (e.g. `rerank: true`) no longer leaks into
+  the test suite and breaks default-behavior assertions.
+
 ## [0.14.0] - 2026-05-26
 
 ### Added

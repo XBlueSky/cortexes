@@ -2,24 +2,49 @@
 
 The vault's `[[Title]]` links form a human-curated graph. We resolve each link
 target (a note title) to a base path via a title index (frontmatter `title`
-plus the filename stem), then expose adjacency for graph-boosted retrieval.
+plus the filename stem), then expose:
+  - `adjacency` {base_path: set(neighbor_base_path)} for traversal, and
+  - `meta` {base_path: display dict} so graph-introduced neighbors can be shown.
 Unresolved links are skipped (a dangling link is not an error).
+
+Graph participates in retrieval as a THIRD RRF stream (see fusion.py): a
+rank-based list of wikilink-neighbors of the top hits. Rank-based fusion avoids
+the scale conflict of adding a boost onto RRF's compressed score band.
 """
 from pathlib import Path
 
-from .parser import extract_wikilinks, parse_document
+from .parser import classify_path, extract_summary, extract_wikilinks, parse_document
 
-_cache = {}  # str(vault) -> adjacency dict
+_cache = {}  # str(vault) -> (adjacency, meta)
+
+
+def _meta_for(rel, fm, body):
+    """Display dict for a note (mirrors the shape store/bm25 streams emit)."""
+    doc_type, category = classify_path(rel)
+    repos_str = fm.get("repos", "")
+    repos = [r.strip() for r in repos_str.split(",") if r.strip()] if repos_str else []
+    if doc_type == "project" and category and category not in repos:
+        repos.insert(0, category)
+    return {
+        "id": rel,
+        "title": fm.get("title", rel.rsplit("/", 1)[-1].removesuffix(".md")),
+        "type": doc_type,
+        "repo": (repos or [""])[0],
+        "category": category,
+        "tags": fm.get("tags", ""),
+        "summary": extract_summary(body),
+    }
 
 
 def build_graph(vault):
-    """Return {base_path: set(neighbor_base_path)} for the vault. Cached by path."""
+    """Return (adjacency, meta) for the vault. Cached by vault path."""
     key = str(vault)
     if key in _cache:
         return _cache[key]
 
     vault = Path(vault)
     title_to_path = {}
+    meta = {}
     raw = []  # (base_path, [link targets])
 
     for scan_dir in ("Notes", "Projects"):
@@ -33,9 +58,9 @@ def build_graph(vault):
             text = md.read_text(encoding="utf-8", errors="replace")
             fm, body = parse_document(text)
             stem = md.stem
-            title = fm.get("title", stem)
-            title_to_path.setdefault(title, rel)
+            title_to_path.setdefault(fm.get("title", stem), rel)
             title_to_path.setdefault(stem, rel)
+            meta[rel] = _meta_for(rel, fm, body)
             raw.append((rel, extract_wikilinks(body)))
 
     adjacency = {rel: set() for rel, _ in raw}
@@ -46,8 +71,8 @@ def build_graph(vault):
                 adjacency[rel].add(dest)
                 adjacency.setdefault(dest, set()).add(rel)  # links are bidirectional
 
-    _cache[key] = adjacency
-    return adjacency
+    _cache[key] = (adjacency, meta)
+    return _cache[key]
 
 
 def _bfs_neighbors(adjacency, seeds, hops):
@@ -69,22 +94,14 @@ def _bfs_neighbors(adjacency, seeds, hops):
     return dist
 
 
-def boost(fused, adjacency, top_k=5, hops=1, weight=0.1):
-    """Boost candidates that are wikilink-neighbors of the top-`top_k` hits.
+def graph_stream(adjacency, seeds, hops=1, max_n=15):
+    """A rank-based stream of wikilink-neighbors of `seeds`, nearest first.
 
-    fused: [(doc_id, score)] best-first. Only candidates already in `fused` are
-    boosted (no new docs introduced). Boost = weight / distance. Re-sorted.
+    Returns [(doc_id, rank)] (rank 0-based, capped at max_n), excluding seeds —
+    shaped for rrf_fuse as a third retrieval stream. Empty if no neighbors.
     """
-    if not fused or weight <= 0:
-        return fused
-    seeds = [doc_id for doc_id, _ in fused[:top_k]]
     dist = _bfs_neighbors(adjacency, seeds, hops)
     if not dist:
-        return fused
-    boosted = []
-    for doc_id, score in fused:
-        if doc_id in dist:
-            score = score + weight / dist[doc_id]
-        boosted.append((doc_id, score))
-    boosted.sort(key=lambda kv: kv[1], reverse=True)
-    return boosted
+        return []
+    ordered = sorted(dist.items(), key=lambda kv: kv[1])  # nearest first
+    return [(doc_id, rank) for rank, (doc_id, _d) in enumerate(ordered[:max_n])]

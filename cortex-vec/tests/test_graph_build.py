@@ -13,10 +13,12 @@ def _make_vault(tmp_path):
 
 def test_build_graph_resolves_titles_to_paths(tmp_path):
     vault = _make_vault(tmp_path)
-    adjacency = graph.build_graph(vault)
+    adjacency, meta = graph.build_graph(vault)
     assert "Notes/X/b.md" in adjacency["Notes/X/a.md"]
     assert "Notes/X/a.md" in adjacency["Notes/X/b.md"]
     assert all("Ghost" not in v for v in adjacency.values())
+    # meta carries display info per note (used to show graph-introduced neighbors)
+    assert meta["Notes/X/a.md"]["title"] == "Alpha"
 
 
 def test_build_graph_cached(tmp_path):

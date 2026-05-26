@@ -1,6 +1,20 @@
 """Shared pytest fixtures."""
 import pytest
 
+from cortex_vec import config
+
+
+@pytest.fixture(autouse=True)
+def _isolate_retrieval_config(monkeypatch):
+    """Isolate every test from the developer's real ~/.cortex/config.json.
+
+    `get_retrieval_config()` reads `load_config()`, so without this a local
+    `retrieval` override (e.g. rerank=true) would leak into tests and break
+    assertions about code defaults. Tests that need a specific config still
+    override `config.load_config` themselves (their setattr wins over this).
+    """
+    monkeypatch.setattr(config, "load_config", lambda: {})
+
 
 @pytest.fixture
 def fixture_docs():
