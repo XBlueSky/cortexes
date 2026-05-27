@@ -34,6 +34,8 @@ per surface:
 | `inbound.` wit | ≤60 chars after `: ` | Main answer only. Drop follow-up details and stretch-goal additions. |
 | `inbound.` CSS | ≤60 chars after `: ` | Three-segment `symptom → root cause → response` still applies; just keep each segment short. |
 | `inbound.` chat | ≤60 chars after `: ` | One-clause `topic → 我的貢獻`. |
+| `inbound.` MR comment | ≤30 chars after `: ` | My review point only; drop the diff detail. |
+| `inbound.` issue comment | ≤60 chars after `: ` | Main answer only. |
 | `misc.` per-project | ≤10 chars short tag + MR link, OR a short prose summary when no MR exists (no link in that case). |
 
 When a session genuinely needs more, prefer a sub-bullet under the
@@ -144,7 +146,9 @@ Rules:
 
 Rules:
 - **MR review**: `[mr-title](mr-url)`. Append ` / [KEY](issue-url)` only when the MR's commit messages carry a `Ref:` trailer.
+- **MR review comment** (others' MR, no approve): `[mr-title](mr-url): <my review point>`. Append ` / [KEY](issue-url)` when the MR carries a `Ref:`. The trailing `: …` distinguishes it from a bare approval.
 - **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`). List only when the configured user posted a note within the week window (see Source D filter).
+- **Issue comment** (non-wit): `[<project>#iid](url): topic → responded`, reusing the wit shape with the project path swapped in (e.g. `[ds.base#1234](url)`).
 - **CSS ticket**: `[css#ticket-id](url): symptom → root cause → response` — three-segment form based on reading the actual ticket thread, not an `outcome` summary.
   - `symptom`: what the customer reported
   - `root cause`: what the user diagnosed in their reply (paraphrased, one clause)
@@ -201,6 +205,15 @@ Rules:
 - **Prose + inline MR links**: Use when specific MRs are worth pointing to. Comma-separated `[!NN](url)` after the summary in parentheses.
 - One bullet per project. Never split one project's MRs across multiple top-level bullets.
 - No MR-title dumps, no nested sub-bullets, no narrative paragraphs.
+
+## Authored GitLab activity shapes (in-review MRs, no-MR pushes)
+
+These come from the Source C sweep + in-review MR fetch. They are your own
+work, so they route to `fix.` / `feat.` / `misc.` by the normal classifier
+(see `cortex-weekly` Step 5 "GitLab activity routing"), never `inbound.`.
+
+- **In-review MR** (authored, not yet merged): a normal section bullet with ` (in review)` appended after the title — e.g. `[mr-title](mr-url) (in review)`. Lands in the section its effective issue type selects (`fix.`/`feat.`), or `misc.` when there is no issue.
+- **Push, no MR**: `<repo>: <what> — pushed (no MR)` in `misc.`.
 
 ## Worked example — 2026-04-17
 
