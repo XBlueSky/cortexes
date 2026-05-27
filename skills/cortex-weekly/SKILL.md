@@ -16,6 +16,34 @@ Compile the weekly report from multiple sources into the standard nested-bullet 
 
 For the exact draft layout and every format rule, load `references/draft-template.md` before composing Step 6 output.
 
+## Runtime Requirements & Graceful Degradation
+
+This skill pulls from external MCP plugins that cortex does **not** declare as
+hard dependencies — cortex stays a standalone vault, so the source steps below
+must degrade gracefully when a plugin is absent or unauthenticated:
+
+| Source | Provided by | Minimum |
+|--------|-------------|---------|
+| B / C / D — GitLab MRs, reviews, wit issues | `synology-workflows` (gitlab MCP) | installed |
+| Workplus issue type/title (Step 5) | `synology-workflows` (workplus MCP) | installed |
+| E — CSS tickets | `syno-robinhood` | enlisted |
+| F — ChatPlus posts | `syno-robinhood` | enlisted |
+| G — MailPlus mail | `syno-robinhood` | enlisted |
+
+robinhood needs its binary installed and a live SSO session (see the robinhood
+`enlist` skill) — a registered plugin whose session is dead returns auth
+errors, which count as "unavailable" below.
+
+**Degradation policy — skip, note, never abort:**
+
+- If a source's MCP tool is not in the tool list (plugin not installed) or
+  returns an unknown-tool / auth / enlistment error, **skip that source**.
+- Accumulate skipped sources and surface them **once**, as a note at the top
+  of the Step 6 draft preamble (not inline per bullet), e.g.
+  `> ⚠ Skipped sources: CSS, Chat, Mail (syno-robinhood not enlisted).`
+- Never abort the whole report because one source is unavailable. A report
+  built from `Summary/` + GitLab alone is still useful.
+
 ## Resolve Vault Path
 
 Read `~/.cortex/config.json` to get `vault_path` and `weekly.gitlab_username`.
@@ -177,7 +205,7 @@ Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the wee
 
 > **Note:** DMs (`channel_name == ""`, `team_id == 0`) are NOT auto-dropped — they go through the same substance filter above as public channels. The MR-link / meeting-link / social-chatter drops still apply.
 
-**Then, for surviving DM threads, resolve participants.** Each `chat_my_recent_activity` post carries a `channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate the thread's posts, collect distinct `creator_id` values that are not self, then call `chat_list_users` once per run to map ids → usernames. Cache the lookup table for the rest of the run.
+**Then, for surviving DM threads, resolve participants.** Each `chat_my_recent_activity` post carries a `channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate the thread's posts, collect distinct `creator_id` values that are not self, then call `chat_list(kind="users")` once per run to map ids → usernames. Cache the lookup table for the rest of the run.
 
 Surviving threads go into `inbound.`. **Bullet shape is defined in
 `references/draft-template.md` § `inbound.` chat rules.** Do not
@@ -192,7 +220,7 @@ load-bearing reminders that are easy to lose:
   the user when the report is pasted into a wiki / MR / issue.
 - Never include customer info or external personal identifiers
   (phone numbers, emails, addresses). Internal Synology usernames
-  (resolved via `chat_list_users`) are allowed.
+  (resolved via `chat_list(kind="users")`) are allowed.
 
 ### Source G — MailPlus work mail
 
@@ -434,6 +462,10 @@ Compose the draft using the nested-bullet format defined in `references/draft-te
 - Worked example from `2026-04-17`
 
 Load the reference before writing the draft — the SKILL body does not repeat the rules.
+
+If any source was skipped (see § Runtime Requirements & Graceful Degradation),
+emit the consolidated skip note as a blockquote at the very top of the draft,
+above the first section — once, never per bullet.
 
 **Present the draft to the user for review. Do not write the file until the user confirms.**
 

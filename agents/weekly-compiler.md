@@ -51,6 +51,13 @@ You will receive:
 
 ## Process
 
+**Missing-source handling.** Sources 2–7 below call MCP tools from the
+`synology-workflows` and `syno-robinhood` plugins. If a tool is not available
+(plugin absent) or returns an auth / enlistment / unknown-tool error, skip
+that source and record it in the `skipped_sources` return field — do **not**
+abort. The skill's Step 6 surfaces the skip note. See SKILL.md § Runtime
+Requirements for the full policy.
+
 ### 1. Read Raw/
 
 Glob `<vault_path>/Raw/YYYY/MM/DD/*.md` for every date the datetime
@@ -180,3 +187,6 @@ Return to the caller:
 - `feat`: list of `{ issue_key, issue_url, workplus_title, is_draft, mrs: [{ mr_title, mr_url, description, sub_details? }] }`
 - `inbound`: list of `{ kind: "mr_review" | "wit" | "css" | "chat" | "mail", ... }`
 - `misc`: list of `{ project, shape: "version" | "mrs", ... }`
+- `skipped_sources`: list of `{ source, reason }` — sources skipped because
+  their MCP plugin was missing or unauthenticated (see Process § Missing-source
+  handling). Empty list when all sources were reachable.
