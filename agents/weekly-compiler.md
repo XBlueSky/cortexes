@@ -25,6 +25,8 @@ allowed-tools:
   - mcp__plugin_syno-robinhood_robinhood__css_get_activities
   - mcp__plugin_syno-robinhood_robinhood__css_get_ticket
   - mcp__plugin_syno-robinhood_robinhood__chat_my_recent_activity
+  - mcp__plugin_syno-robinhood_robinhood__chat_list_posts
+  - mcp__plugin_syno-robinhood_robinhood__chat_list
   - mcp__plugin_syno-robinhood_robinhood__mailplus_list_mailboxes
   - mcp__plugin_syno-robinhood_robinhood__mailplus_list_threads
   - mcp__plugin_syno-robinhood_robinhood__mailplus_get
@@ -144,12 +146,21 @@ Call `chat_my_recent_activity` with `since_epoch_ms = start_ms` to pull the
 user's authored posts across all active channels. Aggregate by `thread_id`
 (or `post_id` when `thread_id == 0`).
 
-Drop hard-default categories: pure social chatter ("kk", "ok", greetings,
-meeting links), MR-link broadcasts that duplicate Source B, DM channels
-(`channel_name == ""`) unless clearly substantive.
+Substance filter (same bar as SKILL.md Source F): drop pure social chatter
+("kk", "ok", greetings, meeting / Google-Meet links), MR-link broadcasts that
+duplicate Source B, and calendar coordination. **DMs (`channel_name == ""`,
+`team_id == 0`) are NOT auto-dropped** — they pass the same substance filter as
+public channels. Keep substantive technical contributions only; one bullet per
+thread.
 
-Keep substantive technical contributions only. One bullet per thread,
-summarizing the user's overall contribution. These go into `inbound.`.
+**Resolve DM participants** (do NOT emit a bare `DM`). For each surviving DM
+thread, take the post's `channel_id`, call `chat_list_posts(channel_id=...)` to
+enumerate the thread's posts, collect the distinct non-self `creator_id`s, then
+call `chat_list(kind="users")` once per run to map ids → usernames (cache it).
+Emit the shape from `references/draft-template.md`: 1:1 → `` [chat] `@username`: … ``,
+2–3 others → `` [chat] `@a`、`@b`: … ``, 4+ → `[chat] DM: …` (only here);
+public channel → `[chat] <channel-name>: …`. Never invent a thread URL; wrap
+usernames in backticks. These go into `inbound.`.
 
 ### 7. Fetch MailPlus threads (Sent folder)
 

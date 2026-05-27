@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   substance bar as the ChatPlus/MailPlus sources; overlap/cross-week dedup
   prevents double-listing against Source B/D.
 
+### Fixed
+- `weekly-compiler` agent now resolves ChatPlus DM participants (adds
+  `chat_list_posts` + `chat_list` to its allow-list and the Source F
+  resolution step), so DMs render as `` [chat] `@username`: … `` instead of a
+  bare `[chat] DM:`. Aligns the agent with SKILL.md Source F.
+
 ## [0.14.2] - 2026-05-27
 
 ### Fixed
