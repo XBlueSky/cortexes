@@ -151,6 +151,13 @@ Ref:\s*([A-Z]+-\d+)
 
 Attach any matching issue keys to the MR. This grouping hook is what connects MRs that had no Raw/ session note to their parent Workplus issue.
 
+**Also fetch in-review MRs.** Beyond merged MRs, call
+`list_merge_requests(author_username=<weekly.gitlab_username>, state="opened")`
+and keep those whose `created_at` or last activity falls in the window. Tag
+each `(in review)` and extract `Ref:` from their commits the same way. These
+are authored work; Step 5 routes them through the `fix.` / `feat.` / `misc.`
+classifier with the `(in review)` tag preserved.
+
 ### Source C — GitLab activity sweep
 
 One paginated call discovers everything the user did on GitLab in the window.
@@ -199,6 +206,11 @@ Use `list_issues` with `project_id: "wit/wit_issues"` (project ID 31865) to find
 3. Otherwise drop
 
 Matching issues go into `inbound.`.
+
+**Issue *comments* (including outside `wit/wit_issues`) are not collected
+here** — they arrive via the Source C sweep's `commented`/Issue bucket. This
+Source D query covers only wit issue *tracking*. Step 4 dedup drops any sweep
+issue-comment whose issue is already listed by this source.
 
 ### Source E — CSS tickets
 
