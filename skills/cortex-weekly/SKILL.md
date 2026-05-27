@@ -325,6 +325,15 @@ load-bearing reminders:
    sharper than the repo+date heuristic.
 3. Add `inbound.` items (MR reviews, wit issues filtered by reply, CSS tickets filtered by this-week action, ChatPlus threads filtered for substance, MailPlus threads filtered for substance)
 4. **Cross-source dedup for ChatPlus / MailPlus.** A chat post or mail thread that merely announces or coordinates around an MR/issue already represented elsewhere in this report is redundant — drop it. Keep the chat/mail entry only when it carries information not already conveyed by a Raw/, MR, wit, or CSS entry.
+5. **GitLab sweep dedup.**
+   - Drop a push whose commits belong to an MR already represented in Source B
+     (merged or opened) — overlap only; pushes are **not** gated on "repo has
+     no MR".
+   - Drop a comment on **your own** MR (it is your work; the MR is in Source B).
+   - Drop a sweep issue-comment whose issue is already listed by Source D.
+   - An in-review authored MR that also has a Step 5b-classified Summary →
+     a single bullet (enrich Step 5b with the MR URL + `(in review)`), never
+     two.
 
 ## Step 5: Classify
 
@@ -336,6 +345,23 @@ Four sections, selected primarily by **Workplus issue type**, not commit type. C
 | `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` | Multiple MRs sharing one issue → grouped under Workplus-title heading; single MR → flat bullet |
 | `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window | Flat list |
 | `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) | Flat list |
+
+### GitLab activity routing (Source C sweep + in-review MRs)
+
+Route each GitLab activity item by **nature**, reusing existing buckets — no
+new section:
+
+- **Reactive** — MR approval, MR review comment, or issue comment on work you
+  did not author → `inbound.` (shapes in `references/draft-template.md`).
+- **Authored** — your in-review MR or your no-MR push:
+  - If a Summary (Source A) matches → it is already classified by Step 5b
+    (issue type → `fix.`/`feat.`/`misc.`); enrich that bullet with the MR URL
+    and, for unmerged MRs, the `(in review)` tag. Do **not** emit a second
+    bullet.
+  - If no Summary → use the MR/commit `Ref:` → Workplus `get_issue` type →
+    `fix.`/`feat.`; no `Ref:` → `misc.`
+  - Unmerged authored MRs keep the `(in review)` tag in their bullet.
+  - Pushes with no effective issue key → `misc.`, aggregated per repo.
 
 ### Classification procedure
 
