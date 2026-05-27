@@ -83,13 +83,28 @@ their parent Workplus issue.
 Record each MR's target repo as `namespace/project` (e.g.
 `synology/libsynow3`, `wit/morpheus`) — needed for the draft label rule.
 
-### 3. Fetch MR Reviews (approvals)
+Also list `state="opened"` MRs authored by the user whose activity falls in
+the window; tag them `(in review)`. They are authored work — the skill's Step 5
+routes them through `fix.`/`feat.`/`misc.`, not a new section.
 
-Use `list_events` with `action=approved, target_type=merge_request` in
-the date range to find MRs the user approved. For each, look up the MR
-to grab its title and any `Ref:` issue key.
+### 3. GitLab activity sweep
 
-These go into `inbound.` — see SKILL.md for the format.
+Call `list_events(scope="all", after=<start−1d>, before=<end+1d>,
+per_page=100, sort="desc")` and paginate until `created_at < start`, then
+post-filter each event by `created_at` against `[start, end)` (honors the
+11:00 cutoff).
+
+Bucket by `action` + `target_type` (verify exact strings against a live
+payload):
+- `approved` MR → MR approval → `inbound.`
+- `commented` on a MergeRequest note → MR review comment → `inbound.`
+- `commented` on an Issue note → issue comment → `inbound.`
+- `pushed` → push activity → authored (Step 5 classifier)
+- `opened` MR → in-review MR candidate → authored
+
+Fetch MR/issue metadata (title, repo, `Ref:`) for items that need it. Apply the
+substance bar (drop LGTM/+1/nits; aggregate pushes per repo) and dedup per
+SKILL.md Step 4 before returning. See SKILL.md Source C for the full rules.
 
 ### 4. Fetch GitLab Issues (wit/wit_issues)
 
@@ -185,8 +200,10 @@ skill's Step 6 owns that.
 Return to the caller:
 - `fix`: list of `{ mr_title, mr_url }`
 - `feat`: list of `{ issue_key, issue_url, workplus_title, is_draft, mrs: [{ mr_title, mr_url, description, sub_details? }] }`
-- `inbound`: list of `{ kind: "mr_review" | "wit" | "css" | "chat" | "mail", ... }`
+- `inbound`: list of `{ kind: "mr_review" | "mr_comment" | "wit" | "issue_comment" | "css" | "chat" | "mail", ... }`
 - `misc`: list of `{ project, shape: "version" | "mrs", ... }`
+- `in_review_mrs`: list of authored MRs not yet merged `{ mr_title, mr_url, ref?, repo }` — routed by Step 5 with the `(in review)` tag
+- `pushes`: list of `{ repo, summary, ref? }` — no-MR pushes surviving substance + dedup
 - `skipped_sources`: list of `{ source, reason }` — sources skipped because
   their MCP plugin was missing or unauthenticated (see Process § Missing-source
   handling). Empty list when all sources were reachable.
