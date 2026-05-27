@@ -164,9 +164,13 @@ One paginated call discovers everything the user did on GitLab in the window.
 Buckets route by **nature** (see Step 5 Classification): reactive items →
 `inbound.`, authored items → the MR classifier.
 
-Call `list_events(scope="all", after=<start_date − 1 day>, before=<end_date +
-1 day>, per_page=100, sort="desc")`. Paginate (increment `page`) until an
-event's `created_at` is earlier than the window start, then stop.
+Call `list_events(after=<start_date − 1 day>, before=<end_date + 1 day>,
+per_page=100, sort="desc")`. **Do not pass `scope="all"`** — that returns
+*every* user's events across your projects (a firehose); the default (no
+scope) returns only your own events (`author_username` is always you).
+Paginate (increment `page`) until an event's `created_at` is earlier than the
+window start, then stop — a busy fortnight exceeds one 100-event page, so
+pagination is mandatory.
 
 - The ±1-day date padding follows the API's own rule: `after`/`before` are
   **date-granular**, so to include events on the boundary dates set `after` to
@@ -176,19 +180,23 @@ event's `created_at` is earlier than the window start, then stop.
   two boundary Fridays (mirrors Source A's `HHMMSS` filter, applied to
   timestamps).
 
-Bucket each surviving event by `action` + `target_type`. **Verify the exact
-action / target / `noteable_type` strings against a live `list_events` payload
-before trusting this mapping** — GitLab uses forms like `"pushed to"`,
-`"commented on"`, `"opened"`, and comment events carry a `Note` / `DiffNote`
-target with a `noteable_type`:
+Bucket each surviving event by its `action_name` field (and, for comments, the
+nested `note.noteable_type`). Verified live GitLab values (`list_events`,
+2026-05-27):
 
-| Event | Bucket | Routed to |
-|-------|--------|-----------|
-| `approved`, target merge_request | MR approval | `inbound.` |
-| `commented`, note → MergeRequest | MR review comment | `inbound.` |
-| `commented`, note → Issue | issue comment | `inbound.` |
-| `pushed` | push activity | authored (Step 5) |
-| `opened`, target merge_request | non-merged-MR candidate | authored (Step 5) |
+| `action_name` | Condition | Bucket | Routed to |
+|---------------|-----------|--------|-----------|
+| `approved` | `target_type == "MergeRequest"` | MR approval | `inbound.` |
+| `commented on` | `note.noteable_type == "MergeRequest"` | MR review comment | `inbound.` |
+| `commented on` | `note.noteable_type == "Issue"` | issue comment | `inbound.` |
+| `pushed to` / `pushed new` | `push_data.ref_type == "branch"` | push activity | authored (Step 5) |
+| `opened` | `target_type == "MergeRequest"` | in-review-MR candidate | authored (Step 5) |
+
+Comment events carry `target_type` ∈ {`Note`, `DiffNote`, `DiscussionNote`};
+read `note.noteable_type` to split MR comments from issue comments. **Ignore
+high-noise actions:** tag pushes (`push_data.ref_type == "tag"` — release-bot
+churn), `accepted` (your merged MRs already arrive via Source B), `closed`,
+`deleted`, `updated`.
 
 `list_events` metadata is thin (no repo, `Ref:`, or issue type). For any event
 needing those, fetch the MR / issue via `list_merge_requests` / `get_issue` /

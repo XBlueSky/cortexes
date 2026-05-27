@@ -89,18 +89,19 @@ routes them through `fix.`/`feat.`/`misc.`, not a new section.
 
 ### 3. GitLab activity sweep
 
-Call `list_events(scope="all", after=<start−1d>, before=<end+1d>,
-per_page=100, sort="desc")` and paginate until `created_at < start`, then
+Call `list_events(after=<start−1d>, before=<end+1d>, per_page=100,
+sort="desc")` — **no `scope="all"`** (it returns all users' events; the
+default returns only yours). Paginate until `created_at < start`, then
 post-filter each event by `created_at` against `[start, end)` (honors the
 11:00 cutoff).
 
-Bucket by `action` + `target_type` (verify exact strings against a live
-payload):
-- `approved` MR → MR approval → `inbound.`
-- `commented` on a MergeRequest note → MR review comment → `inbound.`
-- `commented` on an Issue note → issue comment → `inbound.`
-- `pushed` → push activity → authored (Step 5 classifier)
-- `opened` MR → in-review MR candidate → authored
+Bucket by `action_name` (and `note.noteable_type` for comments):
+- `approved`, target `MergeRequest` → MR approval → `inbound.`
+- `commented on`, `note.noteable_type == "MergeRequest"` → MR review comment → `inbound.`
+- `commented on`, `note.noteable_type == "Issue"` → issue comment → `inbound.`
+- `pushed to` / `pushed new` with `ref_type == "branch"` → push activity → authored (Step 5)
+- `opened`, target `MergeRequest` → in-review MR candidate → authored
+- Ignore: tag pushes (`ref_type == "tag"`), `accepted` (Source B covers merged MRs), `closed`, `deleted`, `updated`.
 
 Fetch MR/issue metadata (title, repo, `Ref:`) for items that need it. Apply the
 substance bar (drop LGTM/+1/nits; aggregate pushes per repo) and dedup per

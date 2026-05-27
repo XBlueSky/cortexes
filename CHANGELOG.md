@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cortex-weekly`: GitLab activity sweep. The weekly report now captures MR
   review comments (non-approve), non-wit issue comments, in-review (opened)
-  MRs, and no-MR pushes — via a single paginated `list_events(scope=all)` that
-  replaces the approvals-only Source C. Reactive items route to `inbound.`;
+  MRs, and no-MR pushes — via a single paginated per-user `list_events` sweep
+  that replaces the approvals-only Source C. Reactive items route to `inbound.`;
   authored items route through the existing `fix.`/`feat.`/`misc.` classifier
   (Source A + Step 5b) with an `(in review)` tag for unmerged MRs. Same
   substance bar as the ChatPlus/MailPlus sources; overlap/cross-week dedup
