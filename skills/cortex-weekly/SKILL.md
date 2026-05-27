@@ -151,9 +151,42 @@ Ref:\s*([A-Z]+-\d+)
 
 Attach any matching issue keys to the MR. This grouping hook is what connects MRs that had no Raw/ session note to their parent Workplus issue.
 
-### Source C — GitLab MR reviews (approvals)
+### Source C — GitLab activity sweep
 
-Use `list_events` with `action=approved, target_type=merge_request` in the date range. For each, fetch the MR to get its title and any `Ref:` issue key. These go into `inbound.`.
+One paginated call discovers everything the user did on GitLab in the window.
+Buckets route by **nature** (see Step 5 Classification): reactive items →
+`inbound.`, authored items → the MR classifier.
+
+Call `list_events(scope="all", after=<start_date − 1 day>, before=<end_date +
+1 day>, per_page=100, sort="desc")`. Paginate (increment `page`) until an
+event's `created_at` is earlier than the window start, then stop.
+
+- The ±1-day date padding follows the API's own rule: `after`/`before` are
+  **date-granular**, so to include events on the boundary dates set `after` to
+  the day before `start` and `before` to the day after `end`.
+- **Post-filter every event by its precise `created_at`** against
+  `[start, end)`. This — not the API filter — honors the 11:00 cutoff on the
+  two boundary Fridays (mirrors Source A's `HHMMSS` filter, applied to
+  timestamps).
+
+Bucket each surviving event by `action` + `target_type`. **Verify the exact
+action / target / `noteable_type` strings against a live `list_events` payload
+before trusting this mapping** — GitLab uses forms like `"pushed to"`,
+`"commented on"`, `"opened"`, and comment events carry a `Note` / `DiffNote`
+target with a `noteable_type`:
+
+| Event | Bucket | Routed to |
+|-------|--------|-----------|
+| `approved`, target merge_request | MR approval | `inbound.` |
+| `commented`, note → MergeRequest | MR review comment | `inbound.` |
+| `commented`, note → Issue | issue comment | `inbound.` |
+| `pushed` | push activity | authored (Step 5) |
+| `opened`, target merge_request | non-merged-MR candidate | authored (Step 5) |
+
+`list_events` metadata is thin (no repo, `Ref:`, or issue type). For any event
+needing those, fetch the MR / issue via `list_merge_requests` / `get_issue` /
+the MR's commits (as Source B already does). Substance filtering and dedup are
+applied in Step 4 — do not emit raw events.
 
 ### Source D — wit/wit_issues (cross-department tickets)
 
