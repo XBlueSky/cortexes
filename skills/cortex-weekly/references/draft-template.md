@@ -135,6 +135,8 @@ Rules:
 	- [mr-title](mr-url) / [<ISSUE-KEY>](<issue-url>)
 	- [mr-title](mr-url)
 	- <title> — [!N1](mr-url) / [KEY1](issue-url)、[!N2](mr-url) / [KEY2](issue-url)、...   ← same-title dedup
+	- [mr-title](mr-url): <my review point>
+	- [<project>#iid](url): topic → responded
 	- [wit#NNNN](https://git.synology.inc/wit/wit_issues/-/issues/NNNN): topic → responded
 	- [css#NNNNNNN](https://cssnew.synology.com/ticket/NNNNNNN): symptom → root cause → response
 	- [chat] <channel-name>: topic → 我的貢獻

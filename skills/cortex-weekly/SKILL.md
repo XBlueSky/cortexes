@@ -323,7 +323,7 @@ load-bearing reminders:
    (see `cortex-distill` Step 5.5 guideline). When distill knows the
    issue (Step 5.6) we can join structurally on that, which is
    sharper than the repo+date heuristic.
-3. Add `inbound.` items (MR reviews, wit issues filtered by reply, CSS tickets filtered by this-week action, ChatPlus threads filtered for substance, MailPlus threads filtered for substance)
+3. Add `inbound.` items (MR reviews, MR review comments, non-wit issue comments, wit issues filtered by reply, CSS tickets filtered by this-week action, ChatPlus threads filtered for substance, MailPlus threads filtered for substance)
 4. **Cross-source dedup for ChatPlus / MailPlus.** A chat post or mail thread that merely announces or coordinates around an MR/issue already represented elsewhere in this report is redundant — drop it. Keep the chat/mail entry only when it carries information not already conveyed by a Raw/, MR, wit, or CSS entry.
 5. **GitLab sweep dedup.**
    - Drop a push whose commits belong to an MR already represented in Source B
@@ -334,6 +334,8 @@ load-bearing reminders:
    - An in-review authored MR that also has a Step 5b-classified Summary →
      a single bullet (enrich Step 5b with the MR URL + `(in review)`), never
      two.
+   - Drop a Source C `opened`-MR event whose MR is already in the Source B
+     opened-MR set — prefer the Source B metadata (repo, `Ref:`).
 
 ## Step 5: Classify
 
@@ -343,7 +345,7 @@ Four sections, selected primarily by **Workplus issue type**, not commit type. C
 |---------|----------|--------|
 | `fix.` | Self-authored MR whose Workplus issue has `type = BUG` | Always flat — one MR per bullet, no Workplus-title group headings |
 | `feat.` | Self-authored MR whose Workplus issue has `type = FEATURE` | Multiple MRs sharing one issue → grouped under Workplus-title heading; single MR → flat bullet |
-| `inbound.` | Others' MR approved / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window | Flat list |
+| `inbound.` | Others' MR approved / MR review comment / non-wit issue comment / wit issue replied / CSS ticket acted on / ChatPlus thread with substantive contribution / MailPlus work thread replied to — all within the cutoff window | Flat list |
 | `misc.` | Self-authored MR with no issue ref (side projects, infrastructure work) | Flat list |
 
 ### GitLab activity routing (Source C sweep + in-review MRs)
@@ -412,7 +414,7 @@ The group heading only appears when at least two MRs share the issue — it exis
 
 ### `inbound.` and `misc.`
 
-- **`inbound.`** is a flat list. See `references/draft-template.md` for the five shapes (MR review, wit issue, CSS ticket, ChatPlus thread, MailPlus thread).
+- **`inbound.`** is a flat list. See `references/draft-template.md` for the seven shapes (MR review, MR review comment, issue comment, wit issue, CSS ticket, ChatPlus thread, MailPlus thread).
 - **`misc.`** is a flat list — one bullet per side project, short summary only.
 
 ### Resolve Workplus issue titles and types

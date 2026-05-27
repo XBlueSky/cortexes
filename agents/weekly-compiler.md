@@ -190,8 +190,12 @@ the title **verbatim** in the group heading — do not paraphrase.
     (this-week activity) / ChatPlus thread (substantive) /
     MailPlus thread (substantive reply) → `inbound.`
   - Self side-project MRs with no issue ref → `misc.`
+  - In-review authored MR (Step 2) → `in_review_mrs` bucket; SKILL.md Step 5
+    GitLab routing classifies it into `fix.`/`feat.`/`misc.` with `(in review)`
+  - Push with no MR (Step 3) → `pushes` bucket; SKILL.md Step 5 routes to
+    `misc.` per repo
 
-Return a structured dataset with the four buckets ready for the skill
+Return a structured dataset with the six data buckets ready for the skill
 to render. Do not attempt to render the final markdown here — the
 skill's Step 6 owns that.
 
