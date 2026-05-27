@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-05-27
+
+### Added
+- `cortex-weekly`: GitLab activity sweep. The weekly report now captures MR
+  review comments (non-approve), non-wit issue comments, in-review (opened)
+  MRs, and no-MR pushes — via a single paginated `list_events(scope=all)` that
+  replaces the approvals-only Source C. Reactive items route to `inbound.`;
+  authored items route through the existing `fix.`/`feat.`/`misc.` classifier
+  (Source A + Step 5b) with an `(in review)` tag for unmerged MRs. Same
+  substance bar as the ChatPlus/MailPlus sources; overlap/cross-week dedup
+  prevents double-listing against Source B/D.
+
 ## [0.14.2] - 2026-05-27
 
 ### Fixed
