@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks" / "scrip
 
 from rtk_cmd.mcp_tools import (  # noqa: E402
     filter_docker_execute,
+    filter_gitlab_tool,
     filter_mcp_tool,
     filter_zoekt_search,
 )
@@ -108,6 +109,124 @@ class DockerExecute(unittest.TestCase):
         self.assertNotIn("[0;32m", result)
 
 
+_USER = {
+    "username": "tonyhu",
+    "id": "688",
+    "name": "tonyhu",
+    "avatar_url": "https://secure.gravatar.com/avatar/0000000000000000000000000000000000000000000000000000000000000000?s=80&d=identicon",
+    "web_url": "https://git.synology.inc/tonyhu",
+}
+_REVIEWER = {
+    "username": "reviewer1",
+    "id": "9001",
+    "name": "reviewer1",
+    "avatar_url": "https://secure.gravatar.com/avatar/abc?s=80",
+    "web_url": "https://git.synology.inc/reviewer1",
+    "state": "active",
+}
+
+
+class GitlabTool(unittest.TestCase):
+    def test_collapses_user_in_mr(self):
+        mr = {
+            "id": "304369",
+            "iid": "21",
+            "title": "feat(x): y",
+            "description": "long body",
+            "author": _USER,
+            "assignees": [_REVIEWER],
+            "reviewers": [_REVIEWER],
+            "state": "opened",
+            "web_url": "https://git.synology.inc/org/project/-/merge_requests/21",
+        }
+        result = filter_gitlab_tool(json.dumps(mr))
+        parsed = json.loads(result)
+        # user objects collapsed to "@username" strings
+        self.assertEqual(parsed["author"], "@tonyhu")
+        self.assertEqual(parsed["assignees"], ["@reviewer1"])
+        self.assertEqual(parsed["reviewers"], ["@reviewer1"])
+        # everything else preserved
+        self.assertEqual(parsed["title"], "feat(x): y")
+        self.assertEqual(parsed["description"], "long body")
+        self.assertEqual(parsed["iid"], "21")
+        self.assertEqual(parsed["state"], "opened")
+        self.assertIn("merge_requests/21", parsed["web_url"])
+        # noise gone from the nested objects
+        self.assertNotIn("avatar_url", result)
+        self.assertNotIn("gravatar", result)
+
+    def test_collapses_user_in_list(self):
+        mrs = [
+            {"iid": str(i), "title": f"MR {i}", "author": _USER, "reviewers": [_REVIEWER]}
+            for i in range(3)
+        ]
+        result = filter_gitlab_tool(json.dumps(mrs))
+        parsed = json.loads(result)
+        self.assertEqual(len(parsed), 3)
+        for entry in parsed:
+            self.assertEqual(entry["author"], "@tonyhu")
+            self.assertEqual(entry["reviewers"], ["@reviewer1"])
+
+    def test_collapses_user_in_notes(self):
+        notes = [
+            {
+                "id": "3777240",
+                "type": None,
+                "body": "requested review from @reviewer1",
+                "author": _USER,
+                "created_at": "2026-05-25T18:34:49.602+08:00",
+                "system": True,
+                "noteable_id": "304369",
+            }
+        ]
+        result = filter_gitlab_tool(json.dumps(notes))
+        parsed = json.loads(result)
+        self.assertEqual(parsed[0]["author"], "@tonyhu")
+        self.assertEqual(parsed[0]["body"], "requested review from @reviewer1")
+
+    def test_collapses_nested_approval(self):
+        mr = {
+            "iid": "21",
+            "approval_summary": {
+                "approved": True,
+                "approved_by": [_REVIEWER],
+                "approved_by_usernames": ["reviewer1"],
+            },
+        }
+        result = filter_gitlab_tool(json.dumps(mr))
+        parsed = json.loads(result)
+        self.assertEqual(parsed["approval_summary"]["approved_by"], ["@reviewer1"])
+        # parallel list preserved
+        self.assertEqual(parsed["approval_summary"]["approved_by_usernames"], ["reviewer1"])
+
+    def test_yields_byte_savings(self):
+        raw = json.dumps([
+            {"iid": str(i), "title": f"MR {i}", "description": "x" * 50,
+             "author": _USER, "assignees": [_USER], "reviewers": [_REVIEWER]}
+            for i in range(20)
+        ])
+        result = filter_gitlab_tool(raw)
+        # 20 MRs × 3 user objects each × ~200 bytes of noise = serious savings
+        self.assertLess(len(result), len(raw) // 2)
+
+    def test_passthrough_on_invalid_json(self):
+        raw = "Not JSON {{{ broken"
+        self.assertEqual(filter_gitlab_tool(raw), raw)
+
+    def test_passthrough_on_scalar_json(self):
+        # An MR endpoint that legitimately returns a string/number shouldn't crash
+        self.assertEqual(filter_gitlab_tool('"ok"'), '"ok"')
+        self.assertEqual(filter_gitlab_tool("42"), "42")
+
+    def test_non_user_dict_not_collapsed(self):
+        # Something that happens to have a `username` key but is not a user
+        # object (no avatar_url) must be left alone.
+        node = {"username": "tonyhu", "type": "audit-entry", "ts": "2026-05-25"}
+        result = filter_gitlab_tool(json.dumps(node))
+        parsed = json.loads(result)
+        self.assertEqual(parsed, node)
+
+
 class Dispatch(unittest.TestCase):
     def test_zoekt_routed(self):
         raw = json.dumps({"success": True, "data": {"total_matches": 1, "files": [
@@ -127,6 +246,12 @@ class Dispatch(unittest.TestCase):
         raw = "\x1b[0;32mok\x1b[m\n"
         result = filter_mcp_tool(raw, "mcp__plugin_synology-dev-suite_syno-build-mcp__docker_execute")
         self.assertNotIn("\x1b", result)
+
+    def test_gitlab_routed(self):
+        raw = json.dumps({"iid": "21", "title": "x", "author": _USER})
+        result = filter_mcp_tool(raw, "mcp__plugin_synology-workflows_gitlab__get_merge_request")
+        parsed = json.loads(result)
+        self.assertEqual(parsed["author"], "@tonyhu")
 
     def test_build_project_passthrough(self):
         # build_project output is already well-shaped; we route the tool to

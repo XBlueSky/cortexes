@@ -108,6 +108,9 @@ _MCP_REGISTRY: list[tuple[str, Callable[[str, str], str]]] = [
     ("mcp__plugin_zoekt-mcp__", filter_mcp_tool),
     # syno-build-mcp docker_execute — plugin variant only
     ("mcp__plugin_synology-dev-suite_syno-build-mcp__", filter_mcp_tool),
+    # gitlab-mcp (synology-workflows plugin) — collapses nested user objects
+    # in MR / issue / note / commit payloads to "@username" strings.
+    ("mcp__plugin_synology-workflows_gitlab__", filter_mcp_tool),
 ]
 
 

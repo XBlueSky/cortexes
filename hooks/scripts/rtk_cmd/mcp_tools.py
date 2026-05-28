@@ -108,6 +108,59 @@ def filter_docker_execute(output: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# gitlab MCP — collapse nested user objects to "@username"
+#
+# Every MR / issue / note / commit references one or more "user" objects of
+# the shape `{username, id, name, avatar_url, web_url}`. Only `username` is
+# load-bearing for cortex distill. A list_merge_requests result with N MRs
+# carries ~4 such objects per MR (author + assignees + reviewers + approvers),
+# each ~200 bytes of noise. We collapse those to the bare "@username" string
+# and leave the rest of the JSON intact — title / description / diff / labels
+# are all distill source material and must not be touched.
+#
+# Conservative: any structural surprise (parse fail, unexpected shape) falls
+# back to verbatim. We never lose signal; worst case is zero compression.
+
+_USER_OBJECT_KEYS = frozenset({"username", "id", "name", "avatar_url", "web_url"})
+_USER_OBJECT_SIGNATURE = frozenset({"username", "avatar_url"})
+
+
+def _is_user_object(node: dict) -> bool:
+    # A user object always carries username+avatar_url. Some variants also
+    # include `state` or `email`, so we don't require an exact key set —
+    # the signature is enough.
+    keys = set(node.keys())
+    if not _USER_OBJECT_SIGNATURE.issubset(keys):
+        return False
+    # Guard against false positives: only collapse when the *extra* keys are
+    # all in the known user-object vocabulary (id/name/web_url/state/email).
+    allowed = _USER_OBJECT_KEYS | {"state", "email", "locked"}
+    return keys.issubset(allowed)
+
+
+def _scrub_gitlab(node):
+    if isinstance(node, dict):
+        if _is_user_object(node):
+            uname = node.get("username")
+            return f"@{uname}" if uname else node
+        return {k: _scrub_gitlab(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_scrub_gitlab(item) for item in node]
+    return node
+
+
+def filter_gitlab_tool(output: str) -> str:
+    try:
+        parsed = json.loads(output)
+    except json.JSONDecodeError:
+        return output
+    if not isinstance(parsed, (dict, list)):
+        return output
+    cleaned = _scrub_gitlab(parsed)
+    return json.dumps(cleaned, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
 # dispatch
 
 def filter_mcp_tool(output: str, tool_name: str) -> str:
@@ -119,4 +172,6 @@ def filter_mcp_tool(output: str, tool_name: str) -> str:
         return filter_zoekt_search(output)
     if tool_name.endswith("__docker_execute"):
         return filter_docker_execute(output)
+    if "_gitlab__" in tool_name:
+        return filter_gitlab_tool(output)
     return output
