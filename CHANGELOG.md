@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-05-28
+
+### Fixed
+- `cortex-vec`: `--repo X` no longer excludes cross-repo `Notes/` pages.
+  The previous strict-equality semantic (vector: `metadata["repo"]`;
+  BM25: list-membership on `rec["repos"]`) hid Notes/ entries entirely
+  whenever a repo filter was set, which caused `cortex:distill` dedup
+  to return false `new` verdicts on Raws whose true duplicate lived in
+  a cross-repo Note (concrete failure: a syno-nextweb SynoToken Raw
+  nearly duplicating `Notes/DSM/SynoToken 注入機制 …`). The filter now
+  narrows the `Projects/` partition only; `type=note` documents always
+  pass through. `cortex-distill` SKILL Step 3.2 gets a one-line
+  clarifier documenting the new semantic.
+  Spec: `docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md`.
+
 ## [0.15.0] - 2026-05-27
 
 ### Added
