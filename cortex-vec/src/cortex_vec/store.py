@@ -357,7 +357,9 @@ def cmd_delete(args):
 def _build_where(repo=None, type=None, category=None):
     clauses = []
     if repo:
-        clauses.append({"repo": repo})
+        # Notes/ are cross-repo by design and must always pass the repo filter.
+        # See docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
+        clauses.append({"$or": [{"repo": repo}, {"type": "note"}]})
     if type:
         clauses.append({"type": type})
     if category:

@@ -52,3 +52,46 @@ def test_upsert_and_delete(tmp_path):
     assert idx.search("redis cache", n=1)[0]["id"] == "Notes/New/x.md"
     idx.delete("Notes/New/x.md")
     assert idx.count() == 3
+
+
+def test_search_with_repo_filter_includes_cross_repo_notes(tmp_path):
+    """--repo X must surface relevant Notes/ entries regardless of their
+    repos field. Notes/ pages are cross-repo by design and must never be
+    excluded by the repo filter; the filter only narrows Projects/.
+    """
+    idx = bm25.BM25Index(tmp_path / "bm25")
+    idx.build_from_docs(_docs())
+    # Query matches the Notes/Nginx page; --repo filter mentions a different
+    # repo (libsynow3). The Notes/ entry must still appear.
+    hits = idx.search("nginx certificate renew", n=5,
+                      where={"repo": "libsynow3"})
+    assert any(h["id"] == "Notes/Nginx/cert-renew.md" for h in hits), (
+        f"Notes/Nginx note missing under --repo libsynow3; got {[h['id'] for h in hits]}"
+    )
+
+
+def test_search_with_repo_filter_still_narrows_projects(tmp_path):
+    """--repo X still excludes Projects/ pages whose repos don't match.
+
+    Regression guard: the fix widens for type=note only; Project/ pages
+    from a different repo must still be filtered out.
+    """
+    idx = bm25.BM25Index(tmp_path / "bm25")
+    # Add a Project page in a different repo than libsynow3.
+    docs = _docs() + [{
+        "id": "Projects/syno-nextweb/oauth-token.md",
+        "title": "syno-nextweb oauth token",
+        "body": "oauth token refresh in syno-nextweb",
+        "summary": "oauth token",
+        "tags": "",
+        "repos": ["syno-nextweb"],
+        "type": "project",
+        "category": "syno-nextweb",
+    }]
+    idx.build_from_docs(docs)
+    hits = idx.search("oauth token refresh", n=5,
+                      where={"repo": "libsynow3"})
+    ids = [h["id"] for h in hits]
+    assert "Projects/syno-nextweb/oauth-token.md" not in ids, (
+        f"Project page from wrong repo leaked through filter: got {ids}"
+    )

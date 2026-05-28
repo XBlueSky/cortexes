@@ -129,6 +129,7 @@ cortex-vec search "<bullet text>" --n 3
 ```
 
 If the repo is known from Raw frontmatter, add `--repo <name>` when searching Projects-bound content.
+`--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always appear in results regardless of the filter. Safe to add when the Raw is repo-specific.
 
 Extract top-1 `score` from the JSON output.
 

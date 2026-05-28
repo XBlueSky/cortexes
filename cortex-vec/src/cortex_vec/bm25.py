@@ -22,7 +22,10 @@ def _doc_record(doc):
 def _matches(rec, where):
     if not where:
         return True
-    if "repo" in where and where["repo"] not in rec.get("repos", []):
+    # Notes/ are cross-repo by design and must always pass the repo filter.
+    # See docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
+    if ("repo" in where and rec.get("type") != "note"
+            and where["repo"] not in rec.get("repos", [])):
         return False
     if "type" in where and rec.get("type") != where["type"]:
         return False
