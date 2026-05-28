@@ -29,6 +29,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from log_dedup import dedup_or_passthrough
 from rtk_cmd.dispatch import find_cmd_filter, find_mcp_filter
 from rtk_filter import (
     Filter,
@@ -135,6 +136,21 @@ def sample_block(text: str, reason: str) -> str:
     )
 
 
+def compress_log_block(text: str, reason: str, state: dict) -> str:
+    """Prefer rtk-style severity-bucketed dedup; fall back to head+tail sample.
+
+    Sampling loses unique errors that live in the middle. Dedup keeps every
+    unique signal but collapses repetition — strictly better for severity-
+    annotated logs (dmesg, journalctl, CI). For pure prose we fall back to
+    sampling, which is what classifier-as-log meant before this path existed.
+    """
+    deduped, used = dedup_or_passthrough(text)
+    if used:
+        state["dedup_used"] += 1
+        return deduped
+    return sample_block(text, reason)
+
+
 def classify_block(text: str, state: dict) -> str:
     if os.environ.get("CORTEX_NO_CLASSIFIER") == "1":
         state["classifier_skipped"] += 1
@@ -238,7 +254,7 @@ def process_tool_result(
         verdict = classify_block(raw_output, state)
         if verdict == "log":
             state["classifier_sampled"] += 1
-            return sample_block(raw_output, "classified as log")
+            return compress_log_block(raw_output, "classified as log", state)
         return raw_output
 
     if len(raw_output) <= CLASSIFIER_THRESHOLD:
@@ -246,7 +262,7 @@ def process_tool_result(
     verdict = classify_block(raw_output, state)
     if verdict == "log":
         state["classifier_sampled"] += 1
-        return sample_block(raw_output, "classified as log")
+        return compress_log_block(raw_output, "classified as log", state)
     return raw_output
 
 
@@ -270,7 +286,7 @@ def process_user_text(raw: str, state: dict) -> str | None:
         verdict = classify_block(cleaned, state)
         if verdict == "log":
             state["classifier_sampled"] += 1
-            return sample_block(cleaned, "classified as log")
+            return compress_log_block(cleaned, "classified as log", state)
     return cleaned
 
 
@@ -284,6 +300,9 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
         "classifier_sampled": 0,
         "classifier_failures": 0,
         "classifier_skipped": 0,
+        "dedup_used": 0,
+        "raw_bytes": 0,
+        "output_bytes": 0,
     }
     tool_uses: dict[str, dict] = {}
     chunks: list[str] = []
@@ -319,24 +338,30 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
             elif t == "user":
                 content = rec.get("message", {}).get("content")
                 if isinstance(content, str):
+                    state["raw_bytes"] += len(content)
                     body = process_user_text(content, state)
                     if body:
+                        state["output_bytes"] += len(body)
                         chunks.append(f"{USER_HDR}\n\n{body}\n")
                 elif isinstance(content, list):
                     for block in content:
                         btype = block.get("type")
                         if btype == "text":
                             raw = block.get("text") or ""
+                            state["raw_bytes"] += len(raw)
                             body = process_user_text(raw, state)
                             if body:
+                                state["output_bytes"] += len(body)
                                 chunks.append(f"{USER_HDR}\n\n{body}\n")
                         elif btype == "tool_result":
                             tid = block.get("tool_use_id")
                             tu = tool_uses.get(tid, {})
                             raw_output = tool_result_to_text(block)
+                            state["raw_bytes"] += len(raw_output)
                             processed = process_tool_result(
                                 tu, raw_output, filters, state
                             )
+                            state["output_bytes"] += len(processed)
                             suffix = fmt_tool_output(processed)
                             if suffix and chunks:
                                 last = chunks[-1]
@@ -372,6 +397,9 @@ def main() -> int:
 
     body, state = render_transcript(path, filters)
 
+    raw = state["raw_bytes"]
+    output = state["output_bytes"]
+    saved_pct = ((raw - output) * 100 // raw) if raw else 0
     audit = (
         f"<!-- audit: skill_loads={state['skill_loads']} "
         f"rtk_hits={state['rtk_hits']} "
@@ -381,6 +409,8 @@ def main() -> int:
         f"classifier_sampled={state['classifier_sampled']} "
         f"classifier_failures={state['classifier_failures']} "
         f"classifier_skipped={state['classifier_skipped']} "
+        f"dedup_used={state['dedup_used']} "
+        f"raw_bytes={raw} output_bytes={output} saved_pct={saved_pct} "
         f"filters_loaded={len(filters)} -->\n"
     )
     sys.stdout.write(audit + body)
