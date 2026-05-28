@@ -15,6 +15,14 @@ from typing import Callable
 
 from rtk_cmd.cargo import filter_cargo_build, filter_cargo_clippy, filter_cargo_test
 from rtk_cmd.git import filter_git_diff, filter_git_log, filter_git_status
+from rtk_cmd.listing import (
+    filter_cat_like,
+    filter_find,
+    filter_grep,
+    filter_ls,
+    filter_tree,
+    filter_wc,
+)
 from rtk_cmd.pytest import filter_pytest_output
 from rtk_cmd.js_tools import (
     filter_npm,
@@ -63,6 +71,15 @@ _TSC_RE = re.compile(r"(?:^|\s|/)(?:npx\s+)?tsc(?:\s|$)")
 _VITEST_RE = re.compile(r"(?:^|\s|/)(?:npx\s+|pnpm\s+(?:exec\s+|run\s+)?|npm\s+(?:exec\s+|test\s+)?)?vitest(?:\s|$)")
 _PNPM_RE = re.compile(r"(?:^|\s|/)pnpm(?:\s|$)")
 _NPM_RE = re.compile(r"(?:^|\s|/)npm(?:\s|$)")
+# Listing-shaped tools. We match the bare command at the start of a line or
+# after a pipe/&&/;/(/ — guards against false hits on substring matches like
+# `grep` appearing inside `ls grep_test.txt`.
+_FIND_RE = re.compile(r"(?:^|[\s|;&(`])find(?:\s|$)")
+_GREP_RE = re.compile(r"(?:^|[\s|;&(`])(?:rg|grep)(?:\s|$)")
+_LS_RE = re.compile(r"(?:^|[\s|;&(`])ls(?:\s|$)")
+_TREE_RE = re.compile(r"(?:^|[\s|;&(`])tree(?:\s|$)")
+_WC_RE = re.compile(r"(?:^|[\s|;&(`])wc(?:\s|$)")
+_CAT_LIKE_RE = re.compile(r"(?:^|[\s|;&(`])(?:cat|head|tail)(?:\s|$)")
 
 
 _REGISTRY: list[tuple[re.Pattern, CmdFilter]] = [
@@ -83,9 +100,18 @@ _REGISTRY: list[tuple[re.Pattern, CmdFilter]] = [
     (_PRETTIER_RE, filter_prettier),
     (_VITEST_RE, filter_vitest),
     (_TSC_RE, filter_tsc),
-    # pnpm/npm last: they may appear as prefixes in vitest/tsc commands
+    # pnpm/npm last among JS: they may appear as prefixes in vitest/tsc commands
     (_PNPM_RE, filter_pnpm),
     (_NPM_RE, filter_npm),
+    # Listing-shaped tools — registered last so any specific cmd (eg. `cargo
+    # test`) wins over a casual `grep` substring. Order within this block
+    # doesn't matter since the regexes are mutually exclusive.
+    (_FIND_RE, filter_find),
+    (_GREP_RE, filter_grep),
+    (_LS_RE, filter_ls),
+    (_TREE_RE, filter_tree),
+    (_WC_RE, filter_wc),
+    (_CAT_LIKE_RE, filter_cat_like),
 ]
 
 
