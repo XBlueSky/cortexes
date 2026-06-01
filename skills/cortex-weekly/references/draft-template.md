@@ -11,6 +11,7 @@ Reference this file whenever composing Step 6 output (Generate Draft).
 - **Frontmatter is required** at the top. Obsidian consumes it; GitLab renders it as a table or ignores it silently.
 - **Meeting Friday date** drives the `title` / `date` fields and the filename.
 - **Omit empty sections entirely** — do not print `- fix.` with no children.
+- **Never emit a raw `<…>` sequence into link text or a heading.** GitLab's wiki/issue renderer treats `<WORD>` (e.g. a cross-dept MR-title prefix like `<DSM>`) as an unknown HTML tag and silently strips it, so `[<DSM> #173815 - …](url)` renders as `[ #173815 - …]`. When a copied MR/issue title carries a `<DEPT> #NNN` prefix, normalize it to `DEPT#NNN` (drop the angle brackets **and** the space) before emitting — e.g. `<DSM> #173815 - Fix: …` → `DSM#173815 - Fix: …`. (Obsidian renders the raw form fine, which is why this only surfaces when pasted into GitLab — same class as the `[`/`][` backtick rule and the `[chat:]` reference-link bug below.)
 
 ```markdown
 ---
@@ -147,7 +148,7 @@ Rules:
 ```
 
 Rules:
-- **MR review**: `[mr-title](mr-url)`. Append ` / [KEY](issue-url)` only when the MR's commit messages carry a `Ref:` trailer.
+- **MR review**: `[mr-title](mr-url)`. Append ` / [KEY](issue-url)` only when the MR's commit messages carry a `Ref:` trailer. Some repos title MRs `<DEPT> #NNN - …` — normalize the copied title to `DEPT#NNN - …` first (see the angle-bracket base principle).
 - **MR review comment** (others' MR, no approve): `[mr-title](mr-url): <my review point>`. Append ` / [KEY](issue-url)` when the MR carries a `Ref:`. The trailing `: …` distinguishes it from a bare approval.
 - **wit issue**: `[wit#iid](url): topic → responded` (or `→ resolved`). List only when the configured user posted a note within the week window (see Source D filter).
 - **Issue comment** (non-wit): `[<project>#iid](url): topic → responded`, reusing the wit shape with the project path swapped in (e.g. `[ds.base#1234](url)`).
