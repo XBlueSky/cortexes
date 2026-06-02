@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-06-02
+
+### Added
+- SessionEnd filter: `syno-naxos` `exec_command` outputs are unwrapped from
+  their JSON envelope to a compact `$ <command>` frame, and the remote stdout
+  is recursed through the existing `rtk_cmd` Bash filters — so every
+  git/ls/grep/cargo/... filter now applies to remote NAS execution too.
+- SessionEnd filter: `robinhood` `codesearch` (shares the zoekt result shape)
+  and `css_get_activities` (audit-log flatten) are now filtered.
+
+### Fixed
+- `_MCP_REGISTRY` now matches by server-token substring instead of a full
+  plugin-qualified prefix, fixing the silent no-op of already-written filters
+  when a plugin is repackaged: `kaer-morhen` playwright, `build-toolkit`
+  syno-build-mcp, and the `synology-diagnostics` syno-naxos namespace were all
+  being missed.
+
 ## [0.15.1] - 2026-05-28
 
 ### Fixed
