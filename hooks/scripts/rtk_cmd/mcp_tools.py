@@ -45,7 +45,7 @@ _MAX_FILES = 50
 _MAX_LINE_CONTENT = 200
 
 
-def filter_zoekt_search(output: str) -> str:
+def _filter_codesearch_shape(output: str, label: str = "codesearch") -> str:
     try:
         parsed = json.loads(output)
     except json.JSONDecodeError:
@@ -62,7 +62,7 @@ def filter_zoekt_search(output: str) -> str:
     if not isinstance(files, list):
         return output
 
-    parts: list[str] = [f"zoekt: {total} matches in {len(files)} files"]
+    parts: list[str] = [f"{label}: {total} matches in {len(files)} files"]
 
     # Group by repo, preserving order of first appearance.
     by_repo: dict[str, list[dict]] = {}
@@ -93,6 +93,39 @@ def filter_zoekt_search(output: str) -> str:
         parts.append(f"... +{len(files) - _MAX_FILES} more files")
 
     return "\n".join(parts)
+
+
+def filter_zoekt_search(output: str) -> str:
+    """Back-compat alias — zoekt and robinhood codesearch share one shape."""
+    return _filter_codesearch_shape(output, label="zoekt")
+
+
+def _filter_css_activities(output: str) -> str:
+    """css_get_activities is a {data:[{datetime,user,action}]} audit log →
+    one line per entry. Lossless reformat."""
+    try:
+        parsed = json.loads(output)
+    except json.JSONDecodeError:
+        return output
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("data"), list):
+        return output
+    lines: list[str] = []
+    for e in parsed["data"]:
+        if not isinstance(e, dict):
+            continue
+        lines.append(f"{e.get('datetime', '')}  {e.get('user', '')}: {e.get('action', '')}")
+    if not lines:
+        return output
+    result = "\n".join(lines)
+    return result if len(result) < len(output) else output
+
+
+def filter_robinhood(output: str, tool_name: str) -> str:
+    if tool_name.endswith("__codesearch"):
+        return _filter_codesearch_shape(output, label="codesearch")
+    if tool_name.endswith("__css_get_activities"):
+        return _filter_css_activities(output)
+    return output  # chat / mailplus / css_get_ticket: verbatim (YAGNI, low volume)
 
 
 # ---------------------------------------------------------------------------

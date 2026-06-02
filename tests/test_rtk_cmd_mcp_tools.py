@@ -12,6 +12,7 @@ from rtk_cmd.mcp_tools import (  # noqa: E402
     filter_docker_execute,
     filter_gitlab_tool,
     filter_mcp_tool,
+    filter_robinhood,
     filter_zoekt_search,
 )
 
@@ -259,6 +260,39 @@ class Dispatch(unittest.TestCase):
         raw = "=== Build Result ===\nReturn Code: 0\n"
         result = filter_mcp_tool(raw, "mcp__plugin_synology-dev-suite_syno-build-mcp__build_project")
         self.assertEqual(result, raw)
+
+
+class CssActivities(unittest.TestCase):
+    CSS = "mcp__plugin_syno-robinhood_robinhood__css_get_activities"
+
+    def test_flattens_entries(self):
+        raw = json.dumps({"success": True, "data": [
+            {"datetime": "2026-01-02 09:33:24", "user": "agent1",
+             "action": "change status from escalated to open"},
+            {"datetime": "2026-01-02 09:34:00", "user": "tonyhu", "action": "reply thread"},
+        ]})
+        result = filter_robinhood(raw, self.CSS)
+        self.assertIn("2026-01-02 09:33:24  agent1: change status from escalated to open", result)
+        self.assertIn("2026-01-02 09:34:00  tonyhu: reply thread", result)
+        self.assertNotIn('"datetime"', result)
+        self.assertLess(len(result), len(raw))
+
+    def test_parse_failure_passthrough(self):
+        self.assertEqual(filter_robinhood("not json", self.CSS), "not json")
+
+
+class RobinhoodDispatch(unittest.TestCase):
+    def test_codesearch_routed_with_label(self):
+        raw = json.dumps({"success": True, "data": {"total_matches": 1, "files": [
+            {"repo": "r", "path": "p.cpp", "matches": [{"line_number": 1, "line": "foo"}]}]}})
+        result = filter_robinhood(raw, "mcp__plugin_syno-robinhood_robinhood__codesearch")
+        self.assertIn("codesearch: 1 matches in 1 files", result)
+        self.assertIn("p.cpp:1: foo", result)
+
+    def test_unknown_subtool_verbatim(self):
+        raw = json.dumps({"data": "chat content"})
+        name = "mcp__plugin_syno-robinhood_robinhood__chat_list_posts"
+        self.assertEqual(filter_robinhood(raw, name), raw)
 
 
 if __name__ == "__main__":
