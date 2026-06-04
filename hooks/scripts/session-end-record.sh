@@ -54,6 +54,7 @@ mkdir -p "$target_dir"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FILTER="${SCRIPT_DIR}/filter-transcript.py"
+META="${SCRIPT_DIR}/meta_session.py"
 
 nohup bash -c '
   CORTEX_SESSION_RECORDING=1
@@ -65,6 +66,7 @@ nohup bash -c '
   vault_path="$4"
   CORTEX_CONFIG="$5"
   FILTER="$6"
+  META="$7"
 
   {
     cat <<FRONTMATTER
@@ -80,6 +82,15 @@ FRONTMATTER
     python3 "$FILTER" "$transcript_path" 2>/dev/null || echo "(filter failed)"
   } > "$target_file"
 
+  # Cortex maintenance-pipeline sessions (distill/weekly/broadcast/genesis) only
+  # process the vault; recording them would re-feed Raw/ into its own distill
+  # queue, so the queue could never reach empty. Keep the record as an audit
+  # trail but pre-stamp a distilled marker so the grep -rL "<!-- distilled:"
+  # queue scan never picks it up again. Fail-open: any error → no marker.
+  if python3 "$META" "$transcript_path" >/dev/null 2>&1; then
+    printf "\n<!-- distilled: %s → (skip: meta-session) -->\n" "$(date +%Y-%m-%d)" >> "$target_file"
+  fi
+
   auto_commit=$(jq -r ".git.auto_commit // false" "$CORTEX_CONFIG" 2>/dev/null)
   auto_push=$(jq -r ".git.auto_push // false" "$CORTEX_CONFIG" 2>/dev/null)
   if [[ "$auto_commit" == "true" ]]; then
@@ -89,7 +100,7 @@ FRONTMATTER
       git -C "$vault_path" push 2>/dev/null || true
     fi
   fi
-' _ "$target_file" "$transcript_path" "$repo_name" "$vault_path" "$CORTEX_CONFIG" "$FILTER" >/dev/null 2>&1 &
+' _ "$target_file" "$transcript_path" "$repo_name" "$vault_path" "$CORTEX_CONFIG" "$FILTER" "$META" >/dev/null 2>&1 &
 disown
 
 exit 0
