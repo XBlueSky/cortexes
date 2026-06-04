@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-06-04
+
+### Added
+- SessionEnd hook now detects cortex maintenance-pipeline sessions
+  (distill/weekly/broadcast/genesis) and pre-stamps the recorded Raw with a
+  `<!-- distilled: ... (skip: meta-session) -->` marker, so these
+  self-referential sessions never re-enter their own distill queue — the queue
+  can finally reach empty. The Raw is still written as an audit trail; only the
+  `grep -rL '<!-- distilled:'` queue scan skips it.
+  Detection (`hooks/scripts/meta_session.py`) matches both the `cortex:distill`
+  slash-command alias and the dominant `cortex:cortex-distill` plugin:skill id,
+  via a structured `Skill` tool_use. `evolve`/`query`/`using-cortex` are
+  deliberately excluded — they fire inside real work sessions worth recording.
+  (cortex-vec is unaffected: it only indexes `Notes/` + `Projects/`, never
+  `Raw/`.)
+
 ## [0.17.0] - 2026-06-02
 
 ### Added
