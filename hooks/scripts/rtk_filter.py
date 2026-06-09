@@ -10,9 +10,16 @@ those commands are left to the classifier or kept verbatim.
 from __future__ import annotations
 
 import re
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        tomllib = None  # type: ignore[assignment]
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\[\d[0-9;]*[A-Za-z]")
 
@@ -84,6 +91,11 @@ def _compile_filter(name: str, definition: dict) -> Filter | None:
 
 def load_filters(filters_dir: Path) -> list[Filter]:
     filters: list[Filter] = []
+    if tomllib is None:
+        # No TOML parser (Python < 3.11 without tomli). Fail open: degrade to
+        # an empty filter set so the caller keeps tool output verbatim rather
+        # than crashing the whole SessionEnd filter pipeline.
+        return filters
     for path in sorted(filters_dir.glob("*.toml")):
         try:
             data = tomllib.loads(path.read_text())
