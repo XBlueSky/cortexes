@@ -1,0 +1,18 @@
+# Ruff config for the cortex plugin. Pins the lint rule set so the test gate
+# (scripts/run-checks.sh) stays reproducible across ruff releases instead of
+# riding shifting defaults.
+
+[lint]
+# Pin ruff's curated default set explicitly (E4 imports, E7 statements,
+# E9 syntax/runtime, F pyflakes). Deliberately NOT the whole "E" category —
+# E501 line-length etc. would force reformatting churn this codebase doesn't want.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]     # `l` as a loop var is established house style here
+
+[lint.per-file-ignores]
+# store.py swaps sqlite3 -> pysqlite3 before importing chromadb (system SQLite
+# is too old), which forces module-level imports below the swap. E402 is
+# intentional here.
+"cortex-vec/src/cortex_vec/store.py" = ["E402"]
+# Hook tests import their target module after a sys.path.insert() shim.
+"tests/*.py" = ["E402"]

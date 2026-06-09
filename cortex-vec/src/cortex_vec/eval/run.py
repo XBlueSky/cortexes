@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .. import store
 from ..config import get_vault_path
-from ..parser import classify_path, parse_document
+from ..parser import parse_document
 from . import adapters, corpus, report, score
 
 

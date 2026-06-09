@@ -1,4 +1,4 @@
-from cortex_vec import fusion, store, bm25
+from cortex_vec import fusion, bm25
 
 
 def test_bm25_stream_passes_synonym_weight(monkeypatch):

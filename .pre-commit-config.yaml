@@ -1,0 +1,18 @@
+# Test gate for the cortex plugin.
+#
+# Activate once:   pip install pre-commit  &&  pre-commit install
+# Thereafter every `git commit` runs scripts/run-checks.sh
+# (ruff lint + the full pytest suite). The script is also runnable directly:
+#   ./scripts/run-checks.sh
+#
+# Local hook (no managed env) so it shares your installed deps and pyenv
+# interpreter — the same environment the SessionEnd hooks actually run under.
+repos:
+  - repo: local
+    hooks:
+      - id: cortex-checks
+        name: cortex checks (ruff + pytest)
+        entry: scripts/run-checks.sh
+        language: script
+        pass_filenames: false
+        always_run: true
