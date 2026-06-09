@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-06-09
+
+### Fixed
+- `rtk_filter` no longer crashes the SessionEnd filter pipeline when no TOML
+  parser is available. It imported `tomllib` unconditionally, so under a
+  Python < 3.11 interpreter (e.g. the hook launched with an ambient
+  `/usr/bin/python3`) the whole `filter-transcript` run failed at import and
+  every Raw record degraded to `(filter failed)`. Now falls back
+  `tomllib` → `tomli` → none, and `load_filters()` returns an empty filter
+  set (tool output kept verbatim) instead of crashing.
+
+### Added
+- Developer test gate: `scripts/run-checks.sh` (ruff + both pytest suites),
+  a local `.pre-commit-config.yaml`, and `ruff.toml` pinning the lint rule
+  set (`E4`/`E7`/`E9`/`F`, ignoring `E741`, with `E402` per-file-ignored for
+  the `pysqlite3` swap in `store.py` and the `sys.path` shim in hook tests).
+
 ## [0.18.0] - 2026-06-04
 
 ### Added
