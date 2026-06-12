@@ -17,11 +17,19 @@ If the file doesn't exist, tell the user to run `/cortex:genesis` first.
 
 ## Step 1: Find Unprocessed Raw Files
 
-Find all Raw files that lack a `<!-- distilled:` marker:
+List the distill queue:
 
 ```bash
-grep -rL '<!-- distilled:' <vault_path>/Raw/ --include='*.md'
+cortex-vec distill-queue --root <vault_path>/Raw
 ```
+
+This is **position-anchored**: a Raw counts as distilled only if a
+`<!-- distilled: ... -->` marker appears in its header (before the first
+`### User` turn) **or** as its last non-empty line. Do **NOT** `grep` the
+marker string — a pipeline meta-session's body quotes it dozens of times
+(it printfs markers onto other files), so `grep -rL '<!-- distilled:'`
+silently drops genuine work from the queue. To check one file, use
+`cortex-vec raw-state <file>`.
 
 Show the pending list count and ask to proceed.
 

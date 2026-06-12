@@ -50,12 +50,14 @@ A Raw is eligible iff its marker meets **all** of:
 Build the list via:
 
 ```bash
-grep -rL '| broadcast:\|| merged:\|| no-broadcast:' <vault>/Raw/ --include='*.md' \
-  | xargs grep -l '<!-- distilled:' \
-  | xargs grep -LE '(skip: routine|no insight|no extractable content)'
+cortex-vec broadcast-queue --root <vault>/Raw
 ```
 
-Sort by Raw filename (which starts with timestamp) for FIFO ordering.
+This applies the three criteria above against each Raw's authoritative marker
+(header marker, or last non-empty line) and returns the result FIFO by path.
+Do **NOT** `grep` the marker string — a meta-session's body quotes it many
+times, which fools a substring scan. To inspect one file, use
+`cortex-vec raw-state <file>`.
 
 ## Step 3: Handle `--list`
 
@@ -257,8 +259,10 @@ After all selected pages are committed (or the selected list was empty):
 
 ### 9.1 Update Raw marker
 
-Read the current marker line. Determine the terminal segment to append
-based on outcome and result:
+Read the current marker line — the authoritative `<!-- distilled: ... -->`
+line, which is either the header marker (before the first `### User` turn) or
+the last non-empty line. (`cortex-vec raw-state <raw>` confirms its outcome.)
+Determine the terminal segment to append based on outcome and result:
 
 | Case | New segment |
 |------|-------------|

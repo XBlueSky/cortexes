@@ -89,7 +89,7 @@ Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex�
 4. 直接開始工作
 
 規則：
-- 選項 3 被選中時，才去掃描 __VAULT__/Raw/ 找未提煉的紀錄（grep -rL '<!-- distilled:' __VAULT__/Raw/ --include='*.md'）
+- 選項 3 被選中時，才去掃描 __VAULT__/Raw/ 找未提煉的紀錄（cortex-vec distill-queue --root __VAULT__/Raw）。不要用 grep 找 marker：meta-session 內文會引用該字串騙過 grep。
 - 不要在使用者選擇前預先掃描 Raw/
 - 使用者可以回覆編號或直接說需求
 - 保持簡短，不要過度解釋每個選項

@@ -43,11 +43,42 @@ def main():
     p_eval.add_argument("--k", type=int, default=5, help="Cutoff K")
     p_eval.add_argument("--out", help="Scorecard output path (markdown)")
 
+    # Trailer-anchored vault-maintenance queries (no vector store needed).
+    p_dq = sub.add_parser(
+        "distill-queue", help="List Raw files awaiting distillation"
+    )
+    p_dq.add_argument("--root", help="Raw directory (default: <vault>/Raw)")
+    p_bq = sub.add_parser(
+        "broadcast-queue", help="List distilled Raw eligible for broadcast"
+    )
+    p_bq.add_argument("--root", help="Raw directory (default: <vault>/Raw)")
+    p_rs = sub.add_parser(
+        "raw-state", help="Classify a single Raw file's distilled state"
+    )
+    p_rs.add_argument("path", help="Path to a Raw .md file")
+
     args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    # Fast path: trailer-anchored queue scans skip the heavy store import
+    # (chromadb ~2.7s). They read only each Raw's last non-empty line.
+    if args.command in ("distill-queue", "broadcast-queue", "raw-state"):
+        from . import distill_queue as dq
+
+        if args.command == "raw-state":
+            dq.dispatch_raw_state(args.path)
+            return
+        from .config import get_vault_path
+
+        root = args.root or (get_vault_path() / "Raw")
+        if args.command == "distill-queue":
+            dq.dispatch_distill_queue(root)
+        else:
+            dq.dispatch_broadcast_queue(root)
+        return
 
     # Lazy import: chromadb (~2.7s) only loaded when store is needed
     from . import store
