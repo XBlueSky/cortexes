@@ -215,7 +215,7 @@ These come from the Source C sweep + in-review MR fetch. They are your own
 work, so they route to `fix.` / `feat.` / `misc.` by the normal classifier
 (see `cortex-weekly` Step 5 "GitLab activity routing"), never `inbound.`.
 
-- **In-review MR** (authored, not yet merged): a normal section bullet with ` (in review)` appended after the title — e.g. `[mr-title](mr-url) (in review)`. Lands in the section its effective issue type selects (`fix.`/`feat.`), or `misc.` when there is no issue.
+- **In-review MR** (authored, not yet merged): a normal section bullet with ` (in review)` appended after the title — e.g. `[mr-title](mr-url) (in review)`. Lands in the section its effective issue type selects (`fix.`/`feat.`), or `misc.` when there is no issue. Only included when the MR had **≥1 commit in the window** (Source B); its description states **this week's commit delta**, not a restatement of a prior week. An in-review MR bumped only by metadata (no in-window commit) is omitted — never re-list a stale MR.
 - **Push, no MR**: `<repo>: <what> — pushed (no MR)` in `misc.`.
 
 ## Worked example — 2026-04-17

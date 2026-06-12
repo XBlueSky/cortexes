@@ -152,11 +152,27 @@ Ref:\s*([A-Z]+-\d+)
 Attach any matching issue keys to the MR. This grouping hook is what connects MRs that had no Raw/ session note to their parent Workplus issue.
 
 **Also fetch in-review MRs.** Beyond merged MRs, call
-`list_merge_requests(author_username=<weekly.gitlab_username>, state="opened")`
-and keep those whose `created_at` or last activity falls in the window. Tag
-each `(in review)` and extract `Ref:` from their commits the same way. These
-are authored work; Step 5 routes them through the `fix.` / `feat.` / `misc.`
-classifier with the `(in review)` tag preserved.
+`list_merge_requests(author_username=<weekly.gitlab_username>, state="opened")`.
+**Keep an in-review MR only when it has at least one commit whose authored or
+committed date falls in the window** — i.e. real code landed this week. Do
+**not** keep on `created_at` / last-activity alone: an in-review MR persists
+across weeks until it merges, and its last-activity is bumped by metadata-only
+events (label changes, comments, bot updates), so a last-activity filter
+re-lists the same stale MR every week with no progress. For each `opened`
+candidate, fetch its commits, filter to the window, then:
+
+- **≥1 in-window commit** → keep. Tag `(in review)`, extract `Ref:` the same
+  way as merged MRs. Its bullet description must summarize **this week's
+  in-window commits (the delta)**, not restate a prior week's. (Caveat: a
+  force-push / rebase rewrites older commits' `committed_date` into the window
+  even when content is unchanged — describe by the commits' actual content so
+  a pure rebase yields no fake "progress".)
+- **0 in-window commits** (only metadata / label / comment bumped
+  last-activity) → **drop**. It was already reported in a prior week and made
+  no progress this week; do not re-list it.
+
+The kept MRs are authored work; Step 5 routes them through the `fix.` /
+`feat.` / `misc.` classifier with the `(in review)` tag preserved.
 
 ### Source C — GitLab activity sweep
 
@@ -370,7 +386,10 @@ new section:
     bullet.
   - If no Summary → use the MR/commit `Ref:` → Workplus `get_issue` type →
     `fix.`/`feat.`; no `Ref:` → `misc.`
-  - Unmerged authored MRs keep the `(in review)` tag in their bullet.
+  - Unmerged authored MRs keep the `(in review)` tag in their bullet, and
+    their description states **this week's in-window commit delta** (Source B),
+    not a static restatement of a prior week. An in-review MR with no in-window
+    commits was already dropped at Source B — never re-list it.
   - Pushes with no effective issue key → `misc.`, aggregated per repo.
 
 ### Classification procedure
