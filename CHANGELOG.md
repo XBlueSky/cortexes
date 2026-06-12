@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-06-12
+
+### Fixed
+- Distill/broadcast queue detection no longer trusts a body-substring scan
+  (`grep -rL '<!-- distilled:'`) to decide whether a Raw was processed. A
+  pipeline meta-session's body quotes the marker dozens of times (it printfs
+  markers onto *other* files; the captured output lands in the transcript), so
+  the old scan silently excluded any Raw that merely mentioned the marker once
+  — including genuine cross-repo work sessions. Detection is now
+  position-anchored: a marker counts only when it appears in the header (before
+  the first `### User` turn) or as the last non-empty line. On the maintainer's
+  vault this recovered 26 genuinely-undistilled Raw files the old scan had been
+  hiding, while correctly continuing to skip the 28 already-distilled
+  (header-marker) files.
+
+### Added
+- `cortex-vec` subcommands for position-anchored vault-maintenance queries,
+  all skipping the heavy vector-store import: `distill-queue` (Raw awaiting
+  distillation), `broadcast-queue` (distilled Raw eligible for broadcast), and
+  `raw-state <file>` (authoritative single-file classification).
+
+### Changed
+- `cortex-distill` Step 1, `cortex-broadcast` Step 2, and the SessionStart
+  option-3 hint now call the `cortex-vec` queue commands instead of grepping
+  the marker string; the skills document why grepping is unsafe.
+
 ## [0.18.1] - 2026-06-09
 
 ### Fixed
