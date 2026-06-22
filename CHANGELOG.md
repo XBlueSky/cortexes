@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-06-22
+
+### Changed
+- Weekly Source F (ChatPlus) now collects self-authored contributions via
+  `chat_search_posts(from=[self], after, before)` instead of
+  `chat_my_recent_activity`. The old tool fetched top-level posts only
+  (it called `chat_list_posts` per channel), so the user's replies inside
+  other people's threads — root-cause answers, workarounds, technical Q&A —
+  were silently dropped from the report. The server-side search is indexed
+  over all messages (replies included) and honors both window bounds, so the
+  cutoff upper bound is now enforced (the old tool had no `before` param).
+
+### Added
+- Optional `weekly.chat_username` config (defaults to `weekly.gitlab_username`)
+  to resolve the user's Chat user_id when it differs from their GitLab
+  username — mirrors the existing `weekly.css_username` override.
+
 ## [0.19.0] - 2026-06-12
 
 ### Fixed
