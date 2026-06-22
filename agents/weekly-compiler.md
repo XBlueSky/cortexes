@@ -24,7 +24,7 @@ allowed-tools:
   - mcp__plugin_synology-workflows_gitlab__list_events
   - mcp__plugin_syno-robinhood_robinhood__css_get_activities
   - mcp__plugin_syno-robinhood_robinhood__css_get_ticket
-  - mcp__plugin_syno-robinhood_robinhood__chat_my_recent_activity
+  - mcp__plugin_syno-robinhood_robinhood__chat_search_posts
   - mcp__plugin_syno-robinhood_robinhood__chat_list_posts
   - mcp__plugin_syno-robinhood_robinhood__chat_list
   - mcp__plugin_syno-robinhood_robinhood__mailplus_list_mailboxes
@@ -140,23 +140,33 @@ For each ticket, extract root cause and resolution. Rules:
 
 CSS entries go into `inbound.`.
 
-### 6. Fetch ChatPlus posts (self-authored)
+### 6. Fetch ChatPlus posts (self-authored, incl. thread replies)
 
-Call `chat_my_recent_activity` with `since_epoch_ms = start_ms` to pull the
-user's authored posts across all active channels. Aggregate by `thread_id`
-(or `post_id` when `thread_id == 0`).
+**Resolve the user's Chat user_id first** — `chat_search_posts` needs an
+explicit author id. Call `chat_list(kind="users")` (cache it; also used to
+humanize mentions) and match the entry whose `username` equals
+`weekly.chat_username` (defaults to `weekly.gitlab_username`; literal match).
+If none matches, skip this source and record it in `skipped_sources`.
 
-Substance filter (same bar as SKILL.md Source F): drop pure social chatter
-("kk", "ok", greetings, meeting / Google-Meet links), MR-link broadcasts that
-duplicate Source B, and calendar coordination. **DMs (`channel_name == ""`,
-`team_id == 0`) are NOT auto-dropped** — they pass the same substance filter as
-public channels. Keep substantive technical contributions only; one bullet per
-thread.
+Page `chat_search_posts(from_user_ids=[self_user_id], after=start_ms,
+before=end_ms, limit=200, sort_by="create_at")`: read `data.search_results`,
+increment `offset` by 200 until `len(search_results) < 200` or
+`offset >= data.total`. This captures top-level posts **and** the user's
+replies inside others' threads (which `chat_my_recent_activity` missed),
+and `before=end_ms` enforces the cutoff upper bound.
+
+Aggregate by thread key: reply (`thread_id != 0`) → `thread_id`; standalone
+(`thread_id == 0`) → `post_id`. Substance filter (same bar as SKILL.md
+Source F): drop pure social chatter ("kk", "ok", greetings, meeting /
+Google-Meet links), MR-link broadcasts that duplicate Source B, and calendar
+coordination. **DMs (`channel_name == ""`, `team_id == 0`) are NOT
+auto-dropped** — same substance filter as public channels. Keep substantive
+technical contributions only; one bullet per thread.
 
 **Resolve DM participants** (do NOT emit a bare `DM`). For each surviving DM
 thread, take the post's `channel_id`, call `chat_list_posts(channel_id=...)` to
 enumerate the thread's posts, collect the distinct non-self `creator_id`s, then
-call `chat_list(kind="users")` once per run to map ids → usernames (cache it).
+map ids → usernames via the cached `chat_list(kind="users")` directory.
 Emit the shape from `references/draft-template.md`: 1:1 → `` [chat] `@username`: … ``,
 2–3 others → `` [chat] `@a`、`@b`: … ``, 4+ → `[chat] DM: …` (only here);
 public channel → `[chat] <channel-name>: …`. Never invent a thread URL; wrap
