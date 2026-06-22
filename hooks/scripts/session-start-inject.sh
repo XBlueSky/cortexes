@@ -33,7 +33,9 @@ fi
 
 today_dow=$(date +%u)  # 1=Mon .. 7=Sun
 days_since_monday=$(( (today_dow - 1) % 7 ))
-week_monday=$(date -d "-${days_since_monday} days" +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)
+week_monday=$(date -d "-${days_since_monday} days" +%Y-%m-%d 2>/dev/null \
+  || date -v-"${days_since_monday}"d +%Y-%m-%d 2>/dev/null \
+  || date +%Y-%m-%d)
 week_year="${week_monday%%-*}"
 weekly_file="$CORTEX_DIR/Weekly/$week_year/$week_monday.md"
 
@@ -50,13 +52,13 @@ notes_topics=""
 projects_topics=""
 if [[ -d "$CORTEX_DIR/Notes" ]]; then
   notes_topics=$(find "$CORTEX_DIR/Notes" -mindepth 1 -maxdepth 1 \
-    \( -type d -o -name '*.md' \) -printf '%f\n' 2>/dev/null \
-    | sed 's/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g')
+    \( -type d -o -name '*.md' \) 2>/dev/null \
+    | sed 's#.*/##; s/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g' || true)
 fi
 if [[ -d "$CORTEX_DIR/Projects" ]]; then
   projects_topics=$(find "$CORTEX_DIR/Projects" -mindepth 1 -maxdepth 1 \
-    \( -type d -o -name '*.md' \) -printf '%f\n' 2>/dev/null \
-    | sed 's/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g')
+    \( -type d -o -name '*.md' \) 2>/dev/null \
+    | sed 's#.*/##; s/\.md$//' | grep -v '^_' | sort | paste -sd',' - | sed 's/,/, /g' || true)
 fi
 [[ -z "$notes_topics" ]] && notes_topics="(空)"
 [[ -z "$projects_topics" ]] && projects_topics="(空)"
