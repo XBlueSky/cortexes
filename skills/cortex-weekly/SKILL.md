@@ -259,11 +259,52 @@ Use this flow:
    - Never include customer, colleague, or personal identifiers.
    - If a Workplus issue was filed, append ` / [KEY](issue-url)` after the response segment.
 
-### Source F — ChatPlus self-authored posts
+### Source F — ChatPlus self-authored posts (incl. thread replies)
 
-Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the week window in epoch milliseconds). The tool returns posts the configured user authored across all active channels.
+Source F captures the user's substantive ChatPlus contributions in the week
+window — **including replies the user wrote inside other people's threads**.
 
-**ChatPlus is high-noise; default behavior is to drop.** Aggregate posts by `thread_id` (use `post_id` itself when `thread_id == 0`) so that a back-and-forth conversation is one bullet, not many. For each thread, evaluate:
+**Resolve the user's Chat user_id first.** `chat_search_posts` needs an
+explicit author id — unlike the old `chat_my_recent_activity`, it does not
+auto-resolve self. Call `chat_list(kind="users")` once (this run also needs the
+user directory to humanize mentions, so cache it) and find the entry whose
+`username` equals `weekly.chat_username`. **`weekly.chat_username` defaults to
+`weekly.gitlab_username`; override it in `~/.cortex/config.json` when the
+user's Chat/SSO username differs from their GitLab username** (same pattern as
+`weekly.css_username`). Literal match only — no substring / variant inference.
+If no user matches, treat Source F as **unavailable**: skip it and add it to
+the consolidated skip note (never abort).
+
+**Fetch with `chat_search_posts`, paginated:**
+
+    chat_search_posts(
+      from_user_ids = [self_user_id],
+      after  = start_ms,   // week window start (epoch ms)
+      before = end_ms,     // week window end = meeting Friday @ cutoff hour (epoch ms)
+      limit  = 200,
+      sort_by = "create_at",
+    )
+
+Posts are returned under `data.search_results[]`; `data.total` is the full
+count. Page by incrementing `offset` (`offset += 200`), repeating until
+`len(search_results) < 200` **or** `offset >= data.total`. Accumulate all pages.
+
+Why this and not `chat_my_recent_activity`: that tool calls `chat_list_posts`
+per channel, which returns **top-level posts only**, so it silently drops the
+user's replies inside others' threads — exactly the "answered a technical
+question / gave a root-cause / shared a workaround" contributions this source
+exists to capture. `chat_search_posts` with a `from` filter is indexed over all
+messages (replies included) and honors both window bounds — `before` closes the
+cutoff-leak the old tool could not bound.
+
+**ChatPlus is high-noise; default behavior is to drop.** Aggregate posts by a
+single thread key so a back-and-forth is one bullet, not many:
+
+- reply (`thread_id != 0`) → key = `thread_id`
+- standalone (`thread_id == 0`) → key = `post_id`
+
+A reply and its thread root collapse into the same bullet automatically. For
+each thread, evaluate:
 
 1. **Drop hard-default categories.**
    - Pure social / status chatter ("kk", "ok", "thanks", "晚點看", greetings, lunch coordination, meeting links).
@@ -274,7 +315,10 @@ Use `chat_my_recent_activity` with `since_epoch_ms = start_ms` (start of the wee
 
 > **Note:** DMs (`channel_name == ""`, `team_id == 0`) are NOT auto-dropped — they go through the same substance filter above as public channels. The MR-link / meeting-link / social-chatter drops still apply.
 
-**Then, for surviving DM threads, resolve participants.** Each `chat_my_recent_activity` post carries a `channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate the thread's posts, collect distinct `creator_id` values that are not self, then call `chat_list(kind="users")` once per run to map ids → usernames. Cache the lookup table for the rest of the run.
+**Then, for surviving DM threads, resolve participants.** Each post carries a
+`channel_id` field — pass that to `chat_list_posts(channel_id=...)` to enumerate
+the thread's posts, collect distinct `creator_id` values that are not self, then
+map ids → usernames via the cached `chat_list(kind="users")` directory.
 
 Surviving threads go into `inbound.`. **Bullet shape is defined in
 `references/draft-template.md` § `inbound.` chat rules.** Do not
@@ -297,7 +341,7 @@ Use the **Sent folder as the primary source**, not INBOX. The user's INBOX is do
 
 Procedure:
 
-1. Call `mailplus_list_threads` with `mailbox_id = -4` (Sent) and `since_epoch = start_seconds`. Note the unit: this API uses **seconds**, not milliseconds (differs from `chat_my_recent_activity`).
+1. Call `mailplus_list_threads` with `mailbox_id = -4` (Sent) and `since_epoch = start_seconds`. Note the unit: this API uses **seconds**, not milliseconds (the Chat APIs in Source F use epoch **ms**).
 2. For each returned thread, call `mailplus_get` with `kind = "thread"` and the `thread_id` to fetch the full conversation. Read the user's own messages within the week window.
 3. **Filter strictly — keep only work-substantive threads.**
    - Drop: HR / recruiting / interview coordination, calendar invites, social mail, mass company-wide announcements, mailing-list digests, anything where the user's reply is purely logistical ("ok", "received", scheduling).
