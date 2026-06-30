@@ -17,8 +17,21 @@ session. It is independent of the Raw session dump (which SessionEnd writes
 automatically). Do NOT commit it, distill it, broadcast it, index it with
 `cortex-vec`, or log it to `log.md`.
 
-The repo slug and git-safety are handled by `takeoff.sh` (in the plugin's
-`hooks/scripts/`); resolve its path as `"$(claude plugin root cortex)/hooks/scripts/takeoff.sh"`.
+## Locating takeoff.sh
+
+The repo slug and git-safety are handled by `takeoff.sh`, bundled in this plugin
+at `hooks/scripts/takeoff.sh`. In every mode below, FIRST set `TK` to that helper,
+resolved relative to THIS skill's base directory. The skill-load message announces
+the base directory as `<...>/cortex/<version>/skills/cortex-takeoff`; `takeoff.sh`
+sits two levels up. Substitute the actual announced base-dir path:
+
+```bash
+TK="<skill-base-dir>/../../hooks/scripts/takeoff.sh"
+test -f "$TK" || { echo "cortex: takeoff.sh not found at $TK" >&2; exit 1; }
+```
+
+Do NOT use `claude plugin root` (no such subcommand) or `$CLAUDE_PLUGIN_ROOT`
+(unset for skill-run bash).
 
 ## Mode
 
@@ -32,10 +45,10 @@ Determined by the command argument:
 
 ## Create (no argument)
 
-1. Run the preflight (also derives the slug and guarantees git-safety):
+1. Set `TK` as described in "Locating takeoff.sh" above, then run the preflight
+   (it also derives the slug and guarantees git-safety):
 
    ```bash
-   TK="$(claude plugin root cortex)/hooks/scripts/takeoff.sh"
    baton_path="$(bash "$TK" prepare)"
    ```
 
