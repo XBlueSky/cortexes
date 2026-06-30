@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -116,3 +117,35 @@ def test_prepare_refuses_when_vault_not_git(tmp_path):
         capture_output=True, text=True, env=env,
     )
     assert res.returncode == 3
+
+
+def _run_inject(cwd, vault):
+    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
+    res = subprocess.run(["bash", str(INJECT)],
+                         input=json.dumps({"cwd": str(cwd)}),
+                         capture_output=True, text=True, env=env)
+    assert res.returncode == 0, res.stderr
+    if not res.stdout.strip():
+        return ""
+    return json.loads(res.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_inject_surfaces_pending_baton(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / ".takeoff").mkdir(parents=True)
+    (vault / ".takeoff" / "myrepo.md").write_text(
+        "---\nrepo: myrepo\ncreated: 2026-06-30T00:00:00\n"
+        "summary: 接續 refactor X 的第 3 步\n---\nbody\n"
+    )
+    repo = _make_repo(tmp_path / "work")
+    ctx = _run_inject(repo, vault)
+    assert "5. 載入未消化的交接文件:接續 refactor X 的第 3 步" in ctx
+
+
+def test_inject_no_baton_omits_takeoff_line(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    repo = _make_repo(tmp_path / "work")
+    ctx = _run_inject(repo, vault)
+    assert "載入未消化的交接文件" not in ctx
+    assert "直接開始工作" in ctx  # regression: base menu still built

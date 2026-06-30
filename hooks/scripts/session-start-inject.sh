@@ -21,12 +21,11 @@ input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // ""' 2>/dev/null || echo "")
 [[ -z "$cwd" ]] && exit 0
 
-# Detect repo name from cwd via git remote
-repo_name=""
-if git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
-  repo_name=$(git -C "$cwd" remote get-url origin 2>/dev/null \
-    | sed 's|.*/||;s|\.git$||' || true)
-fi
+# Detect repo slug via the shared derivation (lib/repo-slug.sh) so the
+# pending-baton path here matches the path the takeoff helper writes.
+# shellcheck source=lib/repo-slug.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/repo-slug.sh"
+repo_name="$(cortex_repo_slug "$cwd" || true)"
 [[ -z "$repo_name" ]] && exit 0
 
 # --- Lightweight status: only check weekly report (no Raw scanning) ---
@@ -63,6 +62,17 @@ fi
 [[ -z "$notes_topics" ]] && notes_topics="(空)"
 [[ -z "$projects_topics" ]] && projects_topics="(空)"
 
+# --- Pending takeoff baton (repo-scoped, opt-in load) ---
+baton_file="$CORTEX_DIR/.takeoff/$repo_name.md"
+takeoff_option=""
+takeoff_rule=""
+if [[ -f "$baton_file" ]]; then
+  baton_summary=$(sed -n 's/^summary:[[:space:]]*//p' "$baton_file" | head -1)
+  [[ -z "$baton_summary" ]] && baton_summary="(無摘要)"
+  takeoff_option=$'\n5. 載入未消化的交接文件:'"$baton_summary"
+  takeoff_rule=$'\n- 選項 5 被選中時:用 cortex-takeoff skill 的 resume 流程讀取交接文件全文,採納為續傳脈絡接續工作;不要刪除該檔。'
+fi
+
 # --- Build interactive menu prompt ---
 read -r -d '' context <<'PROMPT_TEMPLATE' || true
 [Cortex] 你目前在 __REPO__ repo。Cortex vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。
@@ -86,14 +96,14 @@ Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex�
 1. 載入此 repo 的記憶筆記（執行 cortex-vec search --repo __REPO__）
 2. 查看最近的 session 紀錄（列出 __VAULT__/Raw/ 中最近幾筆）
 3. 處理待辦事項（提煉未處理的紀錄 或 產生週報）
-4. 直接開始工作
+4. 直接開始工作__TAKEOFF_OPTION__
 
 規則：
 - 選項 3 被選中時，才去掃描 __VAULT__/Raw/ 找未提煉的紀錄（cortex-vec distill-queue --root __VAULT__/Raw）。不要用 grep 找 marker：meta-session 內文會引用該字串騙過 grep。
 - 不要在使用者選擇前預先掃描 Raw/
 - 使用者可以回覆編號或直接說需求
 - 保持簡短，不要過度解釋每個選項
-- 即使使用者選 4「直接開始工作」，主動查詢規則仍生效
+- 即使使用者選 4「直接開始工作」，主動查詢規則仍生效__TAKEOFF_RULE__
 PROMPT_TEMPLATE
 
 # Substitute placeholders
@@ -102,6 +112,8 @@ context="${context//__VAULT__/$CORTEX_DIR}"
 context="${context//__WEEKLY_STATUS__/$weekly_status}"
 context="${context//__NOTES_TOPICS__/$notes_topics}"
 context="${context//__PROJECTS_TOPICS__/$projects_topics}"
+context="${context//__TAKEOFF_OPTION__/$takeoff_option}"
+context="${context//__TAKEOFF_RULE__/$takeoff_rule}"
 
 # Use jq for safe JSON encoding
 jq -n --arg ctx "$context" \
