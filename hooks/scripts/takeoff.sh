@@ -47,16 +47,14 @@ case "$cmd" in
     printf '%s\n' "$baton"
     ;;
   prepare)
-    if git -C "$vault" rev-parse --git-dir >/dev/null 2>&1; then
-      gitignore="$vault/.gitignore"
-      if ! grep -qxF '.takeoff/' "$gitignore" 2>/dev/null; then
-        printf '.takeoff/\n' >>"$gitignore"
-      fi
-      if ! git -C "$vault" check-ignore -q ".takeoff/$slug.md"; then
-        echo "cortex: refusing to write — $baton is not git-ignored" >&2
-        echo "add '.takeoff/' to $gitignore" >&2
-        exit 3
-      fi
+    gitignore="$vault/.gitignore"
+    if ! grep -qxF '.takeoff/' "$gitignore" 2>/dev/null; then
+      printf '.takeoff/\n' >>"$gitignore"
+    fi
+    if ! git -C "$vault" check-ignore -q ".takeoff/$slug.md"; then
+      echo "cortex: refusing to write — $baton is not git-ignored" >&2
+      echo "add '.takeoff/' to $gitignore (vault must be a git repo)" >&2
+      exit 3
     fi
     mkdir -p "$vault/.takeoff"
     printf '%s\n' "$baton"

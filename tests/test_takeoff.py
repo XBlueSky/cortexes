@@ -88,9 +88,10 @@ def test_clear_removes_baton(tmp_path):
     baton = vault / ".takeoff" / "myrepo.md"
     baton.parent.mkdir(parents=True)
     baton.write_text("---\nsummary: x\n---\nbody\n")
-    subprocess.run(["bash", str(TAKEOFF), "clear", str(repo)],
-                   capture_output=True, text=True, check=True, env=env)
+    out = subprocess.run(["bash", str(TAKEOFF), "clear", str(repo)],
+                         capture_output=True, text=True, check=True, env=env)
     assert not baton.exists()
+    assert out.stdout.strip() == f"cleared {baton}"
 
 
 def test_prepare_refuses_when_no_repo(tmp_path):
@@ -103,3 +104,15 @@ def test_prepare_refuses_when_no_repo(tmp_path):
     res = subprocess.run(["bash", str(TAKEOFF), "prepare", str(plain)],
                          capture_output=True, text=True, env=env)
     assert res.returncode == 2
+
+
+def test_prepare_refuses_when_vault_not_git(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()  # exists but is NOT a git repo
+    repo = _make_repo(tmp_path / "work")
+    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
+    res = subprocess.run(
+        ["bash", str(TAKEOFF), "prepare", str(repo)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 3
