@@ -50,6 +50,13 @@ case "$cmd" in
     gitignore="$vault/.gitignore"
     if ! grep -qxF '.takeoff/' "$gitignore" 2>/dev/null; then
       printf '.takeoff/\n' >>"$gitignore"
+      # Commit the ignore rule (path-scoped) so the vault never carries a
+      # perpetually-dirty .gitignore and the rule propagates to other clones.
+      # A non-git vault skips this and fails closed at check-ignore below.
+      if git -C "$vault" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$vault" add .gitignore
+        git -C "$vault" commit -q -m "cortex: gitignore .takeoff/ (takeoff batons)" -- .gitignore
+      fi
     fi
     if ! git -C "$vault" check-ignore -q ".takeoff/$slug.md"; then
       echo "cortex: refusing to write — $baton is not git-ignored" >&2

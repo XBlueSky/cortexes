@@ -44,6 +44,8 @@ def _vault_repo(tmp_path):
     vault = tmp_path / "vault"
     vault.mkdir()
     _git(vault, "init", "-q")
+    _git(vault, "config", "user.email", "cortex-test@example.com")
+    _git(vault, "config", "user.name", "cortex test")
     repo = _make_repo(tmp_path / "work")
     env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
     return vault, repo, env
@@ -149,3 +151,23 @@ def test_inject_no_baton_omits_takeoff_line(tmp_path):
     ctx = _run_inject(repo, vault)
     assert "載入未消化的交接文件" not in ctx
     assert "直接開始工作" in ctx  # regression: base menu still built
+
+
+def test_prepare_commits_gitignore_rule(tmp_path):
+    vault, repo, env = _vault_repo(tmp_path)
+    subprocess.run(
+        ["bash", str(TAKEOFF), "prepare", str(repo)],
+        capture_output=True, text=True, check=True, env=env,
+    )
+    # The .gitignore change is committed, not left dirty in the working tree.
+    status = subprocess.run(
+        ["git", "-C", str(vault), "status", "--porcelain", ".gitignore"],
+        capture_output=True, text=True, check=True,
+    )
+    assert status.stdout.strip() == ""
+    # The latest commit touches .gitignore.
+    log = subprocess.run(
+        ["git", "-C", str(vault), "log", "-1", "--name-only", "--format=%s"],
+        capture_output=True, text=True, check=True,
+    )
+    assert ".gitignore" in log.stdout
