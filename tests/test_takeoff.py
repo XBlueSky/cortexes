@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -36,3 +37,69 @@ def test_repo_slug_empty_when_no_origin(tmp_path):
         capture_output=True, text=True, check=True,
     )
     assert out.stdout.strip() == ""
+
+
+def _vault_repo(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _git(vault, "init", "-q")
+    repo = _make_repo(tmp_path / "work")
+    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
+    return vault, repo, env
+
+
+def test_prepare_ensures_gitignore_creates_dir_and_prints_path(tmp_path):
+    vault, repo, env = _vault_repo(tmp_path)
+    out = subprocess.run(
+        ["bash", str(TAKEOFF), "prepare", str(repo)],
+        capture_output=True, text=True, check=True, env=env,
+    )
+    assert out.stdout.strip() == str(vault / ".takeoff" / "myrepo.md")
+    assert ".takeoff/" in (vault / ".gitignore").read_text().splitlines()
+    assert (vault / ".takeoff").is_dir()
+    ci = subprocess.run(
+        ["git", "-C", str(vault), "check-ignore", ".takeoff/myrepo.md"],
+        capture_output=True,
+    )
+    assert ci.returncode == 0
+
+
+def test_prepare_is_idempotent(tmp_path):
+    vault, repo, env = _vault_repo(tmp_path)
+    for _ in range(2):
+        subprocess.run(["bash", str(TAKEOFF), "prepare", str(repo)],
+                       capture_output=True, text=True, check=True, env=env)
+    lines = (vault / ".gitignore").read_text().splitlines()
+    assert lines.count(".takeoff/") == 1
+
+
+def test_path_has_no_side_effects(tmp_path):
+    vault, repo, env = _vault_repo(tmp_path)
+    out = subprocess.run(
+        ["bash", str(TAKEOFF), "path", str(repo)],
+        capture_output=True, text=True, check=True, env=env,
+    )
+    assert out.stdout.strip() == str(vault / ".takeoff" / "myrepo.md")
+    assert not (vault / ".takeoff").exists()
+
+
+def test_clear_removes_baton(tmp_path):
+    vault, repo, env = _vault_repo(tmp_path)
+    baton = vault / ".takeoff" / "myrepo.md"
+    baton.parent.mkdir(parents=True)
+    baton.write_text("---\nsummary: x\n---\nbody\n")
+    subprocess.run(["bash", str(TAKEOFF), "clear", str(repo)],
+                   capture_output=True, text=True, check=True, env=env)
+    assert not baton.exists()
+
+
+def test_prepare_refuses_when_no_repo(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _git(vault, "init", "-q")
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
+    res = subprocess.run(["bash", str(TAKEOFF), "prepare", str(plain)],
+                         capture_output=True, text=True, env=env)
+    assert res.returncode == 2
