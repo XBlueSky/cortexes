@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.1] - 2026-06-30
+
+### Fixed
+- README: the cortex-vec install command used `$(claude plugin root cortex)`,
+  but `claude plugin` has no `root` subcommand, so the path resolved empty.
+  Resolve the installed plugin's `cortex-vec` from the plugin cache (latest
+  version) instead.
+
 ## [0.21.0] - 2026-06-30
 
 ### Added
