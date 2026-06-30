@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-06-30
+
+### Added
+- `/cortex:takeoff` — a session hand-off "baton". When a long session's
+  context fills up, it curates an ephemeral, git-ignored note at
+  `<vault>/.takeoff/<repo>.md`; the next session's SessionStart menu surfaces
+  it (option 5) for opt-in loading. Repo-scoped (one active baton per repo,
+  new overwrites old); cleared on `done` or overwrite, not on load. The baton
+  is scaffolding, not knowledge — never committed, distilled, broadcast, or
+  indexed. A new `hooks/scripts/lib/repo-slug.sh` shares the repo-slug
+  derivation between the create-side helper (`hooks/scripts/takeoff.sh`) and
+  the SessionStart detect-side so their paths always agree; the create path
+  verifies `.takeoff/` is git-ignored with `git check-ignore` before writing.
+
 ## [0.20.0] - 2026-06-22
 
 ### Changed
