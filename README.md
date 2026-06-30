@@ -61,6 +61,7 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 | `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（兩階段評估 + pending-merge 出口） |
 | `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
 | `/cortex:weekly` | 產 Friday 週報（distill + GitLab activity + CSS tickets） |
+| `/cortex:takeoff` | 交接接力棒 — curate 一份暫時、不進 git 的 hand-off,讓下個 session 接續(`resume`/`done` 子指令) |
 
 ### Skills（自動觸發）
 
@@ -70,6 +71,7 @@ pip install -e "$(claude plugin root cortex)/cortex-vec"
 | cortex-distill | 「提煉」「整理 raw」「distill」 |
 | cortex-broadcast | 「broadcast」「merge pending-merge」「把這個融入 vault」 |
 | cortex-weekly | 「整理週報」「產生週報」「weekly report」 |
+| cortex-takeoff | 「交接」「takeoff」「交棒給下個 session」「context 快滿了」 |
 | cortex-query | 「查 cortex」「之前有記過」「cortex 裡有沒有」 |
 
 ### Hooks
