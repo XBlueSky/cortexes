@@ -27,7 +27,8 @@ Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code ses
 ### 2. 安裝 cortex-vec CLI
 
 ```bash
-pip install -e "$(claude plugin root cortex)/cortex-vec"
+# cortex-vec 位於已安裝的 plugin 內;從 cache 最新版本安裝
+pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sort -V | tail -1)"
 ```
 
 需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。
