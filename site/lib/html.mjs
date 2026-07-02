@@ -13,6 +13,9 @@ const NAV = [
   { key: 'github', href: 'https://github.com/XBlueSky/cortexes', label: 'github ↗' },
 ];
 
+// `body` is TRUSTED RAW HTML — callers pass template-generated markup that has
+// already escaped its own leaf data via esc(). Never pass unescaped user/manifest
+// data straight into `body`; escape it in the calling template first.
 export function layout({ title, body, activeNav = 'home' }) {
   const links = NAV.map(n => {
     const active = n.key === activeNav ? ' aria-current="page"' : '';

@@ -28,7 +28,9 @@ export async function build({ root, outDir }) {
 
   write('index.html', renderLanding({ plugin, changelog }));
   write('changelog.html', renderChangelog(changelog));
-  // docs 頁在子目錄，asset 相對路徑要往上一層
+  // docs 頁在子目錄，asset/nav 相對路徑要往上一層。
+  // 順序 load-bearing：'index.html'→'../index.html' 必須在 'docs/index.html'→'index.html' 之前，
+  // 否則 docs 自連結會被二次改寫（先變成 index.html、再被前一條吃掉變 ../index.html）。勿重排。
   const docsHtml = renderDocs(plugin).replaceAll('href="assets/', 'href="../assets/').replaceAll('href="index.html"', 'href="../index.html"').replaceAll('href="changelog.html"', 'href="../changelog.html"').replaceAll('href="docs/index.html"', 'href="index.html"');
   write('docs/index.html', docsHtml);
 
