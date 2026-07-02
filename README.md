@@ -50,6 +50,11 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 「broadcast」      → 把新 Raw 融合進既有頁面
 ```
 
+## 官網
+
+線上文件與 changelog：<https://cortex.pages.dev>（Cloudflare Pages，從 `manifest.json` 自動生成）。
+本地 build 見 [`site/README.md`](site/README.md)。
+
 ## Commands & Skills
 
 ### Commands
