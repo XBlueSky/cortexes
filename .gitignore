@@ -22,5 +22,11 @@ docs/plans/
 cortex-vec/eval-data/
 docs/benchmarks/
 
+# 網站 build 產物 — Cloudflare Pages 自行 build，不進版控
+site/dist/
+
+# SDD 執行 scratch（progress ledger、task briefs/reports）— 本地 process artifact
+.superpowers/
+
 # Editor swap files
 *.swp
