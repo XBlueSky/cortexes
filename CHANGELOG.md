@@ -5,6 +5,66 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-07-02
+
+### Removed
+- The remaining internal-tool-specific MCP output filters from the
+  `rtk_cmd` transcript filter framework: `syno-naxos` (`hooks/scripts/rtk_cmd/mcp_naxos.py`,
+  whole file), `syno-robinhood` (`filter_robinhood` + `_filter_css_activities` in
+  `mcp_tools.py`), and `syno-build-mcp` (`filter_docker_execute` in
+  `mcp_tools.py`), plus their `_MCP_REGISTRY` entries in `dispatch.py` and
+  dedicated tests. These recognized specific internal Synology MCP plugins by
+  name to compress their output shape in recorded transcripts — useless to an
+  external user who doesn't have those plugins installed, and named an
+  internal system by their mere presence. The generic parts of the framework
+  (Bash command filters: git/cargo/pytest/eslint/etc., and the `zoekt`/
+  `_gitlab__`/`_playwright__` MCP filters, none of which are Synology-specific
+  by name or behavior) are unaffected.
+- Illustrative internal-looking strings in test fixtures and skill docs:
+  `git.synology.inc` example URLs → `git.example.com`; `synology-workflows`/
+  `syno-build-mcp` example MCP tool-name prefixes → generic placeholders;
+  `libsynow3`/`syno-nextweb` example repo names in `cortex-vec` tests →
+  `acme-core`/`acme-web`; "internal Synology tooling" → "internal company
+  tooling" in `cortex-query`/`using-cortex` skill trigger descriptions; the
+  `cortex-distill` convention-tag example row no longer names real internal
+  Synology product/file names.
+
+- The `dsm`/`diskstation` and `srm`/`router manager` synonym groups, and
+  `spk` from the package synonym group, in `cortex-vec/src/cortex_vec/synonyms.py`.
+  Test fixtures that exercised those groups (`test_synonyms.py`,
+  `test_bm25_synonym.py`) now use non-Synology synonym pairs instead
+  (`perf`/`performance`, `login`/`signin`+`authentication`).
+
+Kept as-is: the maintainer's own name/email (`tonyhu@synology.com`) as
+plugin author metadata.
+
+## [0.22.0] - 2026-07-02
+
+### Removed
+- `cortex-weekly` skill, its `/cortex:weekly` command, and the
+  `weekly-compiler` agent. This is the public OSS mirror, and the weekly
+  report feature's data sources (E: CSS tickets, F: ChatPlus posts, G:
+  MailPlus mail) called `syno-robinhood`, an internal Synology-only MCP
+  plugin external users cannot install; Sources B–D and the `Ref:`/issue
+  routing similarly depended on `synology-workflows` (internal GitLab +
+  Workplus MCPs). The skill's reference docs also embedded real internal
+  hostnames and example data (`git.synology.inc`, `workplus.synology.inc`,
+  internal repo names and issue numbers) that don't belong in a public repo.
+- `cortex-distill` Step 5.5 ("Write Summary File") and Step 5.6 ("Judge
+  Workplus Issue"), including the `Summary/` vault directory and the
+  `weekly.repo_issue_map` config field. Both existed solely to feed the
+  now-removed `cortex-weekly` Source A/B — the sidecar was never indexed by
+  `cortex-vec` or listed in `_index.md`, so with the consumer gone it was
+  dead code making an internal Workplus MCP call for no reason.
+- The `weekly` block from `genesis`'s generated config template (`gitlab_username`,
+  `categories`, `repo_issue_map`) and the SessionStart menu's weekly-report
+  status line, now that nothing produces or consumes them.
+
+Note: the `Weekly/` vault folder concept and `cortex-vec`'s `weekly` content
+type are kept — they're generic vault taxonomy (a user can still manually
+drop notes under `Weekly/` and have them indexed), not part of the removed
+feature.
+
 ## [0.21.1] - 2026-06-30
 
 ### Fixed

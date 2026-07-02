@@ -1,12 +1,12 @@
 # Cortexes
 
-Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval, weekly reports.
+Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval.
 
 ![Cortex architecture](docs/images/architecture.png)
 
 ## What It Does
 
-Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索、產生週報。
+Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
 
 - **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
 - **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
@@ -48,7 +48,6 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 「查 cortex」       → 語意搜尋 vault
 「提煉」           → 從 Raw/ 萃取知識
 「broadcast」      → 把新 Raw 融合進既有頁面
-「整理週報」       → 產生週報
 ```
 
 ## Commands & Skills
@@ -61,7 +60,6 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 | `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
 | `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（兩階段評估 + pending-merge 出口） |
 | `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
-| `/cortex:weekly` | 產 Friday 週報（distill + GitLab activity + CSS tickets） |
 | `/cortex:takeoff` | 交接接力棒 — curate 一份暫時、不進 git 的 hand-off,讓下個 session 接續(`resume`/`done` 子指令) |
 
 ### Skills（自動觸發）
@@ -71,7 +69,6 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 | cortex-evolve | 「存到 cortex」「記一下」「save to cortex」 |
 | cortex-distill | 「提煉」「整理 raw」「distill」 |
 | cortex-broadcast | 「broadcast」「merge pending-merge」「把這個融入 vault」 |
-| cortex-weekly | 「整理週報」「產生週報」「weekly report」 |
 | cortex-takeoff | 「交接」「takeoff」「交棒給下個 session」「context 快滿了」 |
 | cortex-query | 「查 cortex」「之前有記過」「cortex 裡有沒有」 |
 
@@ -80,7 +77,7 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 | Hook | Event | Behavior |
 |------|-------|----------|
 | Session Report | Stop | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
-| Memory Injection | SessionStart | 互動式選單：偵測 vault 狀態（週報/backlog）後詢問下一步 |
+| Memory Injection | SessionStart | 互動式選單：偵測 vault backlog 狀態後詢問下一步 |
 
 #### Transcript Filter（0.9.0+）
 
@@ -106,7 +103,6 @@ cortex repo
 Raw/YYYY/MM/DD/                ← session dumps（完整，按需提煉）
 Notes/<category>/              ← 提煉後的技術知識
 Projects/<repo-name>/          ← 以 repo 為主的專案筆記
-Weekly/YYYY/                   ← 整理後的週報
 _index.md                      ← 全 vault 摘要索引
 log.md                         ← evolve/distill 的時序歷程
 ```
@@ -126,7 +122,6 @@ log.md                         ← evolve/distill 的時序歷程
 定期:
   /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
   /cortex:broadcast → pending-merge → 融合進既有 Notes/Projects
-  /cortex:weekly    → distill + GitLab + CSS → Weekly/
 ```
 
 ### Retrieval Strategy
@@ -193,7 +188,7 @@ cortex-vec eval run \
 
 由 config `retrieval.synonym_weight`（`0` = 關閉；建議試 `0.7`）控制。BM25 流會把命中同義詞的文件以該權重加分，讓「OAuth」可以命中「SSO / 授權 / auth」等同義詞。
 
-同義詞表位於 `cortex-vec/src/cortex_vec/synonyms.py`（內含 Synology 黑話 + 常見中英技術詞），可自行擴充。
+同義詞表位於 `cortex-vec/src/cortex_vec/synonyms.py`（內含常見中英技術詞），可自行擴充。
 
 #### Wikilink graph-boost
 
@@ -257,10 +252,6 @@ cortex-vec eval run \
   "git": {
     "auto_commit": true,
     "auto_push": false
-  },
-  "weekly": {
-    "gitlab_username": "tonyhu",
-    "categories": ["fix", "feat", "misc"]
   }
 }
 ```

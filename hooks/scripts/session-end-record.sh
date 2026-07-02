@@ -82,7 +82,7 @@ FRONTMATTER
     python3 "$FILTER" "$transcript_path" 2>/dev/null || echo "(filter failed)"
   } > "$target_file"
 
-  # Cortex maintenance-pipeline sessions (distill/weekly/broadcast/genesis) only
+  # Cortex maintenance-pipeline sessions (distill/broadcast/genesis) only
   # process the vault; recording them would re-feed Raw/ into its own distill
   # queue, so the queue could never reach empty. Keep the record as an audit
   # trail but pre-stamp a distilled marker so the grep -rL "<!-- distilled:"

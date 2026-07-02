@@ -7,7 +7,7 @@ description: >
   clarifying questions, or doing fresh exploration. Trigger unconditionally
   on conversation start, on every new user request that touches a domain
   the user has worked on before, and whenever the request mentions an
-  ongoing project, internal Synology tooling, recurring topic, or anything
+  ongoing project, internal company tooling, recurring topic, or anything
   that smells like prior work. If the SessionStart hook surfaced vault
   topics and the request matches one — search first.
 ---
@@ -39,9 +39,8 @@ Trigger `cortex-query` BEFORE responding when ANY of these are true:
 1. **Topic match.** The user's request mentions a topic that appears in
    the SessionStart hook's vault topic list (Notes/ or Projects/ entries).
 2. **Domain match.** The request touches an ongoing project, internal
-   Synology tooling, plugin development, weekly reporting workflow, NAS
-   debugging, DSM/SRM workflows, or any domain the user is known to work
-   in.
+   company tooling, plugin development, NAS debugging, DSM/SRM workflows,
+   or any domain the user is known to work in.
 3. **Reference signal.** The user says things like "之前那個", "上次的",
    "我記得有", "我們討論過", "那個 ticket", "the project", "the issue" —
    these are explicit pointers to prior context.

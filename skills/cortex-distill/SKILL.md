@@ -2,8 +2,7 @@
 name: cortex-distill
 description: >
   Distill raw session records into refined Notes and Projects. Use when
-  the user says "提煉", "整理 raw", "distill", "distill raw records",
-  or when cortex-weekly invokes distill before compiling.
+  the user says "提煉", "整理 raw", "distill", or "distill raw records".
 ---
 
 # Cortex Distill — Refine Raw Records
@@ -103,7 +102,7 @@ When has_insight is Yes, optionally tag the extracted content for later lint:
 | Tag | Signal | Example |
 |-----|--------|---------|
 | 踩坑 (gotcha) | Non-obvious behavior, hidden trap | "jsoncpp returns null for oversized doubles" |
-| 慣例 (convention) | Synology-specific or internal practice | "Drive uses AppPortal.json, MailClient uses API" |
+| 慣例 (convention) | Project-specific or internal practice | "Service A reads config.json, Service B reads env vars" |
 | 決策 (decision) | Why A over B, trade-off rationale | "build-history.json over PID check because..." |
 
 These tags no longer gate extraction — they are reserved metadata for future lint capability. Safe to omit if the use case is unclear; downstream tooling treats absence as untagged.
@@ -201,97 +200,6 @@ Append exactly one marker to the Raw file, chosen by Step 3 outcome:
 Score formatting: two decimal places (e.g., `0.62`, not `0.62345`).
 Date: today, `YYYY-MM-DD`.
 
-## Step 5.5: Write Summary File
-
-For **every** Raw processed in this run — regardless of outcome (`new`,
-`pending-merge`, `skip-routine`, `no-insight`) — write a summary sidecar
-file. The summary is consumed by `cortex-weekly` Source A; it is NOT
-indexed by `cortex-vec` and NOT listed in `_index.md`.
-
-### 5.5.1 Compose the summary
-
-The summary is a prose-only paragraph describing what the session was
-about — work done, what shipped, non-obvious findings. Guideline:
-
-- 1–5 sentences, roughly 60–300 characters (soft target; a session that
-  genuinely needs 400 characters to be coherent gets 400).
-- **Do NOT** enumerate commits, MR URLs, or issue keys. Those are
-  GitLab's canonical territory (`cortex-weekly` Source B). Weekly joins
-  MRs to summaries by repo + date, not by URL-string matching inside
-  the summary prose.
-- **Do NOT** repeat deep-dive content that this distill run wrote into
-  Notes/Projects. Summary is "session view"; Notes/Projects is
-  "topic view".
-- For sessions with no commits / no shipped output, describe honestly
-  ("探索 X 的行為、未產出代碼" / "reviewed Y MR, no self-authored
-  commits").
-- For `no-insight` outcome: still produce a summary. Weekly cares about
-  sessions that didn't yield insights but still represent work hours.
-
-### 5.5.2 Compose the frontmatter
-
-Fixed 4-field schema (one optional), no other fields:
-
-```yaml
----
-raw: <vault-relative path to the source Raw file>
-repo: <value from Raw frontmatter `repo:` field, or `(none)` if absent>
-issue: <Workplus issue key (e.g. DSM-172916), only when distill judged a match — see Step 5.6>
-distilled: <today, YYYY-MM-DD>
----
-```
-
-### 5.5.3 Write the sidecar file
-
-Destination path: `<vault_path>/Summary/YYYY/MM/DD/<same-filename-as-Raw>.md`
-(mirror Raw's date tree, identical filename).
-
-Use the Write tool. If the file already exists (re-distill case),
-**overwrite** it — no merge, no append. The Write tool's overwrite
-semantics are the intended behavior here.
-
-Create parent directories as needed (the Write tool handles this).
-
-### 5.5.4 Stage for commit
-
-The sidecar file is added to git in Step 8's `git add` list (see Step 8).
-No extra commit here.
-
-## Step 5.6: Judge Workplus Issue (optional)
-
-Skip this step when:
-
-- `~/.cortex/config.json` has no `weekly.repo_issue_map` field, OR
-- The Raw's `repo:` is not a key in the map, OR
-- The outcome is `pending-merge` or `skip-routine` (these don't get a
-  fresh Summary rewrite for issue judgment).
-
-Otherwise:
-
-1. Let `candidates = repo_issue_map[repo]` (a non-empty list).
-2. If `len(candidates) == 1`:
-   - `issue = candidates[0]` — no LLM call needed.
-3. Else (`len(candidates) >= 2`):
-   - Read the Raw body (the full `### User` / `### Claude` exchange,
-     not just the frontmatter).
-   - For each candidate key, fetch `workplus_get_issue(key).title`
-     (cache across distill runs in this batch).
-   - Prompt the LLM (one call): "Given the Raw body below and the
-     candidate Workplus issues with their titles, which single
-     candidate best fits this session's work? Reply with the issue
-     key or `null` if no candidate fits."
-   - `issue = LLM response` (either a key from `candidates` or `null`).
-4. Update the Summary sidecar's frontmatter:
-   - When `issue` is a key → write `issue: <KEY>`.
-   - When `issue` is `null` or step skipped → **omit** the `issue:`
-     field entirely (do not write `issue: null` or `issue: ""`).
-
-### Cost
-
-At most one extra LLM call per Raw, only for Raws whose `repo:` is
-in the map AND has 2+ candidates. Repos with 1 candidate take no
-extra LLM call.
-
 ## Step 6: Update Index (only for `new` outcome)
 
 Skip this step entirely for `pending-merge`, `skip-routine`, `no-insight`.
@@ -336,7 +244,7 @@ Field rules:
 
 ```bash
 cd <vault>
-git add Raw/ Notes/ Projects/ Summary/ _index.md log.md
+git add Raw/ Notes/ Projects/ _index.md log.md
 git commit -m "distill: extract N entries from Raw"
 ```
 

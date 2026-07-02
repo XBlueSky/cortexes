@@ -66,10 +66,6 @@ class IsMetaSession(unittest.TestCase):
         ])
         self.assertTrue(is_meta_session(p))
 
-    def test_weekly_session_is_meta(self):
-        p = _write_jsonl([_skill_invocation("cortex:weekly")])
-        self.assertTrue(is_meta_session(p))
-
     def test_broadcast_session_is_meta(self):
         p = _write_jsonl([_skill_invocation("cortex:broadcast")])
         self.assertTrue(is_meta_session(p))
@@ -88,12 +84,8 @@ class IsMetaSession(unittest.TestCase):
         p = _write_jsonl([_skill_invocation("cortex:cortex-broadcast")])
         self.assertTrue(is_meta_session(p))
 
-    def test_double_prefix_weekly_is_meta(self):
-        p = _write_jsonl([_skill_invocation("cortex:cortex-weekly")])
-        self.assertTrue(is_meta_session(p))
-
     def test_distill_and_broadcast_session_is_meta(self):
-        # weekly/distill runs commonly invoke broadcast inline.
+        # distill runs commonly invoke broadcast inline.
         p = _write_jsonl([
             _skill_invocation("cortex:cortex-distill"),
             _skill_invocation("cortex:cortex-broadcast"),

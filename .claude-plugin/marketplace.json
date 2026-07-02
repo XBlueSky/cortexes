@@ -7,8 +7,8 @@
     {
       "name": "cortex",
       "source": "./",
-      "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, weekly report compilation",
-      "version": "0.21.1"
+      "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, semantic retrieval",
+      "version": "0.23.0"
     }
   ]
 }

@@ -5,8 +5,8 @@ description: >
   memory. Use (1) when the user says "查 cortex", "之前有記過",
   "cortex 裡有沒有", "check my notes", "what did I write about", AND
   (2) PROACTIVELY — before answering any non-trivial question about ongoing
-  projects, internal Synology tooling, cortex-vec, plugin development,
-  weekly reports, NAS debugging, DSM workflows, or any topic that resembles
+  projects, internal company tooling, cortex-vec, plugin development,
+  NAS debugging, DSM workflows, or any topic that resembles
   prior work the user might have notes on. When the SessionStart hook lists
   vault topics and the user's request matches one, search cortex BEFORE
   asking clarifying questions or guessing. Treat the vault as authoritative

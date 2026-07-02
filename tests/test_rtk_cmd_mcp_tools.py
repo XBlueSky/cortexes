@@ -1,4 +1,4 @@
-"""MCP tool filter tests (zoekt_search, docker_execute)."""
+"""MCP tool filter tests (zoekt_search, gitlab)."""
 from __future__ import annotations
 
 import json
@@ -9,10 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks" / "scripts"))
 
 from rtk_cmd.mcp_tools import (  # noqa: E402
-    filter_docker_execute,
     filter_gitlab_tool,
     filter_mcp_tool,
-    filter_robinhood,
     filter_zoekt_search,
 )
 
@@ -87,42 +85,19 @@ class ZoektSearch(unittest.TestCase):
         self.assertIn("0 matches in 0 files", result)
 
 
-class DockerExecute(unittest.TestCase):
-    def test_strips_ansi(self):
-        raw = (
-            "🐳 Docker Exec Results\n"
-            "Status: ✅ Success\n\n"
-            "📋 Output:\n"
-            "\x1b[0;32m[==========] \x1b[mRunning 47 tests\n"
-            "\x1b[0;32m[ RUN      ] \x1b[mSomeTest\n"
-        )
-        result = filter_docker_execute(raw)
-        self.assertNotIn("\x1b", result)
-        self.assertIn("Running 47 tests", result)
-        self.assertIn("SomeTest", result)
-        # emoji wrapper preserved
-        self.assertIn("🐳 Docker Exec Results", result)
-
-    def test_literal_bracket_ansi(self):
-        # rtk transcripts sometimes capture the ANSI as literal text
-        raw = "[0;32m[==========] [mRunning tests\n"
-        result = filter_docker_execute(raw)
-        self.assertNotIn("[0;32m", result)
-
-
 _USER = {
     "username": "tonyhu",
     "id": "688",
     "name": "tonyhu",
     "avatar_url": "https://secure.gravatar.com/avatar/0000000000000000000000000000000000000000000000000000000000000000?s=80&d=identicon",
-    "web_url": "https://git.synology.inc/tonyhu",
+    "web_url": "https://git.example.com/tonyhu",
 }
 _REVIEWER = {
     "username": "reviewer1",
     "id": "9001",
     "name": "reviewer1",
     "avatar_url": "https://secure.gravatar.com/avatar/abc?s=80",
-    "web_url": "https://git.synology.inc/reviewer1",
+    "web_url": "https://git.example.com/reviewer1",
     "state": "active",
 }
 
@@ -138,7 +113,7 @@ class GitlabTool(unittest.TestCase):
             "assignees": [_REVIEWER],
             "reviewers": [_REVIEWER],
             "state": "opened",
-            "web_url": "https://git.synology.inc/org/project/-/merge_requests/21",
+            "web_url": "https://git.example.com/org/project/-/merge_requests/21",
         }
         result = filter_gitlab_tool(json.dumps(mr))
         parsed = json.loads(result)
@@ -243,56 +218,11 @@ class Dispatch(unittest.TestCase):
         result = filter_mcp_tool(raw, "mcp__plugin_zoekt-mcp__search")
         self.assertIn("1 matches", result)
 
-    def test_docker_routed(self):
-        raw = "\x1b[0;32mok\x1b[m\n"
-        result = filter_mcp_tool(raw, "mcp__plugin_synology-dev-suite_syno-build-mcp__docker_execute")
-        self.assertNotIn("\x1b", result)
-
     def test_gitlab_routed(self):
         raw = json.dumps({"iid": "21", "title": "x", "author": _USER})
-        result = filter_mcp_tool(raw, "mcp__plugin_synology-workflows_gitlab__get_merge_request")
+        result = filter_mcp_tool(raw, "mcp__plugin_acme-corp-workflows_gitlab__get_merge_request")
         parsed = json.loads(result)
         self.assertEqual(parsed["author"], "@tonyhu")
-
-    def test_build_project_passthrough(self):
-        # build_project output is already well-shaped; we route the tool to
-        # filter_mcp_tool but the function returns it unchanged.
-        raw = "=== Build Result ===\nReturn Code: 0\n"
-        result = filter_mcp_tool(raw, "mcp__plugin_synology-dev-suite_syno-build-mcp__build_project")
-        self.assertEqual(result, raw)
-
-
-class CssActivities(unittest.TestCase):
-    CSS = "mcp__plugin_syno-robinhood_robinhood__css_get_activities"
-
-    def test_flattens_entries(self):
-        raw = json.dumps({"success": True, "data": [
-            {"datetime": "2026-01-02 09:33:24", "user": "agent1",
-             "action": "change status from escalated to open"},
-            {"datetime": "2026-01-02 09:34:00", "user": "tonyhu", "action": "reply thread"},
-        ]})
-        result = filter_robinhood(raw, self.CSS)
-        self.assertIn("2026-01-02 09:33:24  agent1: change status from escalated to open", result)
-        self.assertIn("2026-01-02 09:34:00  tonyhu: reply thread", result)
-        self.assertNotIn('"datetime"', result)
-        self.assertLess(len(result), len(raw))
-
-    def test_parse_failure_passthrough(self):
-        self.assertEqual(filter_robinhood("not json", self.CSS), "not json")
-
-
-class RobinhoodDispatch(unittest.TestCase):
-    def test_codesearch_routed_with_label(self):
-        raw = json.dumps({"success": True, "data": {"total_matches": 1, "files": [
-            {"repo": "r", "path": "p.cpp", "matches": [{"line_number": 1, "line": "foo"}]}]}})
-        result = filter_robinhood(raw, "mcp__plugin_syno-robinhood_robinhood__codesearch")
-        self.assertIn("codesearch: 1 matches in 1 files", result)
-        self.assertIn("p.cpp:1: foo", result)
-
-    def test_unknown_subtool_verbatim(self):
-        raw = json.dumps({"data": "chat content"})
-        name = "mcp__plugin_syno-robinhood_robinhood__chat_list_posts"
-        self.assertEqual(filter_robinhood(raw, name), raw)
 
 
 if __name__ == "__main__":

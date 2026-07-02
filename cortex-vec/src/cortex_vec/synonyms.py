@@ -1,4 +1,4 @@
-"""Static synonym groups (Synology jargon + common zh/en tech terms).
+"""Static synonym groups (common zh/en tech terms).
 
 Groups are written in human-readable form; at first use each term is run
 through the same tokenizer as the index/query, so the synonym lookup lives in
@@ -7,9 +7,7 @@ the SAME token space as BM25 (lowercased, stemmed, jieba-segmented).
 from .tokenize import tokenize
 
 SYNONYM_GROUPS = [
-    ["dsm", "diskstation"],
-    ["srm", "router manager"],
-    ["套件", "package", "spk"],
+    ["套件", "package"],
     ["憑證", "certificate", "cert", "tls", "ssl"],
     ["週報", "weekly report"],
     ["登入", "login", "signin", "authentication", "auth"],

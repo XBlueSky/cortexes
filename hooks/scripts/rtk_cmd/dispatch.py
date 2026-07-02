@@ -32,9 +32,8 @@ from rtk_cmd.js_tools import (
     filter_vitest,
 )
 from rtk_cmd.lint import filter_eslint, filter_pylint
-from rtk_cmd.mcp_naxos import filter_naxos
 from rtk_cmd.mcp_playwright import filter_playwright_tool
-from rtk_cmd.mcp_tools import filter_mcp_tool, filter_robinhood
+from rtk_cmd.mcp_tools import filter_mcp_tool
 from rtk_cmd.python_tools import filter_mypy, filter_pip, filter_ruff
 
 
@@ -125,18 +124,15 @@ def find_cmd_filter(command: str) -> CmdFilter | None:
 
 # MCP tool registry: keyed by a server-identifying SUBSTRING, not a full
 # plugin-qualified prefix. Plugin repackaging drifts the namespace
-# (syno-build-mcp: dev-suite → build-toolkit; playwright: bare → kaer-morhen;
-# naxos lives under both dev-suite and diagnostics), which silently no-ops a
-# prefix-keyed filter. Matching the stable server token is drift-proof and
-# mirrors how filter_mcp_tool already dispatches sub-tools. First match wins;
-# tokens are mutually non-colliding across observed names. Over-match is safe —
-# each filter returns its input verbatim for sub-tools it does not recognise.
+# (playwright: bare → kaer-morhen; any vendor's gitlab MCP could sit under
+# different plugin prefixes), which silently no-ops a prefix-keyed filter.
+# Matching the stable server token is drift-proof and mirrors how
+# filter_mcp_tool already dispatches sub-tools. First match wins; tokens are
+# mutually non-colliding across observed names. Over-match is safe — each
+# filter returns its input verbatim for sub-tools it does not recognise.
 _MCP_REGISTRY: list[tuple[str, Callable[[str, str], str]]] = [
     ("_playwright__", filter_playwright_tool),  # bare + kaer-morhen + any ns
-    ("syno-naxos", filter_naxos),               # dev-suite + diagnostics
-    ("robinhood", filter_robinhood),
     ("zoekt", filter_mcp_tool),
-    ("syno-build-mcp", filter_mcp_tool),        # dev-suite + build-toolkit
     ("_gitlab__", filter_mcp_tool),
 ]
 

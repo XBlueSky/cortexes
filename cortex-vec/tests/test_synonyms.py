@@ -3,10 +3,10 @@ from cortex_vec.tokenize import tokenize
 
 
 def test_synonyms_bidirectional():
-    res = set(synonyms.synonyms_for(tokenize("dsm")))
-    assert set(tokenize("diskstation")) <= res
-    res2 = set(synonyms.synonyms_for(tokenize("diskstation")))
-    assert "dsm" in res2
+    res = set(synonyms.synonyms_for(tokenize("perf")))
+    assert set(tokenize("performance")) <= res
+    res2 = set(synonyms.synonyms_for(tokenize("performance")))
+    assert "perf" in res2
 
 
 def test_synonyms_excludes_originals():

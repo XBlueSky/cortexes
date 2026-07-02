@@ -28,22 +28,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/repo-slug.sh"
 repo_name="$(cortex_repo_slug "$cwd" || true)"
 [[ -z "$repo_name" ]] && exit 0
 
-# --- Lightweight status: only check weekly report (no Raw scanning) ---
-
-today_dow=$(date +%u)  # 1=Mon .. 7=Sun
-days_since_monday=$(( (today_dow - 1) % 7 ))
-week_monday=$(date -d "-${days_since_monday} days" +%Y-%m-%d 2>/dev/null \
-  || date -v-"${days_since_monday}"d +%Y-%m-%d 2>/dev/null \
-  || date +%Y-%m-%d)
-week_year="${week_monday%%-*}"
-weekly_file="$CORTEX_DIR/Weekly/$week_year/$week_monday.md"
-
-if [[ -f "$weekly_file" ]]; then
-  weekly_status="已產生"
-else
-  weekly_status="尚未產生"
-fi
-
 # --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
 # Gives the model grounding to recognize when an incoming user request
 # matches an existing vault topic, so cortex-query triggers proactively.
@@ -89,13 +73,10 @@ Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex�
 
 在你第一次回覆使用者時，呈現以下格式：
 
-先顯示 vault 狀態：
-  - 本週週報__WEEKLY_STATUS__
-
-然後列出選項：
+列出選項：
 1. 載入此 repo 的記憶筆記（執行 cortex-vec search --repo __REPO__）
 2. 查看最近的 session 紀錄（列出 __VAULT__/Raw/ 中最近幾筆）
-3. 處理待辦事項（提煉未處理的紀錄 或 產生週報）
+3. 處理待辦事項（提煉未處理的紀錄）
 4. 直接開始工作__TAKEOFF_OPTION__
 
 規則：
@@ -109,7 +90,6 @@ PROMPT_TEMPLATE
 # Substitute placeholders
 context="${context//__REPO__/$repo_name}"
 context="${context//__VAULT__/$CORTEX_DIR}"
-context="${context//__WEEKLY_STATUS__/$weekly_status}"
 context="${context//__NOTES_TOPICS__/$notes_topics}"
 context="${context//__PROJECTS_TOPICS__/$projects_topics}"
 context="${context//__TAKEOFF_OPTION__/$takeoff_option}"

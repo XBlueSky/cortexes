@@ -2,10 +2,10 @@
 """Detect cortex maintenance-pipeline sessions.
 
 The SessionEnd hook records every session into Raw/. But sessions whose whole
-purpose is maintaining the vault — distilling, compiling the weekly, broadcasting
-into related pages, bootstrapping — would otherwise be re-recorded as fresh Raw
-and re-enter their own distill queue. The queue could then never reach empty: a
-distill run always leaves one trailing self-referential record behind.
+purpose is maintaining the vault — distilling, broadcasting into related pages,
+bootstrapping — would otherwise be re-recorded as fresh Raw and re-enter their
+own distill queue. The queue could then never reach empty: a distill run
+always leaves one trailing self-referential record behind.
 
 We don't drop these sessions (they stay as an audit trail); the caller stamps a
 `<!-- distilled: ... (skip: meta) -->` marker so they never re-enter the queue.
@@ -30,7 +30,7 @@ from pathlib import Path
 # (`cortex:distill`) and the dominant plugin:skill id (`cortex:cortex-distill`).
 # Both must be matched. Deliberately excluded in both forms: evolve, query,
 # using-cortex — those fire inside normal work sessions worth recording.
-_PIPELINE = ("distill", "weekly", "broadcast", "genesis")
+_PIPELINE = ("distill", "broadcast", "genesis")
 META_SESSION_SKILLS = frozenset(
     [f"cortex:{name}" for name in _PIPELINE]
     + [f"cortex:cortex-{name}" for name in _PIPELINE]

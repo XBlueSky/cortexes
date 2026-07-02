@@ -12,14 +12,6 @@ filter here.
 from __future__ import annotations
 
 import json
-import re
-
-
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\[\d[0-9;]*[A-Za-z]")
-
-
-def _strip_ansi(s: str) -> str:
-    return _ANSI_RE.sub("", s)
 
 
 def _truncate(s: str, n: int) -> str:
@@ -96,48 +88,7 @@ def _filter_codesearch_shape(output: str, label: str = "codesearch") -> str:
 
 
 def filter_zoekt_search(output: str) -> str:
-    """Back-compat alias — zoekt and robinhood codesearch share one shape."""
     return _filter_codesearch_shape(output, label="zoekt")
-
-
-def _filter_css_activities(output: str) -> str:
-    """css_get_activities is a {data:[{datetime,user,action}]} audit log →
-    one line per entry. Lossless reformat."""
-    try:
-        parsed = json.loads(output)
-    except json.JSONDecodeError:
-        return output
-    if not isinstance(parsed, dict) or not isinstance(parsed.get("data"), list):
-        return output
-    lines: list[str] = []
-    for e in parsed["data"]:
-        if not isinstance(e, dict):
-            continue
-        lines.append(f"{e.get('datetime', '')}  {e.get('user', '')}: {e.get('action', '')}")
-    if not lines:
-        return output
-    result = "\n".join(lines)
-    return result if len(result) < len(output) else output
-
-
-def filter_robinhood(output: str, tool_name: str) -> str:
-    if tool_name.endswith("__codesearch"):
-        return _filter_codesearch_shape(output, label="codesearch")
-    if tool_name.endswith("__css_get_activities"):
-        return _filter_css_activities(output)
-    return output  # chat / mailplus / css_get_ticket: verbatim (YAGNI, low volume)
-
-
-# ---------------------------------------------------------------------------
-# syno-build-mcp__docker_execute
-#
-# Shape: a wrapper frame (🐳 header + "📋 Output:") around arbitrary command
-# output that often carries ANSI colour codes from tools like GoogleTest.
-# The only deterministic win is ANSI stripping — the body is user-requested
-# command output, don't touch it otherwise.
-
-def filter_docker_execute(output: str) -> str:
-    return _strip_ansi(output)
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +154,6 @@ def filter_mcp_tool(output: str, tool_name: str) -> str:
     # So we match on "which MCP server" (substring) + "which sub-tool" (suffix).
     if "zoekt" in tool_name and tool_name.endswith("__search"):
         return filter_zoekt_search(output)
-    if tool_name.endswith("__docker_execute"):
-        return filter_docker_execute(output)
     if "_gitlab__" in tool_name:
         return filter_gitlab_tool(output)
     return output

@@ -25,8 +25,8 @@ def test_build_where_repo_includes_notes_type():
 
     Notes/ are cross-repo by design and must never be excluded by --repo.
     """
-    assert store._build_where(repo="syno-nextweb") == {
-        "$or": [{"repo": "syno-nextweb"}, {"type": "note"}]
+    assert store._build_where(repo="acme-web") == {
+        "$or": [{"repo": "acme-web"}, {"type": "note"}]
     }
 
 
