@@ -32,7 +32,7 @@ export function layout({ title, body, activeNav = 'home' }) {
 </head>
 <body>
 <header><div class="wrap nav">
-  <a class="brand" href="index.html"><span class="glyph mono">C</span>cortex</a>
+  <a class="brand" href="index.html"><img class="glyph" src="assets/logo.png" alt="" width="22" height="22">cortexes</a>
   <nav class="nav-links">${links}</nav>
 </div></header>
 ${body}

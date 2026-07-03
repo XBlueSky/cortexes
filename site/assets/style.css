@@ -29,7 +29,7 @@ a { color: inherit; text-decoration: none; }
 header { position: sticky; top: 0; z-index: 40; background: rgba(11,11,13,0.72); backdrop-filter: blur(12px); border-bottom: 1px solid var(--hairline); }
 .nav { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 .brand { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-weight: 700; letter-spacing: -0.01em; }
-.brand .glyph { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #000)); display: grid; place-items: center; color: var(--accent-ink); font-size: 13px; font-weight: 800; }
+.brand .glyph { width: 22px; height: 22px; border-radius: 5px; display: block; }
 .brand .ver { font-size: 11px; color: var(--muted); border: 1px solid var(--hairline); padding: 1px 7px; border-radius: 20px; font-weight: 400; }
 .nav-links { display: flex; gap: 26px; font-size: 14px; font-family: var(--mono); }
 .nav-links a { color: var(--muted); transition: color .18s; }
