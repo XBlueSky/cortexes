@@ -50,6 +50,7 @@ header { position: sticky; top: 0; z-index: 40; background: rgba(11,11,13,0.72);
   opacity: 0.55; z-index: 0;
 }
 .hero .wrap { position: relative; z-index: 1; }
+.hero-logo { display: block; width: 88px; height: 88px; margin: 0 0 26px; border-radius: 18px; }
 h1.hero-title { font-family: var(--mono); font-weight: 700; font-size: clamp(2.4rem, 6vw, 4.6rem); line-height: 1.03; letter-spacing: -0.035em; margin: 20px 0 0; text-wrap: balance; max-width: 15ch; }
 h1.hero-title .hl { color: var(--accent); }
 .hero-sub { color: var(--muted); font-size: clamp(1rem, 1.6vw, 1.18rem); max-width: 54ch; margin: 22px 0 0; line-height: 1.65; }

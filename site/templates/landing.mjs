@@ -42,6 +42,7 @@ export function renderLanding({ plugin, changelog }) {
   const logs = changelog.slice(0, 3).map(logItem).join('');
 
   const body = `<section class="hero"><div class="wrap">
+    <img class="hero-logo" src="assets/logo.png" alt="Cortexes" width="96" height="96">
     <span class="eyebrow">Claude Code plugin · knowledge &amp; memory</span>
     <h1 class="hero-title">${esc(plugin.tagline ?? '')}</h1>
     <p class="hero-sub">${esc(plugin.intro ?? '')}</p>

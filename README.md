@@ -1,6 +1,18 @@
-# Cortexes
+<p align="center">
+  <img src="docs/images/logo.png" alt="Cortexes" width="200">
+</p>
 
-Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval.
+<h1 align="center">Cortexes</h1>
+
+<p align="center">
+  Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
+  <a href="https://cortexes.pages.dev"><img alt="Website" src="https://img.shields.io/badge/website-cortexes.pages.dev-000"></a>
+  <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude_Code-plugin-d97757">
+</p>
 
 ![Cortex architecture](docs/images/architecture.png)
 
@@ -52,7 +64,7 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 
 ## 官網
 
-線上文件與 changelog：<https://cortex.pages.dev>（Cloudflare Pages，從 `manifest.json` 自動生成）。
+線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `manifest.json` 自動生成）。
 本地 build 見 [`site/README.md`](site/README.md)。
 
 ## Commands & Skills
