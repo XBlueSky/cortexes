@@ -1,0 +1,59 @@
+name: Site
+
+# 網站 CI。部署由 Cloudflare Pages 的 Git 整合負責（CF 後台連本 repo，
+# 監聽 push 後自行跑 `node site/build.mjs` 並發佈），此 workflow 不部署，
+# 只在 push / PR 時跑測試 + smoke build，當作合併前的品質關卡。
+#
+# CF Pages 設定見 site/README.md。網站零 npm 依賴，只用 Node 內建，故無 install。
+
+on:
+  push:
+    branches: [feat/website-site, plugin]
+    paths:
+      - 'site/**'
+      - 'manifest.json'
+      - 'CHANGELOG.md'
+      - 'docs/images/architecture.png'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'manifest.json'
+      - 'CHANGELOG.md'
+      - '.github/workflows/site.yml'
+  workflow_dispatch: # 允許手動觸發（Actions 分頁 → Run workflow）
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test + smoke build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Unit tests
+        run: node --test site/tests/*.test.mjs
+
+      - name: Smoke build
+        run: node site/build.mjs
+
+      - name: Verify build output
+        run: |
+          set -e
+          for f in index.html changelog.html docs/index.html assets/style.css; do
+            test -s "site/dist/$f" || { echo "::error::missing or empty site/dist/$f"; exit 1; }
+          done
+          echo "build output OK"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: site/dist
+          retention-days: 7
