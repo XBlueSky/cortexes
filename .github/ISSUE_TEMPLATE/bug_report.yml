@@ -1,0 +1,57 @@
+name: Bug 回報
+description: 回報一個問題或非預期行為
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝回報。安全性問題請勿用這裡，改走 [SECURITY.md](../blob/plugin/SECURITY.md)。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 發生了什麼
+      description: 描述問題，以及你預期的行為。
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 重現步驟
+      description: 讓我們能重現的最小步驟。
+      placeholder: |
+        1. 執行 `/cortex:...`
+        2. ...
+        3. 看到錯誤 ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: 元件
+      description: 問題出在哪個部分？
+      options:
+        - cortex-vec (CLI / 檢索)
+        - commands / skills
+        - hooks (SessionStart / SessionEnd)
+        - 官網 (site/)
+        - 其他 / 不確定
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: OS、Python 版本、Claude Code / plugin 版本。
+      placeholder: |
+        - OS: macOS 15
+        - Python: 3.12
+        - cortex 版本: 0.23.0
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相關 log / 錯誤訊息
+      render: shell
+    validations:
+      required: false
