@@ -1,15 +1,10 @@
 name: Site
 
-# 網站 CI + 部署到 Cloudflare Pages。
+# 網站 CI。部署由 Cloudflare Pages 的 Git 整合負責（CF 後台連本 repo，
+# 監聽 push 後自行跑 `node site/build.mjs` 並發佈），此 workflow 不部署，
+# 只在 push / PR 時跑測試 + smoke build，當作合併前的品質關卡。
 #
-# 前置設定（一次性）：
-#   1. Cloudflare 後台 → Workers & Pages → 建一個「Direct Upload」的 Pages 專案，
-#      名稱設為 `cortex`（與下方 projectName 一致；若改名兩處都要改）。
-#   2. GitHub repo → Settings → Secrets and variables → Actions，新增：
-#        CLOUDFLARE_API_TOKEN   權限：Account → Cloudflare Pages → Edit
-#        CLOUDFLARE_ACCOUNT_ID  Cloudflare dashboard 右側 Account ID
-#
-# 網站零 npm 依賴，只用 Node 內建，故無 install 步驟。
+# CF Pages 設定見 site/README.md。網站零 npm 依賴，只用 Node 內建，故無 install。
 
 on:
   push:
@@ -62,26 +57,3 @@ jobs:
           name: site-dist
           path: site/dist
           retention-days: 7
-
-  deploy:
-    name: Deploy to Cloudflare Pages
-    # 只在 push 到部署 branch 時部署；PR / fork 不部署（避免 secret 外洩）。
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/feat/website-site' || github.ref == 'refs/heads/plugin')
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Build site
-        run: node site/build.mjs
-
-      - name: Deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site/dist --project-name=cortex --branch=${{ github.ref_name }}
