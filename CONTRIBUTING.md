@@ -2,6 +2,8 @@
 
 歡迎為 Cortexes 貢獻。這份文件說明如何設定開發環境、跑測試、以及送出變更。
 
+參與本專案即表示你同意遵守 [行為準則](CODE_OF_CONDUCT.md)。
+
 ## 專案結構
 
 Cortexes 用兩個 branch 分工：
