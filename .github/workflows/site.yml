@@ -1,0 +1,87 @@
+name: Site
+
+# 網站 CI + 部署到 Cloudflare Pages。
+#
+# 前置設定（一次性）：
+#   1. Cloudflare 後台 → Workers & Pages → 建一個「Direct Upload」的 Pages 專案，
+#      名稱設為 `cortex`（與下方 projectName 一致；若改名兩處都要改）。
+#   2. GitHub repo → Settings → Secrets and variables → Actions，新增：
+#        CLOUDFLARE_API_TOKEN   權限：Account → Cloudflare Pages → Edit
+#        CLOUDFLARE_ACCOUNT_ID  Cloudflare dashboard 右側 Account ID
+#
+# 網站零 npm 依賴，只用 Node 內建，故無 install 步驟。
+
+on:
+  push:
+    branches: [feat/website-site, plugin]
+    paths:
+      - 'site/**'
+      - 'manifest.json'
+      - 'CHANGELOG.md'
+      - 'docs/images/architecture.png'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'manifest.json'
+      - 'CHANGELOG.md'
+      - '.github/workflows/site.yml'
+  workflow_dispatch: # 允許手動觸發（Actions 分頁 → Run workflow）
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test + smoke build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Unit tests
+        run: node --test site/tests/*.test.mjs
+
+      - name: Smoke build
+        run: node site/build.mjs
+
+      - name: Verify build output
+        run: |
+          set -e
+          for f in index.html changelog.html docs/index.html assets/style.css; do
+            test -s "site/dist/$f" || { echo "::error::missing or empty site/dist/$f"; exit 1; }
+          done
+          echo "build output OK"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: site/dist
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Cloudflare Pages
+    # 只在 push 到部署 branch 時部署；PR / fork 不部署（避免 secret 外洩）。
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/feat/website-site' || github.ref == 'refs/heads/plugin')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build site
+        run: node site/build.mjs
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site/dist --project-name=cortex --branch=${{ github.ref_name }}
