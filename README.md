@@ -299,6 +299,12 @@ pip install -e ./cortex-vec
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
 
+## Contributing
+
+歡迎貢獻 —— 開發環境、測試與 PR 流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+安全性問題請見 [SECURITY.md](SECURITY.md)。
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE) — see `LICENSE` for full text.
+Copyright 2026 tonyhu（見 [NOTICE](NOTICE)）。

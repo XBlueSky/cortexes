@@ -1,0 +1,37 @@
+name: 功能建議
+description: 提出新功能或改進
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解決的問題
+      description: 這個建議源自什麼需求或痛點？
+      placeholder: 我常常需要…，但目前…
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建議做法
+      description: 你希望它怎麼運作？
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: 相關元件
+      options:
+        - cortex-vec (CLI / 檢索)
+        - commands / skills
+        - hooks
+        - 官網 (site/)
+        - 其他 / 跨元件
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考慮過的替代方案
+    validations:
+      required: false
