@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "marketplace": {
     "name": "cortex",
-    "lang": "zh-TW",
+    "lang": "en",
     "owner": {
       "name": "tonyhu"
     }
@@ -11,7 +11,7 @@
     {
       "id": "knowledge",
       "label": "Knowledge & Memory",
-      "note": "個人知識庫與記憶檢索"
+      "note": "Personal knowledge base and memory retrieval"
     }
   ],
   "plugins": [
@@ -25,13 +25,13 @@
         "email": "tonyhu@synology.com"
       },
       "group": "knowledge",
-      "tagline": "把每次 session 變成可搜尋的個人知識庫 — 自動記錄、提煉、語意檢索",
-      "intro": "Cortex 是 Claude Code 的個人記憶層。每次 session 結束自動記錄 commits、發現與決策， 之後可提煉成精煉筆記、用中英混合語意搜尋檢索。Vault 是純 markdown + git 的 source of truth，vector store 只是可重建的衍生索引。適合想把工作記憶長期累積、跨 session 復用的人。\n",
+      "tagline": "Knowledge doesn't sit. It compounds.",
+      "intro": "Cortex is a personal memory layer for Claude Code. Every session automatically records commits, findings, and decisions, which can later be distilled into refined notes and retrieved with mixed-language semantic search. The vault is plain markdown + git as the source of truth; the vector store is just a rebuildable derived index. Built for anyone who wants working memory to compound across sessions instead of resetting every time.\n",
       "skills": [
         {
           "name": "cortex-broadcast",
           "description": "llm-wiki style broadcast ingest — conversational update of related existing pages when a Raw has been distilled. Use when the user says \"broadcast\", \"跑 broadcast\", \"compound this into the vault\", \"merge pending-merge\", \"process broadcast queue\", or when cortex-distill invokes broadcast inline after Step 8 commit (automatic dispatch for every new / pending-merge Raw).\n",
-          "trigger": "一個 Raw 已 distill 後，要把它融合進相關既有頁面（「broadcast」「compound this into the vault」），或 distill 流程末段自動 dispatch。",
+          "trigger": "After a Raw has been distilled, to fuse it into related existing pages (\"broadcast\", \"compound this into the vault\"), or auto-dispatched at the end of the distill flow.",
           "examples": [
             "broadcast",
             "process broadcast queue"
@@ -41,9 +41,9 @@
         {
           "name": "cortex-distill",
           "description": "Distill raw session records into refined Notes and Projects. Use when the user says \"提煉\", \"整理 raw\", \"distill\", or \"distill raw records\".\n",
-          "trigger": "使用者要把 Raw session 記錄提煉成 Notes/Projects（「提煉」「整理 raw」「distill」）。",
+          "trigger": "When the user wants to distill Raw session records into Notes/Projects (\"提煉\", \"整理 raw\", \"distill\").",
           "examples": [
-            "提煉這週的 raw",
+            "distill this week's raw",
             "distill raw records"
           ],
           "autoload": false
@@ -51,21 +51,21 @@
         {
           "name": "cortex-evolve",
           "description": "Save knowledge to the cortex vault. Use when the user says \"存到 cortex\", \"記一下\", \"save to cortex\", \"記到筆記\", \"cortex evolve\", or when the session-suggest hook recommends saving content. Handles Notes and Projects.\n",
-          "trigger": "使用者要把知識存進 vault（「存到 cortex」「記一下」），或 session-suggest hook 建議存檔時。",
+          "trigger": "When the user wants to save knowledge to the vault (\"存到 cortex\", \"記一下\"), or when the session-suggest hook recommends saving.",
           "examples": [
-            "存到 cortex",
-            "記一下這個決策",
-            "save to cortex"
+            "save to cortex",
+            "note this decision down",
+            "remember this"
           ],
           "autoload": false
         },
         {
           "name": "cortex-query",
           "description": "Search and retrieve content from the cortex vault — the user's external memory. Use (1) when the user says \"查 cortex\", \"之前有記過\", \"cortex 裡有沒有\", \"check my notes\", \"what did I write about\", AND (2) PROACTIVELY — before answering any non-trivial question about ongoing projects, internal company tooling, cortex-vec, plugin development, NAS debugging, DSM workflows, or any topic that resembles prior work the user might have notes on. When the SessionStart hook lists vault topics and the user's request matches one, search cortex BEFORE asking clarifying questions or guessing. Treat the vault as authoritative prior context: searching it cheaply is always better than reinventing an answer the user already wrote down.\n",
-          "trigger": "使用者要查 vault（「查 cortex」「之前有記過」），或回答任何關於既有專案／內部工具的問題「前」，主動先搜尋。",
+          "trigger": "When the user wants to search the vault (\"查 cortex\", \"之前有記過\"), or proactively before answering any question about existing projects or internal tooling.",
           "examples": [
-            "查 cortex 有沒有 DSM 相關筆記",
-            "之前有記過這個嗎",
+            "check cortex for DSM notes",
+            "have I written about this before",
             "what did I write about cortex-vec"
           ],
           "autoload": false
@@ -73,9 +73,9 @@
         {
           "name": "cortex-takeoff",
           "description": "Create or resume a session takeoff baton — a curated, ephemeral, git-ignored hand-off note that lets the next Claude session continue a long-running task. Use when the user says \"交接\", \"takeoff\", \"交棒\", \"context 快滿了交接給下個 session\", \"hand off to next session\", \"/cortex:takeoff\", \"takeoff resume\", or \"takeoff done\". The baton is scaffolding, not knowledge: it is never committed, distilled, broadcast, or indexed.\n",
-          "trigger": "context 快滿要交接給下個 session（「交接」「takeoff」「交棒」）。產出不進 git、不索引的暫時 hand-off baton。",
+          "trigger": "When context is running low and work needs to hand off to the next session (\"交接\", \"takeoff\", \"交棒\"). Produces a temporary hand-off baton that's never committed or indexed.",
           "examples": [
-            "交接給下個 session",
+            "hand off to the next session",
             "takeoff resume",
             "takeoff done"
           ],
@@ -84,9 +84,9 @@
         {
           "name": "using-cortex",
           "description": "Use when starting any task or answering any non-trivial question in a cortex-enabled session — establishes that the cortex vault is the user's external memory and should be consulted BEFORE guessing, asking clarifying questions, or doing fresh exploration. Trigger unconditionally on conversation start, on every new user request that touches a domain the user has worked on before, and whenever the request mentions an ongoing project, internal company tooling, recurring topic, or anything that smells like prior work. If the SessionStart hook surfaced vault topics and the request matches one — search first.\n",
-          "trigger": "session 開始或每個非瑣碎請求時無條件觸發 — 在猜測、追問或重新探索「前」，先確認 vault 是否已有相關記憶。",
+          "trigger": "Triggers unconditionally at session start or on any non-trivial request — checks whether the vault already has relevant memory before guessing, asking, or re-exploring.",
           "examples": [
-            "（session 開始自動觸發）"
+            "(auto-triggered at session start)"
           ],
           "autoload": false
         }
@@ -135,30 +135,30 @@
       "hooks": [
         {
           "event": "SessionEnd",
-          "why": "session 結束時自動產出完整報告（commits、發現、決策）並存進 vault 的 Raw/，是自動記錄的入口。"
+          "why": "Auto-generates a full report (commits, findings, decisions) and saves it to the vault's Raw/ on session end — the entry point for automatic capture."
         },
         {
           "event": "SessionStart",
-          "why": "開 session 時偵測當前 repo，把相關 vault 記憶注入 context，讓 Claude 一開始就有既有背景。"
+          "why": "Detects the current repo at session start and injects relevant vault memory into context, so Claude starts with prior background already loaded."
         }
       ],
       "tips": [
         {
-          "text": "回答關於既有專案或內部工具的問題前，讓 cortex-query 先搜尋 vault — 比重新探索或追問便宜得多。"
+          "text": "Let cortex-query search the vault before answering questions about existing projects or internal tooling — far cheaper than re-exploring or asking."
         },
         {
-          "text": "distill 完成後會自動 dispatch broadcast，把新知識融進既有頁面；不必手動再跑一次。"
+          "text": "distill automatically dispatches broadcast afterward to fuse new knowledge into existing pages; no need to run it manually."
         },
         {
-          "text": "Vault 是 source of truth（markdown + git），vector store 可隨時用 /cortex:genesis 重建索引。"
+          "text": "The vault is the source of truth (markdown + git); the vector store can always be rebuilt with /cortex:genesis."
         }
       ],
       "traps": [
         {
-          "text": "takeoff baton 是暫時 scaffolding：它「不會」被 commit、distill、broadcast 或索引 — 別把長期知識只寫在 baton 裡。"
+          "text": "The takeoff baton is temporary scaffolding — it is never committed, distilled, broadcast, or indexed. Don't rely on it as the only place long-term knowledge lives."
         },
         {
-          "text": "語意搜尋需要 OPENAI_API_KEY 與已安裝的 cortex-vec CLI；缺任一則 cortex-query 無法檢索。"
+          "text": "Semantic search requires OPENAI_API_KEY and the cortex-vec CLI installed; missing either means cortex-query can't retrieve results."
         }
       ]
     }

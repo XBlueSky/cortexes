@@ -21,5 +21,5 @@ test('renders all versions and items', () => {
 
 test('renders empty state', () => {
   const html = renderChangelog([]);
-  assert.match(html, /暫無紀錄/);
+  assert.match(html, /No entries yet/);
 });

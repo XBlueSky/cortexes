@@ -8,7 +8,7 @@ function chips(arr) {
 function skillBlock(s) {
   return `<article class="doc-item" id="skill-${esc(s.name)}">
     <h3 class="doc-name mono">${esc(s.name)} <span class="tag auto">auto</span></h3>
-    ${s.trigger ? `<p class="doc-trigger"><strong>觸發：</strong>${esc(s.trigger)}</p>` : ''}
+    ${s.trigger ? `<p class="doc-trigger"><strong>Trigger:</strong> ${esc(s.trigger)}</p>` : ''}
     ${s.description ? `<p class="doc-desc">${esc(s.description)}</p>` : ''}
     <div class="card-ex">${chips(s.examples)}</div>
   </article>`;
@@ -43,7 +43,7 @@ export function renderDocs(plugin) {
 
     ${hooks ? `<h2 class="doc-group mono">Hooks</h2><ul class="doc-hooks">${hooks}</ul>` : ''}
     ${noteList('Tips', plugin.tips)}
-    ${noteList('Traps', plugin.traps)}
+    ${noteList('Watch out', plugin.traps)}
   </div></section>`;
 
   return layout({ title: 'Cortex — Docs', body, activeNav: 'docs' });

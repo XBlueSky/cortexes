@@ -13,8 +13,8 @@ function versionBlock(v) {
 
 export function renderChangelog(versions) {
   const body = `<section class="block"><div class="wrap narrow">
-    <div class="sec-head"><div><span class="eyebrow">changelog</span><h2>版本紀錄</h2></div></div>
-    ${versions.length ? versions.map(versionBlock).join('') : '<p class="muted">暫無紀錄。</p>'}
+    <div class="sec-head"><div><span class="eyebrow">changelog</span><h2>Version history</h2></div></div>
+    ${versions.length ? versions.map(versionBlock).join('') : '<p class="muted">No entries yet.</p>'}
   </div></section>`;
   return layout({ title: 'Cortex — Changelog', body, activeNav: 'changelog' });
 }

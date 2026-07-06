@@ -22,7 +22,7 @@ export function layout({ title, body, activeNav = 'home' }) {
     return `<a href="${n.href}"${active}>${esc(n.label)}</a>`;
   }).join('');
   return `<!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,7 +37,7 @@ export function layout({ title, body, activeNav = 'home' }) {
 </div></header>
 ${body}
 <footer><div class="wrap foot-row">
-  <div>© 2026 tonyhu · cortex — Claude Code 個人知識庫 plugin</div>
+  <div>© 2026 tonyhu · cortex — personal knowledge base plugin for Claude Code</div>
 </div></footer>
 </body>
 </html>
