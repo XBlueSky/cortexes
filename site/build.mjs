@@ -38,8 +38,6 @@ export async function build({ root, outDir }) {
   // 複製 assets
   const siteAssets = join(root, 'site', 'assets');
   if (existsSync(siteAssets)) { cpSync(siteAssets, join(outDir, 'assets'), { recursive: true }); files.push('assets/'); }
-  const arch = join(root, 'docs', 'images', 'architecture.png');
-  if (existsSync(arch)) { mkdirSync(join(outDir, 'assets'), { recursive: true }); cpSync(arch, join(outDir, 'assets', 'architecture.png')); files.push('assets/architecture.png'); }
 
   return { files };
 }

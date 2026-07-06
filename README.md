@@ -14,8 +14,6 @@
   <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude_Code-plugin-d97757">
 </p>
 
-![Cortex architecture](docs/images/architecture.png)
-
 ## What It Does
 
 Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
