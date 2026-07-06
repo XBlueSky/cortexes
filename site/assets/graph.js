@@ -19,18 +19,22 @@
     ['Nginx SSL', 'note'], ['Nginx Reload', 'note'], ['OAuth Flow', 'note'], ['libsynow3', 'project'],
     ['Cortex Vault', 'project'], ['Session 07-05', 'raw'], ['Session 07-06', 'raw'], ['BM25 Retrieval', 'note'],
     ['ChromaDB', 'note'], ['Broadcast', 'note'], ['DSM Auth', 'project'], ['Session 07-01', 'raw'],
+    ['Hybrid Search', 'note'], ['DSM Workflows', 'project'], ['Plugin Dev', 'project'], ['Session 06-28', 'raw'],
+    ['SessionStart Hook', 'note'], ['Vault Schema', 'note'],
   ];
   const LINKS = [
     [0, 1], [0, 7], [1, 9], [7, 8], [9, 0], [9, 1], [9, 2], [3, 4],
     [4, 0], [4, 7], [5, 0], [5, 9], [6, 1], [6, 9], [2, 10], [10, 4], [11, 4], [4, 8],
+    [7, 12], [12, 8], [12, 9], [13, 10], [13, 3], [14, 4], [14, 9], [15, 6], [15, 13],
+    [16, 4], [16, 9], [17, 4], [17, 8], [17, 0],
   ];
 
   let nodes = [];
   function seedNodes() {
     nodes = DATA.map((n, i) => ({
       id: i, label: n[0], type: n[1],
-      x: W() / 2 + (Math.random() - 0.5) * 300,
-      y: H() / 2 + (Math.random() - 0.5) * 260,
+      x: W() / 2 + (Math.random() - 0.5) * W() * 0.7,
+      y: H() / 2 + (Math.random() - 0.5) * H() * 0.7,
       vx: 0, vy: 0, r: n[1] === 'project' ? 9 : 6,
     }));
   }
@@ -69,18 +73,18 @@
         const b = nodes[j];
         const dx = a.x - b.x, dy = a.y - b.y;
         const d2 = dx * dx + dy * dy + 0.01;
-        const f = 900 / d2;
+        const f = 2600 / d2;
         fx += dx * f; fy += dy * f;
       }
-      fx += (W() / 2 - a.x) * 0.0015;
-      fy += (H() / 2 - a.y) * 0.0015;
+      fx += (W() / 2 - a.x) * 0.0009;
+      fy += (H() / 2 - a.y) * 0.0009;
       a.vx = (a.vx + fx * 0.02) * 0.85;
       a.vy = (a.vy + fy * 0.02) * 0.85;
     }
     LINKS.forEach(([i, j]) => {
       const a = nodes[i], b = nodes[j];
       const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 1;
-      const target = 90, k = 0.02;
+      const target = 130, k = 0.02;
       const f = (dist - target) * k;
       const fx = dx / dist * f, fy = dy / dist * f;
       if (a !== dragging) { a.vx += fx; a.vy += fy; }
