@@ -1,57 +1,58 @@
-name: Bug 回報
-description: 回報一個問題或非預期行為
+name: Bug Report
+description: Report a problem or unexpected behavior
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        感謝回報。安全性問題請勿用這裡，改走 [SECURITY.md](../blob/plugin/SECURITY.md)。
+        Thanks for the report. Please don't use this for security issues —
+        report those through [SECURITY.md](../blob/plugin/SECURITY.md) instead.
   - type: textarea
     id: what-happened
     attributes:
-      label: 發生了什麼
-      description: 描述問題，以及你預期的行為。
+      label: What happened
+      description: Describe the problem and what you expected instead.
     validations:
       required: true
   - type: textarea
     id: repro
     attributes:
-      label: 重現步驟
-      description: 讓我們能重現的最小步驟。
+      label: Steps to reproduce
+      description: The smallest steps that reproduce it.
       placeholder: |
-        1. 執行 `/cortex:...`
+        1. Run `/cortex:...`
         2. ...
-        3. 看到錯誤 ...
+        3. See error ...
     validations:
       required: true
   - type: dropdown
     id: component
     attributes:
-      label: 元件
-      description: 問題出在哪個部分？
+      label: Component
+      description: Which part is affected?
       options:
-        - cortex-vec (CLI / 檢索)
+        - cortex-vec (CLI / retrieval)
         - commands / skills
         - hooks (SessionStart / SessionEnd)
-        - 官網 (site/)
-        - 其他 / 不確定
+        - website (site/)
+        - other / not sure
     validations:
       required: true
   - type: textarea
     id: environment
     attributes:
-      label: 環境
-      description: OS、Python 版本、Claude Code / plugin 版本。
+      label: Environment
+      description: OS, Python version, Claude Code / plugin version.
       placeholder: |
         - OS: macOS 15
         - Python: 3.12
-        - cortex 版本: 0.23.0
+        - cortex version: 0.23.0
     validations:
       required: false
   - type: textarea
     id: logs
     attributes:
-      label: 相關 log / 錯誤訊息
+      label: Relevant logs / error output
       render: shell
     validations:
       required: false

@@ -1,32 +1,36 @@
-# Cortex 官網
+# Cortex Website
 
-以 `manifest.json` + `CHANGELOG.md` 為 single source of truth 的靜態官網。
+A static site with `manifest.json` + `CHANGELOG.md` as the single source of
+truth.
 
 ## Build
 
     node site/build.mjs
 
-產物在 `site/dist/`（gitignored）。零 npm 依賴，只用 Node 內建。
+Output goes to `site/dist/` (gitignored). Zero npm dependencies, Node
+built-ins only.
 
-## 測試
+## Tests
 
     node --test site/tests/*.test.mjs
 
-## 部署（Cloudflare Pages）
+## Deployment (Cloudflare Pages)
 
-由 Cloudflare Pages 的 **Git 整合**負責 —— CF 後台連本 repo，監聽 push 後在 CF
-環境自行 build 並發佈。GitHub Actions 不部署，只跑測試 + smoke build 當品質關卡。
+Handled by Cloudflare Pages' **Git integration** — CF connects to this repo
+and builds + publishes on its own infrastructure after each push. GitHub
+Actions doesn't deploy; it only runs tests + a smoke build as a quality gate.
 
-一次性設定（在 Cloudflare 後台）：
+One-time setup (in the Cloudflare dashboard):
 
-1. Workers & Pages → Create → Pages → **Connect to Git**，授權並選 `XBlueSky/cortexes`。
-2. Build 設定：
-   - **Production branch**：`plugin`
-   - **Framework preset**：None
-   - **Build command**：`node site/build.mjs`
-   - **Build output directory**：`site/dist`
-   - **Root directory**：留空
-3. Save and Deploy。
+1. Workers & Pages → Create → Pages → **Connect to Git**, authorize and
+   select `XBlueSky/cortexes`.
+2. Build settings:
+   - **Production branch**: `plugin`
+   - **Framework preset**: None
+   - **Build command**: `node site/build.mjs`
+   - **Build output directory**: `site/dist`
+   - **Root directory**: leave blank
+3. Save and Deploy.
 
-之後 push 到 `plugin` 會發佈到正式站，其他 branch / PR 會產生 preview 部署。
-無需任何 API token 或 GitHub secret。
+After this, pushes to `plugin` deploy to production, and other
+branches/PRs get preview deployments. No API token or GitHub secret needed.

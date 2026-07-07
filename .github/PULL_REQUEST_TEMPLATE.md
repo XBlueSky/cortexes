@@ -1,18 +1,18 @@
-<!-- PR 目標 branch 應為 plugin。 -->
+<!-- PRs should target the `plugin` branch. -->
 
-## 做了什麼
+## What changed
 
-<!-- 簡述這個 PR 的變更與動機。 -->
+<!-- Briefly describe the change and its motivation. -->
 
-## 如何驗證
+## How was this verified
 
-<!-- 你跑了哪些測試 / 手動驗證步驟。 -->
+<!-- What tests you ran / manual verification steps. -->
 
-- [ ] cortex-vec：`./scripts/run-checks.sh` 通過（若動到 Python）
-- [ ] 官網：`node --test site/tests/*.test.mjs` 通過（若動到 site/）
+- [ ] cortex-vec: `./scripts/run-checks.sh` passes (if you touched Python)
+- [ ] Website: `node --test site/tests/*.test.mjs` passes (if you touched site/)
 
-## 檢查清單
+## Checklist
 
-- [ ] 目標 branch 是 `plugin`
-- [ ] Commit 訊息採 Conventional Commits
-- [ ] 相關文件（README / CHANGELOG）已更新（若需要）
+- [ ] Target branch is `plugin`
+- [ ] Commit messages follow Conventional Commits
+- [ ] Relevant docs (README / CHANGELOG) are updated (if needed)

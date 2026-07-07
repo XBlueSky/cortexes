@@ -1,92 +1,107 @@
-# 貢獻指南
+<sub>[English](CONTRIBUTING.md) · [繁體中文](CONTRIBUTING.zh-TW.md)</sub>
 
-歡迎為 Cortexes 貢獻。這份文件說明如何設定開發環境、跑測試、以及送出變更。
+# Contributing to Cortexes
 
-參與本專案即表示你同意遵守 [行為準則](CODE_OF_CONDUCT.md)。
+Thanks for your interest in contributing. This document covers how to set up
+a dev environment, run the tests, and submit changes.
 
-## 專案結構
+By participating in this project you agree to abide by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
-Cortexes 用兩個 branch 分工：
+## Project Structure
 
-| Branch | 內容 |
-|--------|------|
-| `plugin`（預設） | Claude Code plugin —— commands、skills、hooks、`cortex-vec` CLI、官網原始碼 |
-| `main` | 個人 Obsidian vault 資料（不接受外部貢獻） |
+Cortexes splits work across two branches:
 
-**所有 PR 都以 `plugin` 為目標 branch。**
+| Branch | Contents |
+|--------|----------|
+| `plugin` (default) | The Claude Code plugin — commands, skills, hooks, the `cortex-vec` CLI, and the website source |
+| `main` | Personal Obsidian vault data (not open to outside contributions) |
 
-主要子系統：
+**All PRs target `plugin`.**
 
-- `commands/`、`skills/`、`hooks/` —— plugin 的 slash command、自動觸發技能與 lifecycle hook
-- `cortex-vec/` —— Python 語意索引 CLI（ChromaDB + OpenAI embedding + BM25 hybrid 檢索）
-- `site/` —— 官網靜態產生器（零依賴，只用 Node 內建）
+Main subsystems:
 
-## 開發環境
+- `commands/`, `skills/`, `hooks/` — the plugin's slash commands,
+  self-triggering skills, and lifecycle hooks
+- `cortex-vec/` — the Python semantic indexing CLI (ChromaDB + OpenAI
+  embeddings + BM25 hybrid retrieval)
+- `site/` — the static site generator for the website (zero dependencies,
+  Node built-ins only)
 
-### cortex-vec（Python）
+## Development Setup
+
+### cortex-vec (Python)
 
 ```bash
 pip install -e ./cortex-vec
 ```
 
-需要 Python 3.11+。語意搜尋相關功能需 `OPENAI_API_KEY`；未設定時會自動降級為 BM25-only，
-測試不需要 API key。
+Requires Python 3.11+. Semantic-search features need `OPENAI_API_KEY`; without
+it, everything falls back to BM25-only. Tests don't require an API key.
 
-### 官網（Node）
+### Website (Node)
 
-零 npm 依賴，只需 Node 18+：
+Zero npm dependencies, just Node 18+:
 
 ```bash
-node site/build.mjs                    # 產出到 site/dist/
-node --test site/tests/*.test.mjs      # 跑測試
+node site/build.mjs                    # outputs to site/dist/
+node --test site/tests/*.test.mjs      # run tests
 ```
 
-## 跑測試
+## Running Tests
 
-送 PR 前請確認測試通過。
+Make sure tests pass before submitting a PR.
 
-**Python（cortex-vec）** —— 專案的測試 gate 一次跑完 ruff lint + pytest：
+**Python (cortex-vec)** — the project's test gate runs ruff lint + pytest in
+one shot:
 
 ```bash
 ./scripts/run-checks.sh
 ```
 
-建議安裝 pre-commit hook，讓每次 `git commit` 自動跑這道 gate：
+We recommend installing the pre-commit hook so this gate runs automatically
+on every `git commit`:
 
 ```bash
 pip install pre-commit
 pre-commit install
 ```
 
-**官網** ——
+**Website** —
 
 ```bash
 node --test site/tests/*.test.mjs
 ```
 
-## Commit 慣例
+## Commit Convention
 
-本專案採 [Conventional Commits](https://www.conventionalcommits.org/)：
+This project follows [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-<type>(<scope>): <描述>
+<type>(<scope>): <description>
 ```
 
-常見 type：`feat`、`fix`、`docs`、`chore`、`refactor`、`test`、`ci`。
-scope 用子系統名，例如 `feat(takeoff):`、`fix(cortex-vec):`、`ci(site):`。
+Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`.
+Scope is the subsystem name, e.g. `feat(takeoff):`, `fix(cortex-vec):`,
+`ci(site):`.
 
-## 送出 PR
+## Submitting a PR
 
-1. 從 `plugin` 開分支。
-2. 做變更，確認相關測試通過。
-3. 開 PR 指向 `plugin`，在描述裡說明**做了什麼**與**如何驗證**。
-4. CI 會跑測試；官網變更另外會由 Cloudflare Pages 產生 preview 部署。
+1. Branch off `plugin`.
+2. Make your changes and confirm the relevant tests pass.
+3. Open a PR targeting `plugin`, describing **what** you changed and **how
+   you verified it**.
+4. CI runs the tests; website changes also get a Cloudflare Pages preview
+   deployment.
 
-## 回報問題
+## Reporting Issues
 
-- **Bug** 與 **功能建議** 請用對應的 [issue template](https://github.com/XBlueSky/cortexes/issues/new/choose)。
-- **安全性問題** 請勿開公開 issue，見 [SECURITY.md](SECURITY.md)。
+- **Bugs** and **feature requests** go through the matching
+  [issue template](https://github.com/XBlueSky/cortexes/issues/new/choose).
+- **Security issues** should not be filed as public issues — see
+  [SECURITY.md](SECURITY.md).
 
-## 授權
+## License
 
-送出貢獻即表示你同意以專案的 [Apache License 2.0](LICENSE) 授權你的貢獻。
+By submitting a contribution, you agree to license it under the project's
+[Apache License 2.0](LICENSE).

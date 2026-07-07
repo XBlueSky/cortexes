@@ -1,46 +1,67 @@
-# Contributor Covenant 行為準則
+<!-- markdownlint-disable-next-line MD041 -->
+<sub>[English](CODE_OF_CONDUCT.md) · [繁體中文](CODE_OF_CONDUCT.zh-TW.md)</sub>
 
-## 我們的承諾
+# Contributor Covenant Code of Conduct
 
-身為社群成員、貢獻者與維護者，我們承諾讓每個人參與本專案與社群的過程免於騷擾，
-不論年齡、體型、可見或不可見的身心障礙、族裔、性徵、性別認同與表達、經驗程度、
-教育背景、社經地位、國籍、外貌、種族、宗教，或性取向與性別傾向。
+## Our Pledge
 
-我們承諾以有助於建立開放、友善、多元、包容且健康社群的方式行動與互動。
+We as members, contributors, and leaders pledge to make participation in our
+community a harassment-free experience for everyone, regardless of age, body
+size, visible or invisible disability, ethnicity, sex characteristics, gender
+identity and expression, level of experience, education, socio-economic
+status, nationality, personal appearance, race, religion, or sexual identity
+and orientation.
 
-## 我們的準則
+We pledge to act and interact in ways that contribute to an open, welcoming,
+diverse, inclusive, and healthy community.
 
-有助於營造正向環境的行為包括：
+## Our Standards
 
-- 對他人展現同理與善意
-- 尊重不同的意見、觀點與經驗
-- 給予並優雅地接受建設性回饋
-- 為自己的錯誤負責、向受影響者致歉，並從經驗中學習
-- 著眼於對整個社群最有利的事，而非只是個人
+Examples of behavior that contributes to a positive environment for our
+community include:
 
-不可接受的行為包括：
+- Demonstrating empathy and kindness toward other people
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility and apologizing to those affected by our mistakes,
+  and learning from the experience
+- Focusing on what is best not just for us as individuals, but for the
+  overall community
 
-- 使用性化的語言或影像，以及任何形式的性關注或性騷擾
-- 挑釁、侮辱或貶抑性評論，以及人身或政治攻擊
-- 公開或私下的騷擾
-- 未經明確許可，公開他人的私人資訊（如實體地址或電子郵件）
-- 其他在專業場合中可合理視為不當的行為
+Examples of unacceptable behavior include:
 
-## 執行責任
+- The use of sexualized language or imagery, and sexual attention or advances
+  of any kind
+- Trolling, insulting or derogatory comments, and personal or political
+  attacks
+- Public or private harassment
+- Publishing others' private information, such as a physical or email
+  address, without their explicit permission
+- Other conduct which could reasonably be considered inappropriate in a
+  professional setting
 
-社群維護者負責闡明並落實可接受行為的準則，並會針對任何他們認為不當、具威脅性、
-冒犯性或有害的行為，採取適當且公正的糾正措施。
+## Enforcement Responsibilities
 
-## 適用範圍
+Community leaders are responsible for clarifying and enforcing our standards
+of acceptable behavior and will take appropriate and fair corrective action
+in response to any behavior that they deem inappropriate, threatening,
+offensive, or harmful.
 
-本行為準則適用於所有社群空間，也適用於個人在公開場合代表本專案或社群時。
+## Scope
 
-## 執行
+This Code of Conduct applies within all community spaces, and also applies
+when an individual is officially representing the community in public
+spaces.
 
-若遇到辱罵、騷擾或其他不可接受的行為，可向專案維護者回報：**tonyhu@synology.com**。
-所有申訴都會被即時且公正地審視與調查。維護者有義務尊重回報者的隱私與安全。
+## Enforcement
 
-## 歸屬
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported to the project maintainer at **tonyhu@synology.com**. All complaints
+will be reviewed and investigated promptly and fairly. All community leaders
+are obligated to respect the privacy and security of the reporter of any
+incident.
 
-本行為準則改編自 [Contributor Covenant](https://www.contributor-covenant.org)
-[2.1 版](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html)。
+## Attribution
+
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
+[version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).

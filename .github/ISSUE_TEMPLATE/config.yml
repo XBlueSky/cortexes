@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 安全性問題
+  - name: Security Issue
     url: https://github.com/XBlueSky/cortexes/security/advisories/new
-    about: 安全漏洞請私下回報，勿開公開 issue。
-  - name: 使用文件
+    about: Report security vulnerabilities privately, not as a public issue.
+  - name: Usage Documentation
     url: https://cortexes.pages.dev
-    about: 使用方式、skills 與 commands 說明請先看官網。
+    about: See the website first for usage, skills, and commands.

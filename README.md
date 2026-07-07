@@ -5,65 +5,78 @@
 <h1 align="center">Cortexes</h1>
 
 <p align="center">
-  Personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval.
+  A personal knowledge vault plugin for Claude Code — session recording, memory distillation, semantic retrieval.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
   <a href="https://cortexes.pages.dev"><img alt="Website" src="https://img.shields.io/badge/website-cortexes.pages.dev-000"></a>
   <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude_Code-plugin-d97757">
+  <a href="CONTRIBUTING.md"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
+
+<p align="center">
+  <sub><a href="README.md">English</a> · <a href="README.zh-TW.md">繁體中文</a></sub>
 </p>
 
 ## What It Does
 
-Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
+Cortex turns your working memory into a searchable knowledge base. Every
+Claude Code session gets automatically recorded when it ends, then can be
+distilled and retrieved later.
 
-- **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
-- **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
-- **知識提煉** — 從 Raw session dump 萃取踩坑知識、內部慣例、關鍵決策
-- **Memory Injection** — 開 session 時偵測當前 repo，詢問是否載入相關記憶
+- **Automatic capture** — a full report (commits, findings, decisions) is
+  generated when a session ends and saved to the vault
+- **Semantic search** — OpenAI embeddings + ChromaDB, with mixed Chinese/English
+  query support
+- **Knowledge distillation** — extracts hard-won lessons, internal
+  conventions, and key decisions from raw session dumps
+- **Memory injection** — detects the current repo at session start and offers
+  to load related memory
 
-**設計哲學：** Vault 是 source of truth（純 markdown + git），vector store 是可重建的衍生索引。
+**Design philosophy:** the vault is the source of truth (plain markdown +
+git); the vector store is just a rebuildable derived index.
 
 ## Quick Start
 
-### 1. 安裝 plugin
+### 1. Install the plugin
 
 ```bash
-# 從 GitHub
+# From GitHub
 /plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
 ```
 
-### 2. 安裝 cortex-vec CLI
+### 2. Install the cortex-vec CLI
 
 ```bash
-# cortex-vec 位於已安裝的 plugin 內;從 cache 最新版本安裝
+# cortex-vec ships inside the installed plugin; install from the latest cached version
 pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sort -V | tail -1)"
 ```
 
-需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。
+Requires the `OPENAI_API_KEY` environment variable (used for embeddings).
 
-### 3. 初始化
+### 3. Initialize
 
 ```bash
 /cortex:genesis /path/to/your/vault
 ```
 
-這會設定 vault 路徑、author 資訊，並建立語意索引。
+This sets the vault path and author info, and builds the semantic index.
 
-### 4. 開始使用
+### 4. Start using it
 
 ```
-「存到 cortex」     → 手動存入知識
-「查 cortex」       → 語意搜尋 vault
-「提煉」           → 從 Raw/ 萃取知識
-「broadcast」      → 把新 Raw 融合進既有頁面
+"save to cortex"     → manually save knowledge
+"check cortex"       → semantic search over the vault
+"distill"            → extract knowledge from Raw/
+"broadcast"          → fuse new Raw content into existing pages
 ```
 
-## 官網
+## Website
 
-線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `manifest.json` 自動生成）。
-本地 build 見 [`site/README.md`](site/README.md)。
+Live docs and changelog: <https://cortexes.pages.dev> (Cloudflare Pages,
+generated from `manifest.json`).
+See [`site/README.md`](site/README.md) for local builds.
 
 ## Commands & Skills
 
@@ -71,120 +84,133 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 
 | Command | Description |
 |---------|-------------|
-| `/cortex:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
-| `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
-| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（兩階段評估 + pending-merge 出口） |
-| `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
-| `/cortex:takeoff` | 交接接力棒 — curate 一份暫時、不進 git 的 hand-off,讓下個 session 接續(`resume`/`done` 子指令) |
+| `/cortex:genesis` | Initialize the vault — set path, author, rebuild the index |
+| `/cortex:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
+| `/cortex:distill` | Distill Raw/ session records into Notes/Projects (two-stage evaluation + pending-merge exit) |
+| `/cortex:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
+| `/cortex:takeoff` | Hand-off baton — curate a temporary, non-git hand-off for the next session to resume (`resume`/`done` subcommands) |
 
-### Skills（自動觸發）
+### Skills (auto-triggered)
 
 | Skill | Trigger |
 |-------|---------|
-| cortex-evolve | 「存到 cortex」「記一下」「save to cortex」 |
-| cortex-distill | 「提煉」「整理 raw」「distill」 |
-| cortex-broadcast | 「broadcast」「merge pending-merge」「把這個融入 vault」 |
-| cortex-takeoff | 「交接」「takeoff」「交棒給下個 session」「context 快滿了」 |
-| cortex-query | 「查 cortex」「之前有記過」「cortex 裡有沒有」 |
+| cortex-evolve | "save to cortex", "note this down", "save to cortex" |
+| cortex-distill | "distill", "clean up raw", "distill" |
+| cortex-broadcast | "broadcast", "merge pending-merge", "fuse this into the vault" |
+| cortex-takeoff | "hand off", "takeoff", "hand off to next session", "context is running low" |
+| cortex-query | "check cortex", "have I noted this before", "is this in cortex" |
 
 ### Hooks
 
 | Hook | Event | Behavior |
 |------|-------|----------|
-| Session Report | Stop | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
-| Memory Injection | SessionStart | 互動式選單：偵測 vault backlog 狀態後詢問下一步 |
+| Session Report | Stop | On session end, filters the transcript through a TOML pipeline before writing to Raw/ |
+| Memory Injection | SessionStart | Interactive menu — checks vault backlog status and asks what to do next |
 
-#### Transcript Filter（0.9.0+）
+#### Transcript Filter (0.9.0+)
 
-Stop hook 在寫進 Raw/ 前會跑一條 TOML-driven filter pipeline，把不具知識價值的
-tool 輸出（例如 `ls`、卷冊清單、重複的 build log）過濾掉——你可以針對個別 slash
-command 寫客製 filter，讓 Raw 存下來的是真正有訊號的內容。
+Before writing to Raw/, the Stop hook runs a TOML-driven filter pipeline that
+strips tool output with no knowledge value (e.g. `ls`, volume listings,
+repetitive build logs) — you can write custom filters per slash command so
+what lands in Raw/ actually carries signal.
 
 ## Architecture
 
 ```
 cortex repo
-├── plugin branch (orphan)     ← Claude Code plugin（本檔案所在）
-└── main branch                ← Obsidian vault 資料
+├── plugin branch (orphan)     ← the Claude Code plugin (this file lives here)
+└── main branch                ← Obsidian vault data
 
 ~/.cortex/
-├── config.json                ← genesis 產生的設定
-└── vectorstore/               ← ChromaDB 語意索引（local only，不在 git）
+├── config.json                ← settings produced by genesis
+└── vectorstore/                ← ChromaDB semantic index (local only, not in git)
 ```
 
 ### Vault Structure
 
 ```
-Raw/YYYY/MM/DD/                ← session dumps（完整，按需提煉）
-Notes/<category>/              ← 提煉後的技術知識
-Projects/<repo-name>/          ← 以 repo 為主的專案筆記
-_index.md                      ← 全 vault 摘要索引
-log.md                         ← evolve/distill 的時序歷程
+Raw/YYYY/MM/DD/                ← session dumps (complete, distilled on demand)
+Notes/<category>/              ← distilled technical knowledge
+Projects/<repo-name>/          ← project notes organized by repo
+_index.md                      ← vault-wide summary index
+log.md                         ← chronological history of evolve/distill
 ```
 
 ### Data Flow
 
 ```
-每個 session:
-  SessionStart → 提示有 memory 可用 → 使用者決定是否載入
-  工作...
-  session 結束 → Stop hook → 確認 → Raw/
+Every session:
+  SessionStart → surfaces available memory → user decides whether to load it
+  ...work happens...
+  session ends → Stop hook → confirmation → Raw/
 
-隨時:
+Anytime:
   /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
-  /cortex:query     → vector search → 精確讀檔
+  /cortex:query     → vector search → precise file reads
 
-定期:
+Periodically:
   /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
-  /cortex:broadcast → pending-merge → 融合進既有 Notes/Projects
+  /cortex:broadcast → pending-merge → fused into existing Notes/Projects
 ```
 
 ### Retrieval Strategy
 
-**Hybrid 檢索**（0.4.0+）— BM25 + vector 雙流，以 Reciprocal Rank Fusion（RRF, k=60）融合，預設權重 w_bm25=0.4 / w_vec=0.6：
+**Hybrid retrieval** (0.4.0+) — BM25 + vector dual streams, fused with
+Reciprocal Rank Fusion (RRF, k=60), default weights w_bm25=0.4 / w_vec=0.6:
 
-- **BM25 流** — 精確詞彙匹配（函數名、repo 名、issue ID 等），搭配 jieba CJK 分詞支援中英混合查詢。索引持久化於 `~/.cortex/bm25/`，由 `rebuild`/`upsert`/`delete` 與 ChromaDB 保持同步。
-- **Vector 流** — OpenAI `text-embedding-3-small` 語意搜尋，dual-vector（文件 body + 雙語 summary），覆蓋語意相近但詞彙不同的場景。
-- **降級策略** — 未設定 `OPENAI_API_KEY` 或離線時，自動退化為 BM25-only，不再依賴 skill-layer grep fallback。
+- **BM25 stream** — exact lexical matching (function names, repo names,
+  issue IDs), with jieba CJK segmentation for mixed Chinese/English queries.
+  The index persists at `~/.cortex/bm25/`, kept in sync with ChromaDB by
+  `rebuild`/`upsert`/`delete`.
+- **Vector stream** — OpenAI `text-embedding-3-small` semantic search,
+  dual-vector (document body + bilingual summary), covering cases that are
+  semantically close but lexically different.
+- **Degradation strategy** — without `OPENAI_API_KEY`, or offline, this
+  automatically falls back to BM25-only, with no dependency on the
+  skill-layer grep fallback.
 
-其他分層：
+Other layers:
 
-1. **Raw Search**（按需）— 只在追溯時查詢原始 session 記錄
+1. **Raw search** (on demand) — only queries original session records when
+   tracing history
 
 ## cortex-vec CLI
 
-Vault 的語意索引工具，用 ChromaDB + OpenAI `text-embedding-3-small`，搭配
-`gpt-5.4-mini` 產雙語 summary 作為第二組 embedding（dual-vector）以提升中英混合
-查詢的 recall。
+The vault's semantic indexing tool, built on ChromaDB + OpenAI
+`text-embedding-3-small`, paired with `gpt-5.4-mini` to generate a bilingual
+summary as a second embedding (dual-vector) to improve recall for mixed
+Chinese/English queries.
 
 ```bash
-cortex-vec status                          # 查看索引狀態
-cortex-vec rebuild                         # 完整重建索引
-cortex-vec search "nginx certificate"      # 語意搜尋
-cortex-vec search "oauth" --repo libsynow3 # 按 repo 過濾
-cortex-vec search "sharing" --type project # 按類型過濾
-cortex-vec upsert Notes/Nginx/new.md       # 新增/更新單一文件
-cortex-vec delete Notes/Nginx/old.md       # 刪除文件
+cortex-vec status                          # view index status
+cortex-vec rebuild                         # full index rebuild
+cortex-vec search "nginx certificate"      # semantic search
+cortex-vec search "oauth" --repo libsynow3 # filter by repo
+cortex-vec search "sharing" --type project # filter by type
+cortex-vec upsert Notes/Nginx/new.md       # add/update a single document
+cortex-vec delete Notes/Nginx/old.md       # delete a document
 ```
 
-### Hybrid 檢索（0.4.0+）
+### Hybrid Retrieval (0.4.0+)
 
-`cortex-vec search` 現在預設走 BM25 + vector RRF hybrid，兼顧精確詞彙與語意相似度：
+`cortex-vec search` now defaults to BM25 + vector RRF hybrid, balancing exact
+lexical matches with semantic similarity:
 
 ```bash
-cortex-vec search "nginx certificate"           # hybrid（預設）
-cortex-vec search "nginx certificate" --no-bm25 # 只走 vector（debug/eval 用）
-cortex-vec search "nginx certificate" --no-vector # 只走 BM25（debug/eval 用）
-cortex-vec status                               # 同時顯示 vector 與 BM25 entry 數量
+cortex-vec search "nginx certificate"           # hybrid (default)
+cortex-vec search "nginx certificate" --no-bm25 # vector only (debug/eval)
+cortex-vec search "nginx certificate" --no-vector # BM25 only (debug/eval)
+cortex-vec status                               # shows both vector and BM25 entry counts
 ```
 
-### 檢索評測
+### Retrieval Evaluation
 
 ```bash
-# Step 1：讓 LLM 草擬候選查詢，人工審閱並確認 gold paths 後才能使用
+# Step 1: have an LLM draft candidate queries; a human reviews and confirms
+# gold paths before they can be used
 cortex-vec eval propose --queries eval-data/cortex-vault-v1.jsonl
 
-# Step 2：跑所有 adapter，印出 NDJSON 結果，並寫 markdown 評分表
+# Step 2: run all adapters, print NDJSON results, and write a markdown scorecard
 cortex-vec eval run \
   --queries eval-data/cortex-vault-v1.jsonl \
   --adapters grep,vector,bm25,hybrid \
@@ -192,38 +218,61 @@ cortex-vec eval run \
   --out docs/benchmarks/$(date +%Y-%m-%d)-cortex-vault-v1.md
 ```
 
-支援的 adapter：`grep` / `vector` / `bm25` / `hybrid`。
-評測指標：P@5 / R@5 / MRR / hit。
+Supported adapters: `grep` / `vector` / `bm25` / `hybrid`.
+Metrics: P@5 / R@5 / MRR / hit.
 
-### 進階檢索（預設關閉）
+### Advanced Retrieval (off by default)
 
-以下四項增強功能預設全部關閉，需明確設定才會啟用。**開啟前後請務必用 `cortex-vec eval run` 量測 P@5 / R@5 / MRR 的 lift**，再決定哪些值得設為預設開啟、哪些應該回退。
+The four enhancements below are all disabled by default and require explicit
+configuration to enable. **Always measure the P@5 / R@5 / MRR lift with
+`cortex-vec eval run`** before and after enabling any of them, before
+deciding what's worth defaulting to on and what should be reverted.
 
-#### Synonym 展開
+#### Synonym expansion
 
-由 config `retrieval.synonym_weight`（`0` = 關閉；建議試 `0.7`）控制。BM25 流會把命中同義詞的文件以該權重加分，讓「OAuth」可以命中「SSO / 授權 / auth」等同義詞。
+Controlled by config `retrieval.synonym_weight` (`0` = off; try `0.7`). The
+BM25 stream boosts documents that match a synonym by that weight, so "OAuth"
+can match synonyms like "SSO / auth / authorization."
 
-同義詞表位於 `cortex-vec/src/cortex_vec/synonyms.py`（內含常見中英技術詞），可自行擴充。
+The synonym table lives at `cortex-vec/src/cortex_vec/synonyms.py`
+(common Chinese/English technical terms included) and can be extended.
 
 #### Wikilink graph-boost
 
-透過 `cortex-vec search --graph`（或 config `retrieval.graph: true`）啟用。把「命中結果的 `[[wikilink]]` 鄰居」當成**第三條 RRF 串流**融合進來——可把「被明顯命中的筆記連到、自己卻不直接匹配 query」的相關筆記浮上來（連 vector/BM25 漏掉的鄰居也能補進結果）。
+Enabled via `cortex-vec search --graph` (or config `retrieval.graph: true`).
+Treats "wikilink neighbors of matched results" as a **third RRF stream**
+fused into the ranking — surfacing notes that are clearly linked from a hit
+but don't directly match the query themselves (recovering neighbors that
+vector/BM25 alone would miss).
 
-可調整的細部參數：`retrieval.graph_hops`（傳播跳數）、`retrieval.w_graph`（graph 串流在 RRF 的權重，預設 `0.3`）、`retrieval.graph_top_k`（取前幾筆命中當 BFS 種子）。
+Tunable parameters: `retrieval.graph_hops` (propagation hops),
+`retrieval.w_graph` (the graph stream's weight in RRF, default `0.3`),
+`retrieval.graph_top_k` (how many top hits seed the BFS).
 
-> 採 rank-based RRF 融合（非加法 boost），所以**對一般查詢中性、不傷排序**，只在「連結型」查詢補 recall。eval 量過：20 題一般 corpus 開/關無差、wikilink-stress corpus R@5 0.50→0.667。
+> Uses rank-based RRF fusion (not additive boosting), so it's **neutral for
+> typical queries and doesn't hurt ranking** — it only adds recall for
+> "linked" queries. Measured: no difference on a 20-query general corpus
+> with it on/off; R@5 0.50→0.667 on a wikilink-stress corpus.
 
 #### LLM rerank
 
-透過 `cortex-vec search --rerank`（或 config `retrieval.rerank: true`）啟用。對初步 hybrid 結果的前 `retrieval.rerank_window`（預設 15）筆，呼叫 OpenAI（model 由 `retrieval.rerank_model` 指定，預設 `gpt-5.4-mini`）重新排序，以 LLM 判斷相關性取代純分數排名。任何失敗（API error / timeout）均自動回退原 RRF 順序，不影響搜尋可用性。
+Enabled via `cortex-vec search --rerank` (or config `retrieval.rerank:
+true`). Calls OpenAI (model set by `retrieval.rerank_model`, default
+`gpt-5.4-mini`) to re-rank the top `retrieval.rerank_window` (default 15)
+hybrid results, replacing pure score ranking with LLM relevance judgment. Any
+failure (API error / timeout) automatically falls back to the original RRF
+order without affecting search availability.
 
-#### max-per-repo 多樣化
+#### max-per-repo diversification
 
-由 config `retrieval.max_per_repo`（`0` = 不限）控制，限制同一 repo 在前 k 結果中最多出現幾筆，避免某個大型 repo 淹沒其他來源的結果。
+Controlled by config `retrieval.max_per_repo` (`0` = unlimited), caps how
+many results from the same repo can appear in the top-k, preventing one
+large repo from drowning out results from other sources.
 
-#### 完整 `retrieval` 設定範例
+#### Full `retrieval` config example
 
-以下為 `~/.cortex/config.json` 中 `retrieval` 區塊的進階鍵與其預設值：
+The advanced keys under `retrieval` in `~/.cortex/config.json` and their
+defaults:
 
 ```json
 {
@@ -241,13 +290,13 @@ cortex-vec eval run \
 }
 ```
 
-搭配 CLI flag 的用法：
+Using it with CLI flags:
 
 ```bash
-# 開啟 graph-boost + rerank（一次性測試）
+# Enable graph-boost + rerank (one-off test)
 cortex-vec search "OAuth token" --graph --rerank
 
-# 設定 synonym_weight 後跑 eval 確認 lift
+# Set synonym_weight, then run eval to confirm the lift
 cortex-vec eval run \
   --queries eval-data/cortex-vault-v1.jsonl \
   --adapters hybrid \
@@ -257,7 +306,7 @@ cortex-vec eval run \
 
 ## Configuration
 
-`~/.cortex/config.json`（由 genesis 產生）：
+`~/.cortex/config.json` (generated by genesis):
 
 ```json
 {
@@ -275,34 +324,50 @@ cortex-vec eval run \
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
-| `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
-| `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
+| `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
+| `CORTEX_VAULT_PATH` | No | Overrides `vault_path` from config.json |
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| [ChromaDB](https://www.trychroma.com/) | 語意向量索引 |
+| [ChromaDB](https://www.trychroma.com/) | Semantic vector index |
 | [OpenAI](https://platform.openai.com/) | text-embedding-3-small embedding model |
-| [python-frontmatter](https://python-frontmatter.readthedocs.io/) | YAML frontmatter 解析 |
-| pysqlite3-binary | SQLite 3.35+ 相容（系統 SQLite 太舊時需要） |
+| [python-frontmatter](https://python-frontmatter.readthedocs.io/) | YAML frontmatter parsing |
+| pysqlite3-binary | SQLite 3.35+ compatibility (needed when the system SQLite is too old) |
 
-安裝：
+Install:
 
 ```bash
 pip install -e ./cortex-vec
 ```
 
+## Project Structure
+
+```
+commands/       Slash commands (/cortex:*)
+skills/         Self-triggering skills
+hooks/          SessionStart/Stop lifecycle hooks
+cortex-vec/     Python semantic indexing CLI
+site/           Static site generator for cortexes.pages.dev
+docs/           Design specs, plans, and benchmark reports
+scripts/        Dev tooling (e.g. run-checks.sh)
+tests/          Plugin-level tests
+```
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for dev
+setup, tests, and the PR process. Please also read the
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues should be reported
+privately — see [SECURITY.md](SECURITY.md).
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
 
-## Contributing
-
-歡迎貢獻 —— 開發環境、測試與 PR 流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
-安全性問題請見 [SECURITY.md](SECURITY.md)。
-
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE) — see `LICENSE` for full text.
-Copyright 2026 tonyhu（見 [NOTICE](NOTICE)）。
+Licensed under the [Apache License 2.0](LICENSE) — see `LICENSE` for the
+full text.
+Copyright 2026 tonyhu (see [NOTICE](NOTICE)).
