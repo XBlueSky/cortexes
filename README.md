@@ -86,7 +86,7 @@ See [`site/README.md`](site/README.md) for local builds.
 |---------|-------------|
 | `/cortex:genesis` | Initialize the vault — set path, author, rebuild the index |
 | `/cortex:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
-| `/cortex:distill` | Distill Raw/ session records into Notes/Projects (two-stage evaluation + pending-merge exit) |
+| `/cortex:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
 | `/cortex:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
 | `/cortex:takeoff` | Hand-off baton — curate a temporary, non-git hand-off for the next session to resume (`resume`/`done` subcommands) |
 
@@ -202,6 +202,27 @@ cortex-vec search "nginx certificate" --no-bm25 # vector only (debug/eval)
 cortex-vec search "nginx certificate" --no-vector # BM25 only (debug/eval)
 cortex-vec status                               # shows both vector and BM25 entry counts
 ```
+
+### Distillation navigation (1.0.0+)
+
+`/cortex:distill` drives these read-only commands to walk a Raw **without
+ever loading the whole file into context**. A Raw is parsed once into a
+gap-free, overlap-free source partition; `raw-span` is the only reader that
+returns original text, and every page is hard-capped so an oversized session
+distills across bounded continuations instead of overflowing context:
+
+```bash
+cortex-vec distill-queue --root <vault>/Raw --stat        # per-Raw projected sizes before a batch
+cortex-vec raw-view <raw.md>                              # budget-bounded L0–L3 projection
+cortex-vec distill-plan start <raw.md>                    # open a coverage/budget plan → plan_id
+cortex-vec raw-map  <raw.md> --plan-id <id>               # navigation cards (kind/size/range/anchors)
+cortex-vec raw-span <raw.md> --plan-id <id> --span-id <n> # exact original text, one bounded page
+cortex-vec distill-plan status --plan-id <id>             # coverage + no-insight gate state
+```
+
+The per-Raw plan lives under `$XDG_CACHE_HOME/cortex/distill-plans/` with an
+`active.json` pointer enforcing one active Raw at a time (atomic writes,
+user-only permissions, fail-closed on corruption or identity drift).
 
 ### Retrieval Evaluation
 
@@ -326,6 +347,7 @@ cortex-vec eval run \
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
 | `CORTEX_VAULT_PATH` | No | Overrides `vault_path` from config.json |
+| `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
 
 ## Dependencies
 

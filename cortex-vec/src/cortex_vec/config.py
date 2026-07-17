@@ -56,3 +56,27 @@ def get_retrieval_config():
     rc = dict(_RETRIEVAL_DEFAULTS)
     rc.update(cfg.get("retrieval", {}))
     return rc
+
+
+def get_view_config():
+    """Return raw-view settings merged over defaults. Tolerates missing config."""
+    from .raw_view import VIEW_DEFAULTS
+    vc = dict(VIEW_DEFAULTS)
+    if CORTEX_CONFIG.exists():
+        with open(CORTEX_CONFIG) as f:
+            cfg = json.load(f)
+        vc.update(cfg.get("distill", {}).get("view", {}))
+    return vc
+
+
+_MAP_DEFAULTS = {"page_budget": 12000, "session_budget": 100000}
+
+
+def get_map_config():
+    """Return map-first page/session budgets merged over defaults."""
+    mc = dict(_MAP_DEFAULTS)
+    if CORTEX_CONFIG.exists():
+        with open(CORTEX_CONFIG) as f:
+            cfg = json.load(f)
+        mc.update(cfg.get("distill", {}).get("map", {}))
+    return mc

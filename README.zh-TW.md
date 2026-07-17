@@ -78,7 +78,7 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 |---------|-------------|
 | `/cortex:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
 | `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
-| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（兩階段評估 + pending-merge 出口） |
+| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
 | `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
 | `/cortex:takeoff` | 交接接力棒 — curate 一份暫時、不進 git 的 hand-off,讓下個 session 接續(`resume`/`done` 子指令) |
 
@@ -183,6 +183,26 @@ cortex-vec search "nginx certificate" --no-vector # 只走 BM25（debug/eval 用
 cortex-vec status                               # 同時顯示 vector 與 BM25 entry 數量
 ```
 
+### 提煉導覽指令（1.0.0+）
+
+`/cortex:distill` 靠這組唯讀指令走訪一份 Raw,**全程不把整個檔案載入 context**。
+每份 Raw 只被解析一次成為 gap-free、無重疊的 source partition;`raw-span` 是唯一
+會回傳原始文字的 reader,每一頁都有硬上限,因此超大 session 會以 bounded 續頁分批
+提煉,而不會撐爆 context:
+
+```bash
+cortex-vec distill-queue --root <vault>/Raw --stat        # 開批次前先看每份 Raw 的各級投影大小
+cortex-vec raw-view <raw.md>                              # budget-bounded 的 L0–L3 投影
+cortex-vec distill-plan start <raw.md>                    # 開一個 coverage/budget plan → plan_id
+cortex-vec raw-map  <raw.md> --plan-id <id>               # 導覽卡片(kind/大小/範圍/anchors)
+cortex-vec raw-span <raw.md> --plan-id <id> --span-id <n> # 精確原始文字,一次一頁 bounded
+cortex-vec distill-plan status --plan-id <id>             # coverage 與 no-insight gate 狀態
+```
+
+每份 Raw 的 plan 存於 `$XDG_CACHE_HOME/cortex/distill-plans/`,由 `active.json`
+指標強制同一時間只有一份 active Raw(atomic write、user-only 權限,遇到損毀或身分
+漂移時 fail-closed)。
+
 ### 檢索評測
 
 ```bash
@@ -282,6 +302,7 @@ cortex-vec eval run \
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
 | `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
+| `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
 
 ## Dependencies
 
