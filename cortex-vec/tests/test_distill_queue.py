@@ -197,3 +197,13 @@ def test_dispatch_distill_queue(tmp_path, capsys):
     dq.dispatch_distill_queue(str(tmp_path / "Raw"))
     out = capsys.readouterr().out
     assert "aa.md" in out and "bb.md" not in out
+
+
+def test_dispatch_distill_queue_stat_json(tmp_path, capsys):
+    import json
+    _write(tmp_path, "Raw/2026/06/10/a.md",
+           "### Claude\n\nhi\n\n> [tool] **Bash**: `ls`\n```output\na\nb\n```\n")
+    dq.dispatch_distill_queue(str(tmp_path / "Raw"), stat=True, as_json=True)
+    rows = json.loads(capsys.readouterr().out)
+    assert rows[0]["file"].endswith("a.md")
+    assert rows[0]["raw"] > 0 and "chosen" in rows[0]

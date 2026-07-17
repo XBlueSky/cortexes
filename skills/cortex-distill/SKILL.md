@@ -32,14 +32,92 @@ silently drops genuine work from the queue. To check one file, use
 
 Show the pending list count and ask to proceed.
 
-## Step 2: Stage 1 — Has Insight
+## Step 1.5: Schedule the Batch (only when queue > 1 file)
 
-For each unprocessed Raw file:
+Size the queue before opening any Raw:
 
-1. Read the full content (frontmatter + transcript + any inline analysis).
-2. Apply `has_insight()` judgment to the **entire body**. Do NOT gate on
-   the presence of specific section headers — insight may live anywhere
-   in the Raw.
+```bash
+cortex-vec distill-queue --root <vault_path>/Raw --stat
+```
+
+Partition by RAW size (the `raw` column) and **present the plan for
+approval** (do not auto-run):
+
+- **Normal lane** — Raws whose raw size fits well inside one session
+  budget (default 100K chars of raw-derived output). Process a batch this
+  session, strictly one Raw at a time.
+- **Monster lane** — Raws whose complete review clearly exceeds one
+  session budget. One Raw per dedicated session; expect
+  `BUDGET_EXHAUSTED` + `distill-plan resume --new-session` continuations.
+
+Carry remaining lanes forward with a `cortex-takeoff` baton. When a plan
+is mid-flight, record its `plan_id` in the baton — machine state lives in
+the plan cache, the baton only points at it.
+
+## Step 2: Stage 1 — Has Insight (map-first)
+
+One Raw at a time. NEVER Read the full Raw file; NEVER judge from an
+L3/L3* projection. All original text arrives through bounded pages.
+
+1. Start (or resume) the plan:
+
+   ```bash
+   cortex-vec distill-plan start <raw-file>
+   ```
+
+   Note the returned `plan_id`. If it errors `ANOTHER_PLAN_ACTIVE`, ask
+   the user whether to resume that plan or `distill-plan clear` it —
+   never switch Raws silently.
+
+2. Traverse the map:
+
+   ```bash
+   cortex-vec raw-map <raw-file> --plan-id <id>
+   cortex-vec raw-map <raw-file> --plan-id <id> --cursor <next_cursor>
+   ```
+
+   Cards show kind / size / source range / preview / lexical anchors.
+   The map never says "valuable" or "skip" — choosing what to expand is
+   the main session's judgment.
+
+3. Expand what needs reading. `prose`, `output_body`, `ambiguous`,
+   `opaque` spans (and any card with `preview_complete: false` you need)
+   must be read via:
+
+   ```bash
+   cortex-vec raw-span <raw-file> --plan-id <id> --span-id <N>
+   cortex-vec raw-span <raw-file> --plan-id <id> --cursor <next_cursor>
+   ```
+
+4. Early positive stop: once you have concrete insight evidence, record
+   it and stop expanding —
+
+   ```bash
+   cortex-vec distill-plan evidence-add --plan-id <id> \
+     --char-start <s> --char-end <e> --label "<short cite>"
+   ```
+
+   (the range must already be reviewed). Full coverage is NOT required
+   for a positive candidate.
+
+5. `no-insight` gate is mechanical: it requires
+   `no_insight_candidate_allowed: true` from
+
+   ```bash
+   cortex-vec distill-plan status --plan-id <id>
+   ```
+
+   which means the whole map was traversed AND every semantic /
+   ambiguous span was expanded. Do not propose `no-insight` before that.
+
+6. On `BUDGET_EXHAUSTED`: stop reading, write the takeoff baton with the
+   `plan_id`, and continue in a fresh session via
+
+   ```bash
+   cortex-vec distill-plan resume --plan-id <id> --new-session
+   ```
+
+Then apply `has_insight()` (below) to what you actually read.
 
 ### `has_insight()` rule
 
@@ -94,6 +172,15 @@ Use `AskUserQuestion` with:
 - User confirms `No` → `no-insight`, go to Step 5 (mark) + Step 7 (log).
 - User picks `skip-routine` → `skip-routine`, go to Step 5 + 7 + 8.
   No broadcast prompt (Step 9 is skipped for skip-routine).
+
+### Batch hygiene
+
+The plan ledger enforces the per-session raw-derived cap (default 100K
+chars, `session_remaining_chars` in every page). When a session has spent
+a few plans' worth of budget, stop: commit finished Raws (Step 8) and
+hand the queue to the next session via `cortex-takeoff`. When Step 4
+quotes Raw text into a draft, verify the quote with `grep -F` against the
+source, and keep the evidence ranges recorded via `evidence-add`.
 
 ### Three-filter tags (categorization hint, not a gate)
 
@@ -188,6 +275,16 @@ than forcing `new` / `pending-merge`.
 
 ## Step 5: Mark Raw as Processed
 
+The marker must not be written until the plan is sealed (Notes/log
+all written, the user has confirmed the verdict):
+
+```bash
+cortex-vec distill-plan seal --plan-id <id> --expected-outcome <new|pending-merge|skip-routine|no-insight>
+```
+
+After sealing, map/span pages are rejected (`PLAN_SEALED`); only then
+append the marker.
+
 Append exactly one marker to the Raw file, chosen by Step 3 outcome:
 
 | Outcome | Marker |
@@ -249,6 +346,16 @@ git commit -m "distill: extract N entries from Raw"
 ```
 
 If `auto_push` is true in config: `git push`.
+
+After the commit completes, close the plan (this verifies the only file
+change was the expected marker):
+
+```bash
+cortex-vec distill-plan complete --plan-id <id>
+```
+
+If it returns `RAW_CHANGED`, the Raw has changed beyond just the marker —
+stop and report, do not retry.
 
 ## Step 9: Broadcast (always, inline)
 

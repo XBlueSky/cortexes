@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-07-17
+
+### Added
+- **Map-first distillation.** `/cortex:distill` no longer reads whole Raw
+  files into context. A Raw is parsed once into a gap-free, overlap-free
+  source partition (`cortex-vec raw-source`) that becomes the single parsing
+  authority, then navigated through bounded pages: `raw-map` emits navigation
+  cards (kind / size / source range / preview / deterministic lexical
+  anchors), `raw-span` returns exact original text one bounded page at a
+  time, and `raw-view` renders a budget-bounded L0–L3 projection that keeps
+  analysis prose while eliding verbatim tool output. A per-Raw `distill-plan`
+  tracks coverage intervals and a session-budget ledger, enforcing one active
+  Raw at a time with fail-closed, user-only cache state — so large sessions
+  distill deterministically across budget-bounded continuations instead of
+  overflowing context.
+- New `cortex-vec` subcommands: `raw-map`, `raw-span`, `raw-view`, and
+  `distill-plan` (`start` / `status` / `resume` / `evidence-add` / `seal` /
+  `complete` / `list` / `clear`), plus `distill-queue --stat` (`--json`) for
+  per-level projected sizes when scheduling a batch.
+- `scripts/raw-map-corpus-check.py` — mechanical map-first corpus validation
+  (gap-free partition, page/session budget guarantees) over a vault's Raw/.
+- **Record opt-out.** Setting `CORTEX_SKIP_RECORD=1` suppresses recording a
+  session into Raw/ — for launcher/probe sessions that carry no
+  distill-worthy content — checked before any file or queue work in the
+  SessionEnd hook.
+
+### Changed
+- The `cortex-distill` skill is rewritten around the map-first navigation
+  flow with coverage-gated verdicts. The `no-insight` verdict is now
+  mechanical: it requires the whole map traversed and every semantic /
+  ambiguous span expanded before it can be proposed.
+- `cortex-vec` bumped to 0.6.0.
+
 ## [0.23.0] - 2026-07-02
 
 ### Removed

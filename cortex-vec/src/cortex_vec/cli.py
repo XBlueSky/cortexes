@@ -48,6 +48,10 @@ def main():
         "distill-queue", help="List Raw files awaiting distillation"
     )
     p_dq.add_argument("--root", help="Raw directory (default: <vault>/Raw)")
+    p_dq.add_argument("--stat", action="store_true",
+                      help="Show per-level projected sizes instead of paths")
+    p_dq.add_argument("--json", action="store_true",
+                      help="With --stat: emit JSON rows")
     p_bq = sub.add_parser(
         "broadcast-queue", help="List distilled Raw eligible for broadcast"
     )
@@ -56,6 +60,53 @@ def main():
         "raw-state", help="Classify a single Raw file's distilled state"
     )
     p_rs.add_argument("path", help="Path to a Raw .md file")
+    p_rv = sub.add_parser(
+        "raw-view", help="Projected (budget-bounded) view of a Raw file"
+    )
+    p_rv.add_argument("path", help="Path to a Raw .md file")
+    p_rv.add_argument("--budget", type=int, help="Max output chars (default: config)")
+    p_rv.add_argument("--level", choices=["L0", "L1", "L2", "L3"],
+                      help="Force a level (default: auto by budget)")
+    p_rv.add_argument("--stat", action="store_true",
+                      help="Emit per-level size JSON instead of the view")
+
+    p_rm = sub.add_parser(
+        "raw-map", help="Bounded navigation cards over a Raw (map-first)"
+    )
+    p_rm.add_argument("path", help="Path to a Raw .md file")
+    p_rm.add_argument("--plan-id", required=True, dest="plan_id")
+    p_rm.add_argument("--cursor", help="Continuation cursor from a prior page")
+    p_rm.add_argument("--max-chars", type=int, dest="max_chars",
+                      help="Page stdout cap (default: config, 12000)")
+    p_rm.add_argument("--find", help="Exact literal to locate in the Raw")
+
+    p_rsp = sub.add_parser(
+        "raw-span", help="Bounded original-source page of one span"
+    )
+    p_rsp.add_argument("path", help="Path to a Raw .md file")
+    p_rsp.add_argument("--plan-id", required=True, dest="plan_id")
+    p_rsp.add_argument("--span-id", type=int, dest="span_id")
+    p_rsp.add_argument("--cursor")
+    p_rsp.add_argument("--max-chars", type=int, dest="max_chars")
+
+    p_dp = sub.add_parser(
+        "distill-plan", help="Single-raw distill plan lifecycle"
+    )
+    p_dp.add_argument("action", choices=["start", "status", "resume",
+                                         "evidence-add", "seal", "complete",
+                                         "list", "clear"])
+    p_dp.add_argument("path", nargs="?", help="Raw path (start only)")
+    p_dp.add_argument("--plan-id", dest="plan_id")
+    p_dp.add_argument("--page-budget", type=int, dest="page_budget")
+    p_dp.add_argument("--session-budget", type=int, dest="session_budget")
+    p_dp.add_argument("--char-start", type=int, dest="char_start")
+    p_dp.add_argument("--char-end", type=int, dest="char_end")
+    p_dp.add_argument("--label", default="")
+    p_dp.add_argument("--expected-outcome", dest="expected_outcome",
+                      choices=["new", "pending-merge", "skip-routine",
+                               "no-insight"])
+    p_dp.add_argument("--new-session", action="store_true",
+                      dest="new_session")
 
     args = parser.parse_args()
 
@@ -65,17 +116,38 @@ def main():
 
     # Fast path: trailer-anchored queue scans skip the heavy store import
     # (chromadb ~2.7s). They read only each Raw's last non-empty line.
-    if args.command in ("distill-queue", "broadcast-queue", "raw-state"):
+    if args.command in ("distill-queue", "broadcast-queue", "raw-state",
+                        "raw-view", "raw-map", "raw-span", "distill-plan"):
         from . import distill_queue as dq
 
         if args.command == "raw-state":
             dq.dispatch_raw_state(args.path)
             return
+        if args.command == "raw-view":
+            from . import raw_view as rv
+
+            rv.dispatch_raw_view(args)
+            return
+        if args.command == "raw-map":
+            from . import raw_map as rm
+
+            rm.dispatch(args)
+            return
+        if args.command == "raw-span":
+            from . import raw_span as rsp
+
+            rsp.dispatch(args)
+            return
+        if args.command == "distill-plan":
+            from . import distill_plan as dpl
+
+            dpl.dispatch(args)
+            return
         from .config import get_vault_path
 
         root = args.root or (get_vault_path() / "Raw")
         if args.command == "distill-queue":
-            dq.dispatch_distill_queue(root)
+            dq.dispatch_distill_queue(root, stat=args.stat, as_json=args.json)
         else:
             dq.dispatch_broadcast_queue(root)
         return

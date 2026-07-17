@@ -15,6 +15,14 @@ if [[ -n "${CORTEX_SESSION_RECORDING:-}" ]]; then
 fi
 export CORTEX_SESSION_RECORDING=1
 
+# Opt-out: a launcher can set CORTEX_SKIP_RECORD=1 to suppress recording this
+# session into Raw/. Used by cc-loadout probe sessions (which exist only to
+# tick the 5h usage window and carry no distill-worthy content) so they do not
+# litter the vault with empty Raws. Checked before any file/queue work.
+if [[ -n "${CORTEX_SKIP_RECORD:-}" ]]; then
+  exit 0
+fi
+
 input=$(cat)
 transcript_path=$(echo "$input" | jq -r '.transcript_path // ""')
 cwd=$(echo "$input" | jq -r '.cwd // ""')

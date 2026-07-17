@@ -140,9 +140,30 @@ def dispatch_raw_state(path) -> None:
     print(f"{state.outcome}{suffix}")
 
 
-def dispatch_distill_queue(root) -> None:
-    for p in distill_queue(root):
-        print(p)
+def dispatch_distill_queue(root, stat=False, as_json=False) -> None:
+    files = distill_queue(root)
+    if not stat:
+        for p in files:
+            print(p)
+        return
+    import json
+
+    from .config import get_view_config
+    from .raw_view import stat_sizes
+
+    cfg = get_view_config()
+    rows = []
+    for p in files:
+        text = Path(p).read_text(encoding="utf-8", errors="replace")
+        s = stat_sizes(text, cfg)
+        rows.append({"file": str(p), **s})
+    if as_json:
+        print(json.dumps(rows, ensure_ascii=False))
+    else:
+        print(f"{'raw':>8}{'L1':>8}{'L2':>8}{'L3':>8}{'chosen':>8}  file")
+        for r in rows:
+            print(f"{r['raw']//1024:>7}K{r['L1']//1024:>7}K{r['L2']//1024:>7}K"
+                  f"{r['L3']//1024:>7}K{r['chosen']:>8}  {r['file']}")
 
 
 def dispatch_broadcast_queue(root) -> None:
