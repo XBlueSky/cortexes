@@ -96,12 +96,12 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 
 | Hook | Event | Behavior |
 |------|-------|----------|
-| Session Report | Stop | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
+| Session Report | SessionEnd | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
 | Memory Injection | SessionStart | 互動式選單：偵測 vault backlog 狀態後詢問下一步 |
 
 #### Transcript Filter（0.9.0+）
 
-Stop hook 在寫進 Raw/ 前會跑一條 TOML-driven filter pipeline，把不具知識價值的
+SessionEnd hook 在寫進 Raw/ 前會跑一條 TOML-driven filter pipeline，把不具知識價值的
 tool 輸出（例如 `ls`、卷冊清單、重複的 build log）過濾掉——你可以針對個別 slash
 command 寫客製 filter，讓 Raw 存下來的是真正有訊號的內容。
 
@@ -133,7 +133,7 @@ log.md                         ← evolve/distill 的時序歷程
 每個 session:
   SessionStart → 提示有 memory 可用 → 使用者決定是否載入
   工作...
-  session 結束 → Stop hook → 確認 → Raw/
+  session 結束 → SessionEnd hook → 確認 → Raw/
 
 隨時:
   /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
@@ -324,7 +324,7 @@ pip install -e ./cortex-vec
 ```
 commands/       Slash commands（/cortex:*）
 skills/         自動觸發的 skills
-hooks/          SessionStart/Stop lifecycle hooks
+hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python 語意索引 CLI
 site/           cortexes.pages.dev 的靜態網站產生器
 docs/           設計文件、計畫與評測報告

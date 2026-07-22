@@ -104,12 +104,12 @@ See [`site/README.md`](site/README.md) for local builds.
 
 | Hook | Event | Behavior |
 |------|-------|----------|
-| Session Report | Stop | On session end, filters the transcript through a TOML pipeline before writing to Raw/ |
+| Session Report | SessionEnd | On session end, filters the transcript through a TOML pipeline before writing to Raw/ |
 | Memory Injection | SessionStart | Interactive menu — checks vault backlog status and asks what to do next |
 
 #### Transcript Filter (0.9.0+)
 
-Before writing to Raw/, the Stop hook runs a TOML-driven filter pipeline that
+Before writing to Raw/, the SessionEnd hook runs a TOML-driven filter pipeline that
 strips tool output with no knowledge value (e.g. `ls`, volume listings,
 repetitive build logs) — you can write custom filters per slash command so
 what lands in Raw/ actually carries signal.
@@ -142,7 +142,7 @@ log.md                         ← chronological history of evolve/distill
 Every session:
   SessionStart → surfaces available memory → user decides whether to load it
   ...work happens...
-  session ends → Stop hook → confirmation → Raw/
+  session ends → SessionEnd hook → confirmation → Raw/
 
 Anytime:
   /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
@@ -369,7 +369,7 @@ pip install -e ./cortex-vec
 ```
 commands/       Slash commands (/cortex:*)
 skills/         Self-triggering skills
-hooks/          SessionStart/Stop lifecycle hooks
+hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python semantic indexing CLI
 site/           Static site generator for cortexes.pages.dev
 docs/           Design specs, plans, and benchmark reports
