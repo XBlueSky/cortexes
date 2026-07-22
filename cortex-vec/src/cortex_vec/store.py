@@ -1,10 +1,15 @@
 """ChromaDB vector store operations."""
 
-# pysqlite3 patch: system SQLite (3.22) is too old for ChromaDB (needs >= 3.35)
-__import__("pysqlite3")
+# pysqlite3 patch: some systems' SQLite is too old for ChromaDB (needs >= 3.35).
+# pysqlite3-binary only ships Linux wheels; on macOS the stdlib sqlite3 is new
+# enough, so fall back to it when pysqlite3 is unavailable.
 import sys
 
-sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+try:
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ModuleNotFoundError:
+    pass
 
 import os
 
