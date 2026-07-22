@@ -94,8 +94,8 @@ See [`site/README.md`](site/README.md) for local builds.
 
 | Skill | Trigger |
 |-------|---------|
-| cortex-evolve | "save to cortex", "note this down", "save to cortex" |
-| cortex-distill | "distill", "clean up raw", "distill" |
+| cortex-evolve | "save to cortex", "note this down", "remember this" |
+| cortex-distill | "distill", "clean up raw", "distill raw records" |
 | cortex-broadcast | "broadcast", "merge pending-merge", "fuse this into the vault" |
 | cortex-takeoff | "hand off", "takeoff", "hand off to next session", "context is running low" |
 | cortex-query | "check cortex", "have I noted this before", "is this in cortex" |
