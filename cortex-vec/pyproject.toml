@@ -7,7 +7,7 @@ dependencies = [
     "chromadb",
     "openai",
     "python-frontmatter",
-    "pysqlite3-binary",
+    "pysqlite3-binary; sys_platform == 'linux'",
     "rank-bm25",
     "jieba",
     "snowballstemmer",
