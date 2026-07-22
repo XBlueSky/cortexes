@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@xbluesky/cc-marketspec": "0.13.0"
+  }
+}

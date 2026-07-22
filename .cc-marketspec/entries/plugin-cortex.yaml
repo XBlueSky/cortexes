@@ -1,6 +1,6 @@
 # Presentation overlay for cortex. Every field is optional — native data
 # already yields a valid manifest; this only enriches it.
-# yaml-language-server: $schema=node_modules/@xbluesky/cc-marketspec/schemas/entry.schema.json
+# yaml-language-server: $schema=../../node_modules/@xbluesky/cc-marketspec/schemas/entry.schema.json
 
 group: knowledge
 
