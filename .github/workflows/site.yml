@@ -8,12 +8,11 @@ name: Site
 
 on:
   push:
-    branches: [feat/website-site, plugin]
+    branches: [plugin]
     paths:
       - 'site/**'
       - 'manifest.json'
       - 'CHANGELOG.md'
-      - 'docs/images/architecture.png'
       - '.github/workflows/site.yml'
   pull_request:
     paths:
