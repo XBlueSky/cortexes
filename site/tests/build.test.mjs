@@ -8,7 +8,8 @@ import { build } from '../build.mjs';
 
 function fixtureRoot() {
   const root = mkdtempSync(join(tmpdir(), 'cortex-build-'));
-  writeFileSync(join(root, 'manifest.json'), JSON.stringify({
+  mkdirSync(join(root, '.cc-marketspec', 'dist'), { recursive: true });
+  writeFileSync(join(root, '.cc-marketspec', 'dist', 'manifest.json'), JSON.stringify({
     plugins: [{
       id: 'cortex', name: 'cortex', tagline: 'T', intro: 'I',
       skills: [{ name: 'cortex-query', trigger: '查', examples: ['查 cortex'] }],

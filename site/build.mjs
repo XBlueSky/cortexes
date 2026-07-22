@@ -9,7 +9,7 @@ import { renderDocs } from './templates/docs.mjs';
 import { renderChangelog } from './templates/changelog.mjs';
 
 export async function build({ root, outDir }) {
-  const manifest = loadManifest(join(root, 'manifest.json'));
+  const manifest = loadManifest(join(root, '.cc-marketspec', 'dist', 'manifest.json'));
   const plugin = getPlugin(manifest);
 
   let changelog = [];

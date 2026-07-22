@@ -12,6 +12,9 @@ __pycache__/
 *.pyc
 *.egg-info/
 
+# Node dependencies for cc-marketspec build tooling
+node_modules/
+
 # Working design / plan / spec docs — process artifacts, keep local only
 # (docs/images/ stays tracked; only the design-doc dirs are excluded)
 docs/superpowers/

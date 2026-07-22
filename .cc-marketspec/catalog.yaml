@@ -1,11 +1,12 @@
 # Marketplace-level presentation data. Native metadata (name/owner) lives in
 # .claude-plugin/marketplace.json and is NOT restated here.
-schemaVersion: "1.0"
+schemaVersion: "1.1"
 lang: en
 groups:
   - id: knowledge
     label: Knowledge & Memory
     note: Personal knowledge base and memory retrieval
+
 # Optional: tune the coverage gate. Keys are <component>.<field> or "*".
 # coverage:
 #   skill.trigger: warn

@@ -75,7 +75,7 @@ This sets the vault path and author info, and builds the semantic index.
 ## Website
 
 Live docs and changelog: <https://cortexes.pages.dev> (Cloudflare Pages,
-generated from `manifest.json`).
+generated from `.cc-marketspec/dist/manifest.json`).
 See [`site/README.md`](site/README.md) for local builds.
 
 ## Commands & Skills

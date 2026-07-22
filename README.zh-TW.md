@@ -67,7 +67,7 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 
 ## 官網
 
-線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `manifest.json` 自動生成）。
+線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `.cc-marketspec/dist/manifest.json` 自動生成）。
 本地 build 見 [`site/README.md`](site/README.md)。
 
 ## Commands & Skills
