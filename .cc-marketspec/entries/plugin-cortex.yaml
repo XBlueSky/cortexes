@@ -70,7 +70,7 @@ commands:
 
 hooks:
   - event: SessionEnd
-    why: Auto-generates a full report (commits, findings, decisions) and saves it to the vault's Raw/ on session end — the entry point for automatic capture.
+    why: Auto-generates a full report (commits, findings, decisions) and saves it to the vault's Raw/ on session end — the entry point for automatic capture. It also reclaims redundant snapshots, so one conversation stays one Raw across /clear and --resume.
   - event: SessionStart
     why: Detects the current repo at session start and injects relevant vault memory into context, so Claude starts with prior background already loaded.
 

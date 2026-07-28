@@ -65,6 +65,9 @@ FILTER="${SCRIPT_DIR}/filter-transcript.py"
 META="${SCRIPT_DIR}/meta_session.py"
 
 nohup bash -c '
+  # Everything below is the single-quoted body of `bash -c '...'`, so it must
+  # stay free of apostrophes — one in a comment closes the quote and breaks the
+  # whole detached writer.
   CORTEX_SESSION_RECORDING=1
   export CORTEX_SESSION_RECORDING
 
@@ -99,11 +102,40 @@ FRONTMATTER
     printf "\n<!-- distilled: %s → (skip: meta-session) -->\n" "$(date +%Y-%m-%d)" >> "$target_file"
   fi
 
+  # SessionEnd fires more than once per conversation (/clear, exit + --resume)
+  # and transcript_path is ONE growing jsonl, so every firing re-filters the
+  # whole thing: the earlier Raws are strict prefixes of the one just written.
+  # Left alone each would sit in the distill queue as its own entry, spending
+  # the distill budget several times over on the same conversation. Candidates
+  # come only from the undistilled queue, so a Raw that already carries a
+  # distilled marker (referenced by a Note via source:) can never be touched.
+  # Fail-open: on any error the duplicate simply stays. Prefer the module form —
+  # this hook already requires a python3 that can import the pipeline; the
+  # console script also needs PATH.
+  reclaimed=0
+  cvec=""
+  if python3 -c "import cortex_vec" 2>/dev/null; then
+    cvec="python3 -m cortex_vec.cli"
+  elif command -v cortex-vec >/dev/null 2>&1; then
+    cvec="cortex-vec"
+  fi
+  if [[ -n "$cvec" ]]; then
+    reclaimed_out=$($cvec reclaim-superseded --root "${vault_path}/Raw" \
+      --keep "$target_file" --apply --vault "$vault_path" 2>/dev/null || true)
+    reclaimed=$(printf "%s" "$reclaimed_out" | grep -c . || true)
+  fi
+
   auto_commit=$(jq -r ".git.auto_commit // false" "$CORTEX_CONFIG" 2>/dev/null)
   auto_push=$(jq -r ".git.auto_push // false" "$CORTEX_CONFIG" 2>/dev/null)
   if [[ "$auto_commit" == "true" ]]; then
+    # The reclaim above staged its deletions, so this commit carries them too —
+    # git history is the audit trail for a hook that writes no log.
+    commit_msg="raw: session ${repo_name} $(date +%Y-%m-%d)"
+    if [[ "${reclaimed:-0}" -gt 0 ]]; then
+      commit_msg="${commit_msg} (reclaimed ${reclaimed} superseded)"
+    fi
     git -C "$vault_path" add "$target_file" 2>/dev/null || true
-    git -C "$vault_path" commit -m "raw: session ${repo_name} $(date +%Y-%m-%d)" 2>/dev/null || true
+    git -C "$vault_path" commit -m "$commit_msg" 2>/dev/null || true
     if [[ "$auto_push" == "true" ]]; then
       git -C "$vault_path" push 2>/dev/null || true
     fi

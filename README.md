@@ -224,6 +224,25 @@ The per-Raw plan lives under `$XDG_CACHE_HOME/cortex/distill-plans/` with an
 `active.json` pointer enforcing one active Raw at a time (atomic writes,
 user-only permissions, fail-closed on corruption or identity drift).
 
+### Raw snapshot reclaim (1.1.0+)
+
+SessionEnd fires more than once per conversation (`/clear`, exit + `--resume`)
+and re-filters the same growing transcript each time, so the earlier Raws are
+strict prefixes of the latest one. The hook now removes those automatically;
+this command is the manual form, and the only way to clean up a backlog
+recorded before 1.1.0:
+
+```bash
+cortex-vec reclaim-superseded --root <vault>/Raw            # list the whole queue's duplicates
+cortex-vec reclaim-superseded --root <vault>/Raw --apply \
+  --vault <vault>                                           # remove them (staged with git rm)
+```
+
+Only files in the undistilled queue are candidates — a Raw already carrying a
+`<!-- distilled: -->` marker is never touched — and a candidate must be a
+prefix of its survivor, so the failure mode is "duplicate stays", never
+"content lost".
+
 ### Retrieval Evaluation
 
 ```bash

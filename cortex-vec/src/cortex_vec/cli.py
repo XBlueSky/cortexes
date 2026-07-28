@@ -56,6 +56,16 @@ def main():
         "broadcast-queue", help="List distilled Raw eligible for broadcast"
     )
     p_bq.add_argument("--root", help="Raw directory (default: <vault>/Raw)")
+    p_rc = sub.add_parser(
+        "reclaim-superseded",
+        help="List (or remove) undistilled Raw snapshots that a longer "
+             "recording of the same session already covers",
+    )
+    p_rc.add_argument("--root", help="Raw directory (default: <vault>/Raw)")
+    p_rc.add_argument("--keep", help="Survivor Raw (default: scan queue pairwise)")
+    p_rc.add_argument("--apply", action="store_true",
+                      help="Remove them (git rm, staged for the vault commit)")
+    p_rc.add_argument("--vault", help="Vault git root (default: config vault_path)")
     p_rs = sub.add_parser(
         "raw-state", help="Classify a single Raw file's distilled state"
     )
@@ -117,9 +127,15 @@ def main():
     # Fast path: trailer-anchored queue scans skip the heavy store import
     # (chromadb ~2.7s). They read only each Raw's last non-empty line.
     if args.command in ("distill-queue", "broadcast-queue", "raw-state",
-                        "raw-view", "raw-map", "raw-span", "distill-plan"):
+                        "raw-view", "raw-map", "raw-span", "distill-plan",
+                        "reclaim-superseded"):
         from . import distill_queue as dq
 
+        if args.command == "reclaim-superseded":
+            from . import reclaim as rcl
+
+            rcl.dispatch(args)
+            return
         if args.command == "raw-state":
             dq.dispatch_raw_state(args.path)
             return
