@@ -203,6 +203,21 @@ cortex-vec distill-plan status --plan-id <id>             # coverage 與 no-insi
 指標強制同一時間只有一份 active Raw(atomic write、user-only 權限,遇到損毀或身分
 漂移時 fail-closed)。
 
+### 回收重複的 Raw 快照(1.1.0+)
+
+SessionEnd 在同一場對話裡會觸發多次(`/clear`、離開後 `--resume`),每次都重新過濾
+同一份持續增長的 transcript,因此較早的 Raw 都是最新那份的嚴格前綴。現在 hook 會自動
+移除它們;這個指令是手動版本,也是清理 1.1.0 之前留下的積壓的唯一方式:
+
+```bash
+cortex-vec reclaim-superseded --root <vault>/Raw            # 列出整個 queue 裡的重複快照
+cortex-vec reclaim-superseded --root <vault>/Raw --apply \
+  --vault <vault>                                           # 移除它們(以 git rm 進 staging)
+```
+
+候選只來自未提煉的 queue——已帶 `<!-- distilled: -->` marker 的 Raw 絕不會被動到——
+而且候選必須是存活者的前綴,所以失敗模式永遠是「重複的留下來」,不會是「內容遺失」。
+
 ### 檢索評測
 
 ```bash

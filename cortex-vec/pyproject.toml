@@ -1,6 +1,6 @@
 [project]
 name = "cortex-vec"
-version = "0.6.0"
+version = "0.7.0"
 description = "Vector store CLI for the cortex vault"
 requires-python = ">=3.8"
 dependencies = [

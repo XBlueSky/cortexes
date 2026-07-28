@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-28
+
+### Fixed
+- **SessionEnd no longer leaves a trail of redundant Raw snapshots.** The hook
+  fires more than once per conversation (`/clear`, exit + `--resume`) and the
+  transcript it filters is one continuously growing jsonl, but the Raw filename
+  was keyed on wall-clock alone — so every firing re-filtered the whole
+  transcript into a new file and the earlier ones survived as strict prefixes
+  of the latest. Each of those prefixes then sat in the distill queue as its
+  own entry, so one conversation was distilled several times over and landed
+  duplicate Notes. The newly written Raw now reclaims the undistilled queue
+  entries whose conversation body is a prefix of it. Candidates come only from
+  `distill_queue()`, so a Raw that already carries a `<!-- distilled: -->`
+  marker (and is pointed at by a Note's `source:`) is never touched, and
+  comparison starts at the first turn header, skipping the frontmatter clock
+  and the audit trailer. Removal is staged with `git rm` so it rides the
+  existing vault auto-commit, whose message records the count. Fail-open: any
+  error leaves the duplicate in place. Applies to newly recorded Raws; an
+  existing backlog needs one manual run.
+
+### Added
+- `cortex-vec reclaim-superseded` (no-chromadb fast path) — lists, or with
+  `--apply` removes, undistilled Raw snapshots that a longer recording of the
+  same session already covers. `--keep <raw>` is the session-end form; omitting
+  it scans the whole queue pairwise for backlog cleanup, keeping the later path
+  when two bodies are byte-identical.
+- `cortex-vec` bumped to 0.7.0.
+
 ## [1.0.0] - 2026-07-17
 
 ### Added
