@@ -2,7 +2,7 @@
 name = "cortex-vec"
 version = "0.7.0"
 description = "Vector store CLI for the cortex vault"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "chromadb",
     "openai",
