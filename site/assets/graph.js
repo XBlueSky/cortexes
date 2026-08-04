@@ -16,10 +16,10 @@
 
   const COLORS = { note: '#E8664E', project: '#6FCF97', raw: '#8A867D' };
   const DATA = [
-    ['Nginx SSL', 'note'], ['Nginx Reload', 'note'], ['OAuth Flow', 'note'], ['libsynow3', 'project'],
+    ['Nginx SSL', 'note'], ['Nginx Reload', 'note'], ['OAuth Flow', 'note'], ['acme-core', 'project'],
     ['Cortex Vault', 'project'], ['Session 07-05', 'raw'], ['Session 07-06', 'raw'], ['BM25 Retrieval', 'note'],
-    ['ChromaDB', 'note'], ['Broadcast', 'note'], ['DSM Auth', 'project'], ['Session 07-01', 'raw'],
-    ['Hybrid Search', 'note'], ['DSM Workflows', 'project'], ['Plugin Dev', 'project'], ['Session 06-28', 'raw'],
+    ['ChromaDB', 'note'], ['Broadcast', 'note'], ['Auth Service', 'project'], ['Session 07-01', 'raw'],
+    ['Hybrid Search', 'note'], ['CI Workflows', 'project'], ['Plugin Dev', 'project'], ['Session 06-28', 'raw'],
     ['SessionStart Hook', 'note'], ['Vault Schema', 'note'],
   ];
   const LINKS = [

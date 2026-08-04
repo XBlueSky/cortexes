@@ -183,7 +183,7 @@ For each selected page, in menu order:
 1. Read the target page's full content.
 2. Announce the page to the user:
    ```
-   === [1/3] Editing Notes/DSM/Web benchmark.md ===
+   === [1/3] Editing Notes/Nginx/Web benchmark.md ===
    ```
 3. Identify candidate change types from the Raw vs the page:
    - Prose rewrite of a section that overlaps topically

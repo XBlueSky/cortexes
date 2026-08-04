@@ -169,7 +169,7 @@ Vault 的語意索引工具，用 ChromaDB + OpenAI `text-embedding-3-small`，�
 cortex-vec status                          # 查看索引狀態
 cortex-vec rebuild                         # 完整重建索引
 cortex-vec search "nginx certificate"      # 語意搜尋
-cortex-vec search "oauth" --repo libsynow3 # 按 repo 過濾
+cortex-vec search "oauth" --repo acme-core # 按 repo 過濾
 cortex-vec search "sharing" --type project # 按類型過濾
 cortex-vec upsert Notes/Nginx/new.md       # 新增/更新單一文件
 cortex-vec delete Notes/Nginx/old.md       # 刪除文件

@@ -27,7 +27,7 @@ Ask the user if unclear. Use these heuristics:
 
 ## Writing to Notes
 
-1. Determine category from content (C++, DSM, Linux, Nginx, Web, or create new)
+1. Determine category from content (C++, Linux, Nginx, Web, or create new)
 2. Create file at `Notes/<category>/<title>.md`
 3. Use this template:
 
@@ -44,7 +44,7 @@ source: cortex
 
 <content>
 
-<optional: related wikilinks like [[dsm-AdminCenter]] or [[other-note]]>
+<optional: related wikilinks like [[nginx-cert-renew]] or [[other-note]]>
 ```
 
 4. Use Obsidian wikilinks `[[note-name]]` for vault-internal references

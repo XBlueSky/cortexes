@@ -1,7 +1,7 @@
 ---
 name: genesis
 description: Initialize cortex vault — set up config, vault structure, and rebuild index
-argument-hint: "[vault path, e.g. /synosrc/misc/cortex or ~/cortex]"
+argument-hint: "[vault path, e.g. /srv/cortex or ~/cortex]"
 allowed-tools:
   - Read
   - Write
@@ -25,7 +25,7 @@ user wants to reconfigure or abort.
 ### 2. Ask for vault path
 
 If the user provided an argument, use that as the vault path.
-Otherwise, ask: "Where is the cortex vault? (e.g. /synosrc/misc/cortex, ~/cortex)"
+Otherwise, ask: "Where is the cortex vault? (e.g. /srv/cortex, ~/cortex)"
 
 If the path exists and contains Notes/ or Weekly/ or Raw/, recognize it as an existing vault.
 If the path doesn't exist, ask if they want to create it.

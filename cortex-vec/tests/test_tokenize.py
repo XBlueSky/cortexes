@@ -28,4 +28,4 @@ def test_punctuation_stripped_but_path_chars_kept():
 
 
 def test_short_query_nonempty():
-    assert tokenize.tokenize("DSM-123456")  # issue id should survive as tokens
+    assert tokenize.tokenize("PROJ-123456")  # issue id should survive as tokens

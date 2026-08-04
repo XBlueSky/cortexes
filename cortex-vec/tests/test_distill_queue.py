@@ -42,7 +42,7 @@ def test_header_marker_before_conversation_is_distilled(tmp_path):
         "<!-- distilled: 2026-05-04 → (no insight) -->\n\n"
         "### User\n\nlots of real work\n\n### Claude\n\ndid stuff\n\n`/exit`\n"
     )
-    p = _write(tmp_path, "Raw/2026/05/04/h_session_dsm.md", body)
+    p = _write(tmp_path, "Raw/2026/05/04/h_session_acme-core.md", body)
     st = dq.classify(p)
     assert st.outcome == "no-insight"
     assert dq.is_distilled(st)
@@ -51,11 +51,11 @@ def test_header_marker_before_conversation_is_distilled(tmp_path):
 def test_header_pending_merge_with_merged_segment(tmp_path):
     body = (
         "---\ntype: session\n---\n"
-        "<!-- distilled: 2026-05-18 → pending-merge: Projects/libdsm/x.md (0.46) "
+        "<!-- distilled: 2026-05-18 → pending-merge: Projects/acme-core/x.md (0.46) "
         "| merged: 2026-05-18 → [[a]], [[b]] -->\n"
         "### User\nwork\n### Claude\nreply\n"
     )
-    p = _write(tmp_path, "Raw/2026/05/18/h2_session_libdsm.md", body)
+    p = _write(tmp_path, "Raw/2026/05/18/h2_session_acme-web.md", body)
     st = dq.classify(p)
     assert st.outcome == "pending-merge"
     assert st.broadcast_resolved is True
@@ -87,7 +87,7 @@ def test_skip_meta_session_trailer_is_distilled(tmp_path):
 
 
 def test_new_outcome(tmp_path):
-    p = _write(tmp_path, "Raw/a.md", "x\n<!-- distilled: 2026-06-10 → Notes/DSM/foo.md -->\n")
+    p = _write(tmp_path, "Raw/a.md", "x\n<!-- distilled: 2026-06-10 → Notes/Nginx/foo.md -->\n")
     st = dq.classify(p)
     assert st.outcome == "new"
     assert dq.is_broadcast_eligible(st)

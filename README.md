@@ -190,7 +190,7 @@ Chinese/English queries.
 cortex-vec status                          # view index status
 cortex-vec rebuild                         # full index rebuild
 cortex-vec search "nginx certificate"      # semantic search
-cortex-vec search "oauth" --repo libsynow3 # filter by repo
+cortex-vec search "oauth" --repo acme-core # filter by repo
 cortex-vec search "sharing" --type project # filter by type
 cortex-vec upsert Notes/Nginx/new.md       # add/update a single document
 cortex-vec delete Notes/Nginx/old.md       # delete a document

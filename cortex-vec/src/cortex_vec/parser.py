@@ -39,7 +39,7 @@ def classify_path(rel_path):
     """Determine (type, category) from vault-relative path.
 
     Returns:
-        tuple: (doc_type, category) e.g. ("note", "Nginx"), ("project", "libsynow3")
+        tuple: (doc_type, category) e.g. ("note", "Nginx"), ("project", "acme-core")
     """
     parts = Path(rel_path).parts
     if not parts:
