@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-04
+
+### Removed
+- The `entries:` count in `_index.md` frontmatter. Three instructions
+  incremented it — genesis, distill, evolve — and none ever decremented, so it
+  drifted to 280 against a true 238 index rows. Page reorganization is the only
+  path that removes a row and the only path with no skill behind it (distill and
+  evolve append; broadcast merges content into an existing page without removing
+  one), which is why the count could only grow. Nothing reads the field — not
+  the CLI, not the hooks, not the skills — and `cortex-vec status` already
+  reports the live count, so it is gone rather than propped up by new machinery
+  to keep a derived value honest.
+
+### Fixed
+- The `/cortex:genesis` index template had drifted from the vault it
+  rebuilds, in the direction nobody notices because the steps fail silently.
+  It still emitted `## Weekly` and `## Raw (未提煉)` sections that the vault
+  deliberately dropped in April 2026, and flat Projects/Notes tables where
+  the vault groups rows into `###` sub-sections by repo and by topic — so
+  running genesis produced a structurally wrong index. It also counted the
+  legacy `Projects/<repo>/_index.md` files as pages.
+- `cortex-evolve` documented Projects index rows as one row per repo. They
+  are one row per page, under a `###` sub-section named for the repo.
+
+### Added
+- `docs/index-audit.md` — how to check `_index.md` against the files on disk
+  now that no field claims to, including the regex traps that let a naive
+  check pass while reporting the wrong set: an unanchored wikilink pattern
+  matches prose and end-of-cell cross-links, `[^\]]+` cannot cross a `]`
+  inside a title, and keying by `Path.stem` collapses the per-repo
+  `_index.md` files.
+
 ## [1.1.0] - 2026-07-28
 
 ### Fixed

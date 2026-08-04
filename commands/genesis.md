@@ -82,45 +82,48 @@ If the vault is not a git repo, run `git init` and create an initial commit.
 
 ### 7. Rebuild _index.md
 
-Scan all files in Notes/, Projects/, and Weekly/:
-- For each Notes file: extract title, tags from frontmatter, first line of content as summary
-- For each Projects directory: extract _index.md title, tags
-- For each Weekly file: extract date, first few items as highlights
+Scan every page under `Notes/<topic>/` and `Projects/<repo>/`, skipping any path
+containing `_archive`. For each page extract the title, the tags from
+frontmatter, and a one-line summary.
 
-Write `<vault_path>/_index.md` with the full index table format:
+`Weekly/` and `Raw/` are deliberately NOT indexed — they are chronological and
+navigated by date, so an index table would only duplicate the directory listing.
+
+Write `<vault_path>/_index.md`. Both top-level sections group their rows into
+`###` sub-sections — by topic under Notes, by repo under Projects — so the
+index mirrors the on-disk layout:
 
 ```markdown
 ---
 updated: <today>
-entries: <count>
 ---
 
 # Cortex Index
 
 ## Projects
 
-| Repo | Tags | Summary |
-|------|------|---------|
-| [[repo-name]] | tags | summary |
+### <repo-name>
+
+| Project | Tags | Summary |
+|---------|------|---------|
+| [[topic-title]] | tags | summary |
 
 ## Notes
+
+### <topic>
 
 | Note | Tags | Summary |
 |------|------|---------|
 | [[note-title]] | tags | summary |
-
-## Weekly
-
-| Week | Highlights |
-|------|------------|
-| [[YYYY-MM-DD]] | highlights |
-
-## Raw (未提煉)
-
-| Date | Count | Topics |
-|------|-------|--------|
-| YYYY-MM-DD | N | topics |
 ```
+
+Do NOT add an `entries:` count to the frontmatter. It is a derived value with no
+reader, and a hand-maintained copy of it drifts the moment a page is merged away
+or renamed. `cortex-vec status` reports the live count instead.
+
+Legacy `Projects/<repo>/_index.md` files are not index rows — skip them. To check
+an existing index against the files on disk (and for the regex traps that make a
+naive check silently wrong), see `docs/index-audit.md`.
 
 ### 8. Show summary
 
@@ -130,7 +133,7 @@ Display:
   Vault: <path>
   Config: ~/.cortex/config.json
   Author: <name> <email>
-  Index: <N> entries in _index.md
+  Index: <N> pages in _index.md
 
   Next steps:
   - Sessions auto-record to Raw/ on exit

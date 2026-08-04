@@ -136,6 +136,11 @@ _index.md                      ← vault-wide summary index
 log.md                         ← chronological history of evolve/distill
 ```
 
+Nothing machine-checks `_index.md` for consistency (reorganizing pages is the
+one path that changes the index with no skill involved). See
+[`docs/index-audit.md`](docs/index-audit.md) for the audit, and for the regex
+traps that let a naive check pass while reporting the wrong set.
+
 ### Data Flow
 
 ```

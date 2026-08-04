@@ -127,6 +127,9 @@ _index.md                      ← 全 vault 摘要索引
 log.md                         ← evolve/distill 的時序歷程
 ```
 
+`_index.md` 的一致性沒有機器保證（頁面重整是唯一不經 skill 的路徑），稽核方法與
+幾個會讓檢查靜默失效的 regex 陷阱見 [`docs/index-audit.md`](docs/index-audit.md)。
+
 ### Data Flow
 
 ```
