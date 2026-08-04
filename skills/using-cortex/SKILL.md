@@ -39,7 +39,7 @@ Trigger `cortex-query` BEFORE responding when ANY of these are true:
 1. **Topic match.** The user's request mentions a topic that appears in
    the SessionStart hook's vault topic list (Notes/ or Projects/ entries).
 2. **Domain match.** The request touches an ongoing project, internal
-   company tooling, plugin development, NAS debugging, DSM/SRM workflows,
+   company tooling, plugin development, NAS debugging, infrastructure workflows,
    or any domain the user is known to work in.
 3. **Reference signal.** The user says things like "之前那個", "上次的",
    "我記得有", "我們討論過", "那個 ticket", "the project", "the issue" —

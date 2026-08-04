@@ -32,10 +32,10 @@ def test_build_where_repo_includes_notes_type():
 
 def test_build_where_repo_combined_with_category():
     """--repo + --category: the OR-widened repo clause AND-combined with category."""
-    assert store._build_where(repo="X", category="DSM") == {
+    assert store._build_where(repo="X", category="Nginx") == {
         "$and": [
             {"$or": [{"repo": "X"}, {"type": "note"}]},
-            {"category": "DSM"},
+            {"category": "Nginx"},
         ]
     }
 

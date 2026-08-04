@@ -304,7 +304,13 @@ Skip this step entirely for `pending-merge`, `skip-routine`, `no-insight`.
 For each newly created file:
 
 1. Run: `cortex-vec upsert <relative-path>`
-2. Update `_index.md`: append row to the appropriate table (Notes or Projects section), update `entries` count and `updated` date in frontmatter.
+2. Update `_index.md`: append the row under the matching `###` sub-section — the
+   topic sub-section under `## Notes`, or the repo sub-section under
+   `## Projects`. Create the sub-section (with its table header) if it does not
+   exist yet. Then bump the `updated` date in frontmatter.
+
+   Do NOT maintain an `entries:` count — the frontmatter has no such field, by
+   design (see `/cortex:genesis`).
 
 ## Step 7: Append Log Entry
 

@@ -23,7 +23,7 @@ skills:
   - name: cortex-query
     trigger: When the user wants to search the vault ("查 cortex", "之前有記過"), or proactively before answering any question about existing projects or internal tooling.
     examples:
-      - "check cortex for DSM notes"
+      - "check cortex for nginx notes"
       - "have I written about this before"
       - "what did I write about cortex-vec"
   - name: cortex-distill
@@ -50,7 +50,7 @@ skills:
 commands:
   - name: genesis
     examples:
-      - "/cortex:genesis /synosrc/misc/cortex"
+      - "/cortex:genesis /srv/cortex"
       - "/cortex:genesis ~/cortex"
   - name: evolve
     examples:

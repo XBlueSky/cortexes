@@ -27,7 +27,7 @@ Ask the user if unclear. Use these heuristics:
 
 ## Writing to Notes
 
-1. Determine category from content (C++, DSM, Linux, Nginx, Web, or create new)
+1. Determine category from content (C++, Linux, Nginx, Web, or create new)
 2. Create file at `Notes/<category>/<title>.md`
 3. Use this template:
 
@@ -44,7 +44,7 @@ source: cortex
 
 <content>
 
-<optional: related wikilinks like [[dsm-AdminCenter]] or [[other-note]]>
+<optional: related wikilinks like [[nginx-cert-renew]] or [[other-note]]>
 ```
 
 4. Use Obsidian wikilinks `[[note-name]]` for vault-internal references
@@ -75,10 +75,15 @@ tags:
 After writing the file:
 
 1. Read `<vault_path>/_index.md`
-2. Append a row to the appropriate table section:
-   - Notes: `| [[title]] | tags | one-line summary |`
-   - Projects: `| [[repo-name]] | tags | summary |` (if new project)
-3. Update `entries` count and `updated` date in frontmatter
+2. Append a row under the matching `###` sub-section, creating the sub-section
+   (with its table header) if it does not exist yet:
+   - Notes → `### <topic>` under `## Notes`: `| [[title]] | tags | one-line summary |`
+   - Projects → `### <repo-name>` under `## Projects`: `| [[topic-title]] | tags | summary |`
+
+   Rows are per-page, not per-repo: a new repo means a new `###` sub-section,
+   not a single row standing for the whole repo.
+3. Bump the `updated` date in frontmatter. There is no `entries:` count to
+   maintain — the field was removed by design (see `/cortex:genesis`).
 
 ## Append Log Entry
 

@@ -6,7 +6,7 @@ description: >
   "cortex 裡有沒有", "check my notes", "what did I write about", AND
   (2) PROACTIVELY — before answering any non-trivial question about ongoing
   projects, internal company tooling, cortex-vec, plugin development,
-  NAS debugging, DSM workflows, or any topic that resembles
+  NAS debugging, infrastructure workflows, or any topic that resembles
   prior work the user might have notes on. When the SessionStart hook lists
   vault topics and the user's request matches one, search cortex BEFORE
   asking clarifying questions or guessing. Treat the vault as authoritative
@@ -46,7 +46,7 @@ The user can override this by saying "search all" or "search across everything".
 
 **Additional filters:** Apply when the user specifies:
 - `--type note|project|weekly` — filter by content type
-- `--category Nginx|DSM|...` — filter by category
+- `--category Nginx|Linux|...` — filter by category
 
 **Interpreting scores:**
 - Score > 0.80: High confidence match — present prominently

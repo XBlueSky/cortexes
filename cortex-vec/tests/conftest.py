@@ -24,6 +24,6 @@ def fixture_docs():
          "用 certbot 設定 nginx 的 TLS certificate 自動 renew。", "", "note", "Nginx"),
         ("Notes/Linux/oom.md", "Linux OOM killer 排查",
          "dmesg 看 out of memory，調整 oom_score_adj。", "", "note", "Linux"),
-        ("Projects/libsynow3/oauth.md", "libsynow3 OAuth 流程",
-         "libsynow3 的 token refresh 與 OAuth 授權實作。", "libsynow3", "project", "libsynow3"),
+        ("Projects/acme-core/oauth.md", "acme-core OAuth 流程",
+         "acme-core 的 token refresh 與 OAuth 授權實作。", "acme-core", "project", "acme-core"),
     ]

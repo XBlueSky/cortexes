@@ -5,6 +5,65 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-08-04
+
+### Removed
+- The internal-name leftovers that the 0.23.0 de-branding sweep missed —
+  including, unnoticed until now, the ones that reach the public website. The
+  landing page's demo vault graph (`site/assets/graph.js`) labelled three
+  project nodes with an internal repo name and two internal product names, and
+  the marketplace presentation entry shipped an internal vault path plus a
+  product-name search example; both render on the site. Also swept: the
+  `genesis` argument hint and prompt, four skill docs (`cortex-query`,
+  `cortex-evolve`, `cortex-broadcast`, `using-cortex`) whose category lists,
+  trigger descriptions, and example paths still named internal products, one
+  `parser.py` docstring, the README CLI example in both languages, and five
+  `cortex-vec` test fixtures. Replacements follow 0.23.0's own mapping
+  (`acme-core`/`acme-web` repos, `Nginx`/`Linux` categories, `/srv/cortex`
+  paths).
+- Internal product and system names from this file's own history entries:
+  team chat / mail / issue tracker / support tickets in place of the product
+  names, internal MCP plugins described by role instead of named, and one
+  colleague's username replaced with a placeholder. Entry structure and claims
+  are unchanged — only the identifiers are generalized. This is a
+  forward-only edit: it keeps the working tree and the published changelog page
+  clean, and deliberately does not rewrite history, so the strings remain in
+  older commits' blobs.
+
+Kept as-is: the maintainer's own name/email, as in 0.23.0.
+
+## [1.2.0] - 2026-08-04
+
+### Removed
+- The `entries:` count in `_index.md` frontmatter. Three instructions
+  incremented it — genesis, distill, evolve — and none ever decremented, so it
+  drifted to 280 against a true 238 index rows. Page reorganization is the only
+  path that removes a row and the only path with no skill behind it (distill and
+  evolve append; broadcast merges content into an existing page without removing
+  one), which is why the count could only grow. Nothing reads the field — not
+  the CLI, not the hooks, not the skills — and `cortex-vec status` already
+  reports the live count, so it is gone rather than propped up by new machinery
+  to keep a derived value honest.
+
+### Fixed
+- The `/cortex:genesis` index template had drifted from the vault it
+  rebuilds, in the direction nobody notices because the steps fail silently.
+  It still emitted `## Weekly` and `## Raw (未提煉)` sections that the vault
+  deliberately dropped in April 2026, and flat Projects/Notes tables where
+  the vault groups rows into `###` sub-sections by repo and by topic — so
+  running genesis produced a structurally wrong index. It also counted the
+  legacy `Projects/<repo>/_index.md` files as pages.
+- `cortex-evolve` documented Projects index rows as one row per repo. They
+  are one row per page, under a `###` sub-section named for the repo.
+
+### Added
+- `docs/index-audit.md` — how to check `_index.md` against the files on disk
+  now that no field claims to, including the regex traps that let a naive
+  check pass while reporting the wrong set: an unanchored wikilink pattern
+  matches prose and end-of-cell cross-links, `[^\]]+` cannot cross a `]`
+  inside a title, and keying by `Path.stem` collapses the per-repo
+  `_index.md` files.
+
 ## [1.1.0] - 2026-07-28
 
 ### Fixed
@@ -70,31 +129,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - The remaining internal-tool-specific MCP output filters from the
-  `rtk_cmd` transcript filter framework: `syno-naxos` (`hooks/scripts/rtk_cmd/mcp_naxos.py`,
-  whole file), `syno-robinhood` (`filter_robinhood` + `_filter_css_activities` in
-  `mcp_tools.py`), and `syno-build-mcp` (`filter_docker_execute` in
-  `mcp_tools.py`), plus their `_MCP_REGISTRY` entries in `dispatch.py` and
-  dedicated tests. These recognized specific internal Synology MCP plugins by
-  name to compress their output shape in recorded transcripts — useless to an
-  external user who doesn't have those plugins installed, and named an
-  internal system by their mere presence. The generic parts of the framework
-  (Bash command filters: git/cargo/pytest/eslint/etc., and the `zoekt`/
-  `_gitlab__`/`_playwright__` MCP filters, none of which are Synology-specific
-  by name or behavior) are unaffected.
-- Illustrative internal-looking strings in test fixtures and skill docs:
-  `git.synology.inc` example URLs → `git.example.com`; `synology-workflows`/
-  `syno-build-mcp` example MCP tool-name prefixes → generic placeholders;
-  `libsynow3`/`syno-nextweb` example repo names in `cortex-vec` tests →
-  `acme-core`/`acme-web`; "internal Synology tooling" → "internal company
-  tooling" in `cortex-query`/`using-cortex` skill trigger descriptions; the
-  `cortex-distill` convention-tag example row no longer names real internal
-  Synology product/file names.
+  `rtk_cmd` transcript filter framework: three internal company plugins — a
+  diagnostics plugin (its whole `rtk_cmd` module), a chat/mail/support plugin
+  (two filter functions in `mcp_tools.py`), and a build plugin (one filter
+  function in `mcp_tools.py`) — plus their `_MCP_REGISTRY` entries in
+  `dispatch.py` and dedicated tests. These recognized specific internal MCP
+  plugins by name to compress their output shape in recorded transcripts —
+  useless to an external user who doesn't have those plugins installed, and
+  named an internal system by their mere presence. The generic parts of the
+  framework (Bash command filters: git/cargo/pytest/eslint/etc., and the
+  `zoekt`/`_gitlab__`/`_playwright__` MCP filters, none of which are
+  company-specific by name or behavior) are unaffected.
+- Illustrative internal-looking strings in test fixtures and skill docs: the
+  internal GitLab host in example URLs → `git.example.com`; internal MCP
+  tool-name prefixes → generic placeholders; internal example repo names in
+  `cortex-vec` tests → `acme-core`/`acme-web`; "internal <company> tooling" →
+  "internal company tooling" in `cortex-query`/`using-cortex` skill trigger
+  descriptions; the `cortex-distill` convention-tag example row no longer names
+  real internal product/file names.
 
-- The `dsm`/`diskstation` and `srm`/`router manager` synonym groups, and
-  `spk` from the package synonym group, in `cortex-vec/src/cortex_vec/synonyms.py`.
-  Test fixtures that exercised those groups (`test_synonyms.py`,
-  `test_bm25_synonym.py`) now use non-Synology synonym pairs instead
-  (`perf`/`performance`, `login`/`signin`+`authentication`).
+- The two product-name synonym groups (a NAS OS and a router OS, each with its
+  product-line alias) and `spk` from the package synonym group, in
+  `cortex-vec/src/cortex_vec/synonyms.py`. Test fixtures that exercised those
+  groups (`test_synonyms.py`, `test_bm25_synonym.py`) now use non-product
+  synonym pairs instead (`perf`/`performance`,
+  `login`/`signin`+`authentication`).
 
 Kept as-is: the maintainer's own name/email (`tonyhu@synology.com`) as
 plugin author metadata.
@@ -104,19 +163,19 @@ plugin author metadata.
 ### Removed
 - `cortex-weekly` skill, its `/cortex:weekly` command, and the
   `weekly-compiler` agent. This is the public OSS mirror, and the weekly
-  report feature's data sources (E: CSS tickets, F: ChatPlus posts, G:
-  MailPlus mail) called `syno-robinhood`, an internal Synology-only MCP
-  plugin external users cannot install; Sources B–D and the `Ref:`/issue
-  routing similarly depended on `synology-workflows` (internal GitLab +
-  Workplus MCPs). The skill's reference docs also embedded real internal
-  hostnames and example data (`git.synology.inc`, `workplus.synology.inc`,
-  internal repo names and issue numbers) that don't belong in a public repo.
+  report feature's data sources (E: support tickets, F: team-chat posts, G:
+  mail) called an internal company-only MCP plugin external users cannot
+  install; Sources B–D and the `Ref:`/issue routing similarly depended on a
+  second internal plugin (the company GitLab + issue-tracker MCPs). The skill's
+  reference docs also embedded real internal hostnames and example data (the
+  GitLab and issue-tracker hosts, internal repo names and issue numbers) that
+  don't belong in a public repo.
 - `cortex-distill` Step 5.5 ("Write Summary File") and Step 5.6 ("Judge
-  Workplus Issue"), including the `Summary/` vault directory and the
+  Tracker Issue"), including the `Summary/` vault directory and the
   `weekly.repo_issue_map` config field. Both existed solely to feed the
   now-removed `cortex-weekly` Source A/B — the sidecar was never indexed by
   `cortex-vec` or listed in `_index.md`, so with the consumer gone it was
-  dead code making an internal Workplus MCP call for no reason.
+  dead code making an internal issue-tracker MCP call for no reason.
 - The `weekly` block from `genesis`'s generated config template (`gitlab_username`,
   `categories`, `repo_issue_map`) and the SessionStart menu's weekly-report
   status line, now that nothing produces or consumes them.
@@ -151,7 +210,7 @@ feature.
 ## [0.20.0] - 2026-06-22
 
 ### Changed
-- Weekly Source F (ChatPlus) now collects self-authored contributions via
+- Weekly Source F (team chat) now collects self-authored contributions via
   `chat_search_posts(from=[self], after, before)` instead of
   `chat_my_recent_activity`. The old tool fetched top-level posts only
   (it called `chat_list_posts` per channel), so the user's replies inside
@@ -227,19 +286,19 @@ feature.
 ## [0.17.0] - 2026-06-02
 
 ### Added
-- SessionEnd filter: `syno-naxos` `exec_command` outputs are unwrapped from
-  their JSON envelope to a compact `$ <command>` frame, and the remote stdout
-  is recursed through the existing `rtk_cmd` Bash filters — so every
-  git/ls/grep/cargo/... filter now applies to remote NAS execution too.
-- SessionEnd filter: `robinhood` `codesearch` (shares the zoekt result shape)
-  and `css_get_activities` (audit-log flatten) are now filtered.
+- SessionEnd filter: the diagnostics plugin's `exec_command` outputs are
+  unwrapped from their JSON envelope to a compact `$ <command>` frame, and the
+  remote stdout is recursed through the existing `rtk_cmd` Bash filters — so
+  every git/ls/grep/cargo/... filter now applies to remote NAS execution too.
+- SessionEnd filter: the internal plugin's `codesearch` (shares the zoekt
+  result shape) and its support-system activity log (audit-log flatten) are
+  now filtered.
 
 ### Fixed
 - `_MCP_REGISTRY` now matches by server-token substring instead of a full
   plugin-qualified prefix, fixing the silent no-op of already-written filters
-  when a plugin is repackaged: `kaer-morhen` playwright, `build-toolkit`
-  syno-build-mcp, and the `synology-diagnostics` syno-naxos namespace were all
-  being missed.
+  when a plugin is repackaged: `kaer-morhen` playwright, the `build-toolkit`
+  build MCP, and the internal diagnostics MCP namespace were all being missed.
 
 ## [0.15.1] - 2026-05-28
 
@@ -249,8 +308,8 @@ feature.
   BM25: list-membership on `rec["repos"]`) hid Notes/ entries entirely
   whenever a repo filter was set, which caused `cortex:distill` dedup
   to return false `new` verdicts on Raws whose true duplicate lived in
-  a cross-repo Note (concrete failure: a syno-nextweb SynoToken Raw
-  nearly duplicating `Notes/DSM/SynoToken 注入機制 …`). The filter now
+  a cross-repo Note (concrete failure: an `acme-web` session-token Raw
+  nearly duplicating `Notes/Auth/session token 注入機制 …`). The filter now
   narrows the `Projects/` partition only; `type=note` documents always
   pass through. `cortex-distill` SKILL Step 3.2 gets a one-line
   clarifier documenting the new semantic.
@@ -260,16 +319,16 @@ feature.
 
 ### Added
 - `cortex-weekly`: GitLab activity sweep. The weekly report now captures MR
-  review comments (non-approve), non-wit issue comments, in-review (opened)
+  review comments (non-approve), non-tracker issue comments, in-review (opened)
   MRs, and no-MR pushes — via a single paginated per-user `list_events` sweep
   that replaces the approvals-only Source C. Reactive items route to `inbound.`;
   authored items route through the existing `fix.`/`feat.`/`misc.` classifier
   (Source A + Step 5b) with an `(in review)` tag for unmerged MRs. Same
-  substance bar as the ChatPlus/MailPlus sources; overlap/cross-week dedup
+  substance bar as the chat/mail sources; overlap/cross-week dedup
   prevents double-listing against Source B/D.
 
 ### Fixed
-- `weekly-compiler` agent now resolves ChatPlus DM participants (adds
+- `weekly-compiler` agent now resolves team-chat DM participants (adds
   `chat_list_posts` + `chat_list` to its allow-list and the Source F
   resolution step), so DMs render as `` [chat] `@username`: … `` instead of a
   bare `[chat] DM:`. Aligns the agent with SKILL.md Source F.
@@ -277,14 +336,14 @@ feature.
 ## [0.14.2] - 2026-05-27
 
 ### Fixed
-- `cortex-weekly`: resolve ChatPlus DM participants via
-  `chat_list(kind="users")`, tracking the consolidated syno-robinhood
+- `cortex-weekly`: resolve team-chat DM participants via
+  `chat_list(kind="users")`, tracking the consolidated internal
   Chat tool surface.
 
 ### Added
 - `cortex-weekly`: Runtime Requirements + graceful-degradation policy.
-  When a source's MCP plugin (`syno-robinhood` / `synology-workflows`)
-  is missing or unauthenticated, that source is skipped and surfaced as
+  When a source's internal MCP plugin (chat/mail/support, or GitLab +
+  issue tracker) is missing or unauthenticated, it is skipped and surfaced as
   a note atop the draft instead of aborting the report. The
   `weekly-compiler` agent now returns `skipped_sources`.
 
@@ -365,15 +424,15 @@ feature.
 ## [0.12.0] - 2026-05-22
 
 ### Added
-- `weekly.repo_issue_map` config field (1:N repo → Workplus issue
+- `weekly.repo_issue_map` config field (1:N repo → tracker issue
   mapping). Backward compatible — absent / empty defaults to no
   promotion.
 - `cortex-distill` Step 5.6: judges which mapped issue a Raw
   contributes to and writes `issue:` into Summary frontmatter
   (optional 4th field).
-- `cortex-weekly` Step 5b: surfaces vault-only Workplus-tracked
-  progress as `<Workplus-title> - ([KEY](url)): <one-line>` under
-  `feat.` / `fix.`. Lets repos like morpheus (vault-only work,
+- `cortex-weekly` Step 5b: surfaces vault-only tracker-tracked
+  progress as `<issue-title> - ([KEY](url)): <one-line>` under
+  `feat.` / `fix.`. Lets repos like `acme-cli` (vault-only work,
   no MR this week) appear in the right section instead of `misc.`.
 - Per-surface description budgets in `references/draft-template.md`:
   `feat.` group-MR ≤40 chars, `misc.` tag ≤10, `inbound.` mail ≤30,
@@ -413,7 +472,7 @@ feature.
   SessionEnd capture pipeline never produces those sections — it
   writes frontmatter plus filtered transcript — so ~92% of real Raws
   were false-negative `(no insight)` (verified against
-  `/synosrc/cortex/Raw/2026/05/`: 10/125 had structured sections,
+  `/srv/cortex/Raw/2026/05/`: 10/125 had structured sections,
   91/125 had inline `★ Insight ─────` callouts). The rule now applies
   to the entire Raw body and recognizes insight in `★ Insight`
   callouts, tables, prose analysis, or legacy structured sections
@@ -478,29 +537,29 @@ feature.
   NOT treated as a variant of `tonyhu`) or accepts substring matches. If
   no activity entry has `user` exactly equal to the configured username,
   the source returns zero bullets for that section. Prevents false-positive
-  CSS / wit entries from being attributed to users with similar-looking
-  names.
+  support / issue-tracker entries from being attributed to users with
+  similar-looking names.
 - New optional config key `weekly.css_username` (default: same as
-  `weekly.gitlab_username`) for users whose CSS SSO differs from their
-  GitLab username.
+  `weekly.gitlab_username`) for users whose support-system SSO differs from
+  their GitLab username.
 - `cortex-weekly` (Source F, Source G): chat/mail bullets now wrap
-  `@username` in backticks (e.g. `` `@yannyliu` `` instead of `@yannyliu`)
+  `@username` in backticks (e.g. `` `@coworker` `` instead of `@coworker`)
   so GitLab does not turn them into mention notifications when the weekly
   is pasted into a wiki / MR / issue. Same content, no surprise pings.
 
 ## [0.10.2] - 2026-05-08
 
 ### Changed
-- `cortex-weekly` (Source F — ChatPlus): DM threads no longer auto-drop —
+- `cortex-weekly` (Source F — team chat): DM threads no longer auto-drop —
   they go through the same substance filter as public channels. Surviving
   DM threads attribute to `@username` (1:1) or `@user_a, @user_b[, @user_c]`
   (group DM with 2–3 others). 4+ other participants fall back to
   `[chat: DM]`.
-- `cortex-weekly` (Source G — MailPlus): 1-on-1 threads attribute to
+- `cortex-weekly` (Source G — mail): 1-on-1 threads attribute to
   `@username` via the `[mail: <subject>] (@username)` shape. Multi-recipient
   threads keep `[mail: <subject>]`.
 - `cortex-weekly` redaction rule scoped to customer info / external personal
-  identifiers only. Internal Synology usernames are now allowed (and
+  identifiers only. Internal company usernames are now allowed (and
   recommended for 1-on-1 attribution).
 - `cortex-weekly`: same-title MR dedup. Within `fix.`, `feat.`, or `inbound.`,
   2+ MRs sharing an exact title collapse into one bullet of the form
@@ -534,33 +593,33 @@ feature.
 ## [0.10.0] - 2026-05-04
 
 ### Added
-- **Weekly report — ChatPlus source** (`skills/cortex-weekly`): Source F
-  pulls self-authored ChatPlus posts via `chat_my_recent_activity`,
+- **Weekly report — team-chat source** (`skills/cortex-weekly`): Source F
+  pulls self-authored chat posts via `chat_my_recent_activity`,
   aggregates by `thread_id`, drops social chatter / MR-link broadcasts /
   DM noise, and emits substantive technical contributions into
   `inbound.` as `[chat: <channel>]: topic → 我的貢獻`.
-- **Weekly report — MailPlus source** (`skills/cortex-weekly`): Source G
+- **Weekly report — mail source** (`skills/cortex-weekly`): Source G
   reads the Sent folder (`mailbox_id = -4`) instead of the unfilterable
-  INBOX, fetches each thread via `mailplus_get`, drops HR / calendar /
+  INBOX, fetches each thread via the mail MCP, drops HR / calendar /
   mass-announcement / logistics replies, and emits work-substantive
   threads into `inbound.` as `[mail: <subject>]: topic → 我的回應`
   (with `Re:` / `Fwd:` prefix stripping).
 - `agents/weekly-compiler` allowed-tools extended with
-  `chat_my_recent_activity`, `mailplus_list_mailboxes`,
-  `mailplus_list_threads`, `mailplus_get`, and `css_get_ticket`.
+  `chat_my_recent_activity` plus the mail-mailbox, mail-thread, mail-fetch,
+  and support-ticket MCP tools.
 
 ### Changed
 - `references/draft-template.md` documents the inbound shapes for
-  ChatPlus and MailPlus, with a worked example covering both sources.
+  chat and mail, with a worked example covering both sources.
 - Cross-source dedup rule added to Step 4: chat/mail entries that merely
-  announce or coordinate around an MR/issue/wit/css already represented
-  elsewhere are dropped.
-- Frontmatter description for `cortex-weekly` lists ChatPlus and MailPlus
-  alongside Raw/, GitLab, and CSS as report inputs.
+  announce or coordinate around an MR / issue / support ticket already
+  represented elsewhere are dropped.
+- Frontmatter description for `cortex-weekly` lists chat and mail
+  alongside Raw/, GitLab, and support tickets as report inputs.
 
 ### Fixed
 - `references/draft-template.md` previously cross-referenced "Source C
-  filter" for the wit-issue reply rule; corrected to "Source D filter".
+  filter" for the tracker-issue reply rule; corrected to "Source D filter".
 
 ## [0.9.2] - 2026-04-28
 
@@ -626,7 +685,7 @@ feature.
 - `references/draft-template.md` plus a leaner `SKILL.md`.
 
 ### Changed
-- Weekly classifies by **Workplus issue type**, not commit type — matches how
+- Weekly classifies by **tracker issue type**, not commit type — matches how
   the Friday meeting is actually structured.
 - `distill` removed `distill-state.json`; the `<!-- distilled: -->` marker is
   now the single source of truth.

@@ -136,6 +136,11 @@ _index.md                      ← vault-wide summary index
 log.md                         ← chronological history of evolve/distill
 ```
 
+Nothing machine-checks `_index.md` for consistency (reorganizing pages is the
+one path that changes the index with no skill involved). See
+[`docs/index-audit.md`](docs/index-audit.md) for the audit, and for the regex
+traps that let a naive check pass while reporting the wrong set.
+
 ### Data Flow
 
 ```
@@ -185,7 +190,7 @@ Chinese/English queries.
 cortex-vec status                          # view index status
 cortex-vec rebuild                         # full index rebuild
 cortex-vec search "nginx certificate"      # semantic search
-cortex-vec search "oauth" --repo libsynow3 # filter by repo
+cortex-vec search "oauth" --repo acme-core # filter by repo
 cortex-vec search "sharing" --type project # filter by type
 cortex-vec upsert Notes/Nginx/new.md       # add/update a single document
 cortex-vec delete Notes/Nginx/old.md       # delete a document
