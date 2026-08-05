@@ -88,7 +88,7 @@ See [`site/README.md`](site/README.md) for local builds.
 | `/cortex:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
 | `/cortex:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
 | `/cortex:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
-| `/cortex:takeoff` | Hand-off baton — curate a temporary, non-git hand-off for the next session to resume (`resume`/`done` subcommands) |
+| `/cortex:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
 
 ### Skills (auto-triggered)
 

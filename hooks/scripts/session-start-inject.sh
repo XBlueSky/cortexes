@@ -46,15 +46,37 @@ fi
 [[ -z "$notes_topics" ]] && notes_topics="(空)"
 [[ -z "$projects_topics" ]] && projects_topics="(空)"
 
-# --- Pending takeoff baton (repo-scoped, opt-in load) ---
-baton_file="$CORTEX_DIR/.takeoff/$repo_name.md"
+# --- Pending takeoff batons (repo-scoped, topic-keyed, opt-in load) ---
+# One menu line per baton, numbered from 5, mtime-newest first. Legacy
+# single-baton files (<slug>.md) surface with topic "legacy". A baton whose
+# workdir differs from the current repo toplevel gets an origin marker —
+# same-slug clones (vault repo vs tool repo) see each other's lines.
 takeoff_option=""
 takeoff_rule=""
-if [[ -f "$baton_file" ]]; then
-  baton_summary=$(sed -n 's/^summary:[[:space:]]*//p' "$baton_file" | head -1)
-  [[ -z "$baton_summary" ]] && baton_summary="(無摘要)"
-  takeoff_option=$'\n5. 載入未消化的交接文件:'"$baton_summary"
-  takeoff_rule=$'\n- 選項 5 被選中時:用 cortex-takeoff skill 的 resume 流程讀取交接文件全文,採納為續傳脈絡接續工作;不要刪除該檔。'
+shopt -s nullglob
+baton_files=("$CORTEX_DIR/.takeoff/$repo_name"/*.md)
+legacy_baton="$CORTEX_DIR/.takeoff/$repo_name.md"
+[[ -f "$legacy_baton" ]] && baton_files+=("$legacy_baton")
+if ((${#baton_files[@]})); then
+  cur_workdir="$(realpath "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || true)"
+  opt_num=5
+  while IFS= read -r baton_file; do
+    if [[ "$baton_file" == "$legacy_baton" ]]; then
+      baton_topic="legacy"
+    else
+      baton_topic="$(basename "$baton_file" .md)"
+    fi
+    baton_summary="$(sed -n 's/^summary:[[:space:]]*//p' "$baton_file" | head -1)"
+    [[ -z "$baton_summary" ]] && baton_summary="(無摘要)"
+    baton_workdir="$(sed -n 's/^workdir:[[:space:]]*//p' "$baton_file" | head -1)"
+    origin_marker=""
+    if [[ -n "$baton_workdir" && -n "$cur_workdir" && "$baton_workdir" != "$cur_workdir" ]]; then
+      origin_marker="（來自 ${baton_workdir}）"
+    fi
+    takeoff_option+=$'\n'"$opt_num. 載入交接［${baton_topic}］：$baton_summary$origin_marker"
+    opt_num=$((opt_num + 1))
+  done < <(ls -t -- "${baton_files[@]}")
+  takeoff_rule=$'\n- 選項 5 起的「載入交接」選項被選中時：用 cortex-takeoff skill 的 resume 流程讀取該選項標示 topic 的交接文件全文，採納為續傳脈絡接續工作；不要刪除該檔。'
 fi
 
 # --- Build interactive menu prompt ---

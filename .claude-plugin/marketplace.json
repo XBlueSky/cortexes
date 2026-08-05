@@ -12,7 +12,7 @@
       "displayName": "Cortex",
       "source": "./",
       "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, semantic retrieval",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "category": "productivity",
       "homepage": "https://cortexes.pages.dev",
       "repository": "https://github.com/XBlueSky/cortexes",
