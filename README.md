@@ -356,8 +356,8 @@ cortex-vec eval run \
 ```json
 {
   "vault_path": "/path/to/vault",
-  "author": "tonyhu",
-  "author_email": "tonyhu@synology.com",
+  "author": "your-name",
+  "author_email": "you@example.com",
   "git": {
     "auto_commit": true,
     "auto_push": false
@@ -416,4 +416,4 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 Licensed under the [Apache License 2.0](LICENSE) — see `LICENSE` for the
 full text.
-Copyright 2026 tonyhu (see [NOTICE](NOTICE)).
+Copyright 2026 XBlueSky (see [NOTICE](NOTICE)).

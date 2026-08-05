@@ -1,9 +1,21 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "cortex",
-  "version": "1.2.1",
+  "displayName": "Cortex",
+  "version": "1.2.2",
   "description": "Personal knowledge vault plugin — session recording, memory distillation, indexed retrieval",
   "author": {
-    "name": "tonyhu",
-    "email": "tonyhu@synology.com"
-  }
+    "name": "XBlueSky",
+    "url": "https://github.com/XBlueSky"
+  },
+  "homepage": "https://cortexes.pages.dev",
+  "repository": "https://github.com/XBlueSky/cortexes",
+  "license": "Apache-2.0",
+  "keywords": [
+    "memory",
+    "knowledge-base",
+    "semantic-search",
+    "vault",
+    "session-recording"
+  ]
 }
