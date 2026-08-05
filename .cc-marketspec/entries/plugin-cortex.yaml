@@ -37,7 +37,7 @@ skills:
       - "broadcast"
       - "process broadcast queue"
   - name: cortex-takeoff
-    trigger: When context is running low and work needs to hand off to the next session ("交接", "takeoff", "交棒"). Produces a temporary hand-off baton that's never committed or indexed.
+    trigger: When context is running low and work needs to hand off to a later session ("交接", "takeoff", "交棒"). Produces temporary hand-off batons — one per work line — that are never committed or indexed.
     examples:
       - "hand off to the next session"
       - "takeoff resume"
@@ -64,9 +64,9 @@ commands:
       - "/cortex:broadcast --list"
   - name: takeoff
     examples:
-      - "/cortex:takeoff"
+      - "/cortex:takeoff vec-index-rebuild"
       - "/cortex:takeoff resume"
-      - "/cortex:takeoff done"
+      - "/cortex:takeoff done vec-index-rebuild"
 
 hooks:
   - event: SessionEnd

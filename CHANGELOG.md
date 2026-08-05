@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-05
+
+### Added
+- Multi-baton takeoff: a repo now holds one baton per work line, keyed by
+  a kebab-case topic under `.takeoff/<slug>/<topic>.md`. The SessionStart
+  menu lists every pending baton (newest first, numbered from 5), and
+  create/resume/done all address a specific topic — explicit argument
+  first, the topic this session resumed second, and done refuses to guess
+  when neither exists. Legacy single-file batons keep working and retire
+  to the new layout on their next hand-off; nothing needs migrating by
+  hand because batons are git-ignored, per-machine state. The new menu
+  lines brace their `${baton_topic}`/`${baton_workdir}` expansions —
+  macOS's stock bash 3.2 otherwise pulls the first byte of a following
+  full-width `］`/`）` into the variable name and dies under `set -u`.
+- `takeoff.sh list` — one line per baton (`topic<TAB>summary<TAB>path`),
+  mtime-newest first, the data source for the menu, the create-time reuse
+  proposal, and the done-time disambiguation.
+
+### Changed
+- `takeoff.sh clear` is now a soft delete: the baton moves to
+  `.takeoff/.trash/<slug>/<topic>-<timestamp>.md` and survives 30 days
+  before opportunistic pruning. An August 5 incident deleted the wrong
+  repo's baton unrecoverably; printf-style warnings are invisible to an
+  agent until after the action, so the fix is recoverability, not output.
+- `takeoff.sh` requires an explicit cwd on every subcommand — the `$PWD`
+  fallback that let a drifted shell target another repo's baton is gone
+  (exit 64 instead). clear additionally verifies the baton's `workdir`
+  frontmatter against the caller's repo toplevel (exit 4 on mismatch,
+  `--force` to override), which blocks same-slug clones — the vault repo
+  and the tool repo both derive the slug `cortex` — from clearing each
+  other's lines.
+
 ## [1.2.2] - 2026-08-05
 
 ### Changed

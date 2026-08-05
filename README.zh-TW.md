@@ -80,7 +80,7 @@ pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sor
 | `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
 | `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
 | `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
-| `/cortex:takeoff` | 交接接力棒 — curate 一份暫時、不進 git 的 hand-off,讓下個 session 接續(`resume`/`done` 子指令) |
+| `/cortex:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
 
 ### Skills（自動觸發）
 
