@@ -1,14 +1,29 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "cortex",
+  "description": "Personal knowledge and memory tooling for Claude Code — a vault that records sessions, distills them into notes, and retrieves them semantically",
   "owner": {
-    "name": "tonyhu"
+    "name": "XBlueSky",
+    "url": "https://github.com/XBlueSky"
   },
   "plugins": [
     {
       "name": "cortex",
+      "displayName": "Cortex",
       "source": "./",
       "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, semantic retrieval",
-      "version": "1.2.1"
+      "version": "1.2.2",
+      "category": "productivity",
+      "homepage": "https://cortexes.pages.dev",
+      "repository": "https://github.com/XBlueSky/cortexes",
+      "license": "Apache-2.0",
+      "keywords": [
+        "memory",
+        "knowledge-base",
+        "semantic-search",
+        "vault",
+        "session-recording"
+      ]
     }
   ]
 }

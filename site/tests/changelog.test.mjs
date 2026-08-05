@@ -51,5 +51,5 @@ test('parses the real CHANGELOG.md', () => {
   const md = readFileSync(join(here, '../../CHANGELOG.md'), 'utf8');
   const out = parseChangelog(md);
   assert.ok(out.length >= 10, 'expected many versions');
-  assert.equal(out[0].version, '1.2.1');
+  assert.equal(out[0].version, '1.2.2');
 });

@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-08-05
+
+### Changed
+- The public maintainer identity is now the `XBlueSky` handle, superseding the
+  "Kept as-is" decisions recorded in 0.23.0 and 1.2.1. `plugin.json` and
+  `marketplace.json` carry `author`/`owner` as a name plus a GitHub profile URL
+  and no email at all — the field is optional, and the third-party entries in
+  Anthropic's own plugin directory omit it too. The Code of Conduct's
+  enforcement contact moves to GitHub private vulnerability reporting, the same
+  confidential channel `SECURITY.md` already used, so the repo no longer invites
+  strangers to mail a work address. Also swept: the `NOTICE` and README
+  copyright lines, the website footer, and the `config.json` documentation
+  example, which now uses `your-name` / `you@example.com` placeholders as a doc
+  example should have from the start.
+- The GitLab fixture username in `tests/test_rtk_cmd_mcp_tools.py` is now
+  `author1`, pairing with the `reviewer1` already in the same fixture block. It
+  was an internal account name that the 0.23.0 de-branding sweep missed —
+  fixture data, but a real internal identifier in a public repo.
+
+### Added
+- Plugin directory submission metadata. `plugin.json` gains `displayName`,
+  `homepage`, `repository`, `license`, `keywords`, and a `$schema` for editor
+  autocomplete; the `marketplace.json` entry additionally gains `category`
+  (`productivity`), and the marketplace itself a top-level `description`.
+  `claude plugin validate . --strict` now passes with no warnings, where the
+  missing description previously failed it. `category` is deliberately only in
+  the marketplace entry: it is a marketplace-specific field, and an
+  unrecognized key in `plugin.json` is a warning that `--strict` escalates to
+  an error.
+
 ## [1.2.1] - 2026-08-04
 
 ### Removed

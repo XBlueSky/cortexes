@@ -39,7 +39,9 @@
 
 ## 執行
 
-若遇到辱罵、騷擾或其他不可接受的行為，可向專案維護者回報：**tonyhu@synology.com**。
+若遇到辱罵、騷擾或其他不可接受的行為，可透過 GitHub 的
+[private vulnerability reporting](https://github.com/XBlueSky/cortexes/security/advisories/new)
+私下向專案維護者回報——與安全問題共用同一個保密管道。
 所有申訴都會被即時且公正地審視與調查。維護者有義務尊重回報者的隱私與安全。
 
 ## 歸屬

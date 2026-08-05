@@ -86,11 +86,11 @@ class ZoektSearch(unittest.TestCase):
 
 
 _USER = {
-    "username": "tonyhu",
+    "username": "author1",
     "id": "688",
-    "name": "tonyhu",
+    "name": "author1",
     "avatar_url": "https://secure.gravatar.com/avatar/0000000000000000000000000000000000000000000000000000000000000000?s=80&d=identicon",
-    "web_url": "https://git.example.com/tonyhu",
+    "web_url": "https://git.example.com/author1",
 }
 _REVIEWER = {
     "username": "reviewer1",
@@ -118,7 +118,7 @@ class GitlabTool(unittest.TestCase):
         result = filter_gitlab_tool(json.dumps(mr))
         parsed = json.loads(result)
         # user objects collapsed to "@username" strings
-        self.assertEqual(parsed["author"], "@tonyhu")
+        self.assertEqual(parsed["author"], "@author1")
         self.assertEqual(parsed["assignees"], ["@reviewer1"])
         self.assertEqual(parsed["reviewers"], ["@reviewer1"])
         # everything else preserved
@@ -140,7 +140,7 @@ class GitlabTool(unittest.TestCase):
         parsed = json.loads(result)
         self.assertEqual(len(parsed), 3)
         for entry in parsed:
-            self.assertEqual(entry["author"], "@tonyhu")
+            self.assertEqual(entry["author"], "@author1")
             self.assertEqual(entry["reviewers"], ["@reviewer1"])
 
     def test_collapses_user_in_notes(self):
@@ -157,7 +157,7 @@ class GitlabTool(unittest.TestCase):
         ]
         result = filter_gitlab_tool(json.dumps(notes))
         parsed = json.loads(result)
-        self.assertEqual(parsed[0]["author"], "@tonyhu")
+        self.assertEqual(parsed[0]["author"], "@author1")
         self.assertEqual(parsed[0]["body"], "requested review from @reviewer1")
 
     def test_collapses_nested_approval(self):
@@ -197,7 +197,7 @@ class GitlabTool(unittest.TestCase):
     def test_non_user_dict_not_collapsed(self):
         # Something that happens to have a `username` key but is not a user
         # object (no avatar_url) must be left alone.
-        node = {"username": "tonyhu", "type": "audit-entry", "ts": "2026-05-25"}
+        node = {"username": "author1", "type": "audit-entry", "ts": "2026-05-25"}
         result = filter_gitlab_tool(json.dumps(node))
         parsed = json.loads(result)
         self.assertEqual(parsed, node)
@@ -222,7 +222,7 @@ class Dispatch(unittest.TestCase):
         raw = json.dumps({"iid": "21", "title": "x", "author": _USER})
         result = filter_mcp_tool(raw, "mcp__plugin_acme-corp-workflows_gitlab__get_merge_request")
         parsed = json.loads(result)
-        self.assertEqual(parsed["author"], "@tonyhu")
+        self.assertEqual(parsed["author"], "@author1")
 
 
 if __name__ == "__main__":
