@@ -17,12 +17,29 @@ or again after switching machines to rebuild local state.
 
 ## Steps
 
-### 1. Check for existing config
+### 1. Check the cortex-vec CLI
+
+Run `command -v cortex-vec`. If it is not on PATH, tell the user the vault's
+indexing and search need the CLI, and offer to install it now:
+
+```bash
+# Recommended: isolated tool install via uv
+uv tool install cortex-vec
+
+# Or with pip
+pip install cortex-vec
+```
+
+If they decline, continue anyway — recording and the skills degrade
+gracefully — but note that semantic indexing and `cortex-vec` search stay
+unavailable until it is installed.
+
+### 2. Check for existing config
 
 Read `~/.cortex/config.json`. If it exists, show current config and ask if the
 user wants to reconfigure or abort.
 
-### 2. Ask for vault path
+### 3. Ask for vault path
 
 If the user provided an argument, use that as the vault path.
 Otherwise, ask: "Where is the cortex vault? (e.g. /srv/cortex, ~/cortex)"
@@ -30,13 +47,13 @@ Otherwise, ask: "Where is the cortex vault? (e.g. /srv/cortex, ~/cortex)"
 If the path exists and contains Notes/ or Weekly/ or Raw/, recognize it as an existing vault.
 If the path doesn't exist, ask if they want to create it.
 
-### 3. Ask for author info
+### 4. Ask for author info
 
 Ask for:
 - Author name (for git commits)
 - Author email (for git commits)
 
-### 4. Write config
+### 5. Write config
 
 Create `~/.cortex/` directory if needed, then write `~/.cortex/config.json`:
 
@@ -52,7 +69,7 @@ Create `~/.cortex/` directory if needed, then write `~/.cortex/config.json`:
 }
 ```
 
-### 5. Initialize vault structure
+### 6. Initialize vault structure
 
 Ensure these directories exist in the vault:
 - `Raw/`
@@ -76,11 +93,11 @@ Append-only record of vault operations (distill, evolve).
 
 The file is append-only; do not overwrite if it exists.
 
-### 6. Initialize git
+### 7. Initialize git
 
 If the vault is not a git repo, run `git init` and create an initial commit.
 
-### 7. Rebuild _index.md
+### 8. Rebuild _index.md
 
 Scan every page under `Notes/<topic>/` and `Projects/<repo>/`, skipping any path
 containing `_archive`. For each page extract the title, the tags from
@@ -125,7 +142,7 @@ Legacy `Projects/<repo>/_index.md` files are not index rows — skip them. To ch
 an existing index against the files on disk (and for the regex traps that make a
 naive check silently wrong), see `docs/index-audit.md`.
 
-### 8. Show summary
+### 9. Show summary
 
 Display:
 ```

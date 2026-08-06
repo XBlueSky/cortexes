@@ -41,12 +41,27 @@ Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code ses
 
 ### 2. 安裝 cortex-vec CLI
 
+CLI 已發佈在 PyPI，套件名
+[`cortex-vec`](https://pypi.org/project/cortex-vec/)：
+
 ```bash
-# cortex-vec 位於已安裝的 plugin 內;從 cache 最新版本安裝
-pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sort -V | tail -1)"
+# 建議：用 uv 做隔離的工具安裝
+uv tool install cortex-vec
+
+# 或用 pip
+pip install cortex-vec
 ```
 
-需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。
+plugin 更新後用 `uv tool upgrade cortex-vec`（或 `pip install -U
+cortex-vec`）升級。`/cortex:genesis` 會檢查 CLI 是否已安裝，缺少時主動
+提供安裝指令。想跑尚未釋出的開發版，可改從 repo 安裝：
+
+```bash
+uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
+```
+
+需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。沒有 key 時
+`search` 會自動降級為 BM25-only。
 
 ### 3. 初始化
 

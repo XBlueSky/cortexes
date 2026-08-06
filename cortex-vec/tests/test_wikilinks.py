@@ -2,10 +2,10 @@ from cortex_vec import parser
 
 
 def test_extract_wikilinks_basic():
-    text = "see [[Web benchmark]] and [[ SYNOTOKEN ]] plus [[A|alias]]."
+    text = "see [[Web benchmark]] and [[ SPACED ]] plus [[A|alias]]."
     links = parser.extract_wikilinks(text)
     assert "Web benchmark" in links
-    assert "SYNOTOKEN" in links
+    assert "SPACED" in links
     assert "A" in links
 
 
