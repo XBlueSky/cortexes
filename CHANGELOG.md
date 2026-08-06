@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-08-06
+
+### Added
+- `PRIVACY.md` (and `PRIVACY.zh-TW.md`), documenting every data flow in
+  the plugin: what a session record captures and what is stripped before
+  writing, the transcript filter's classifier calls to Anthropic (>12 KB
+  blocks, 8 KB sent, 5 per session, through the user's own Claude Code),
+  what reaches OpenAI for embeddings, summaries and reranking, where
+  every local file lives, git commit and push behaviour, the absence of
+  telemetry, how to disable each remote feature, and how to delete
+  vault data including from git history. Both READMEs gain a Privacy
+  section pointing at it.
+
+### Changed
+- The `using-cortex` skill now fires on four concrete signals — an
+  explicit request, a reference to earlier work, a topic the SessionStart
+  hook actually listed, or a request to resume a session — instead of
+  triggering unconditionally at session start and on "any non-trivial
+  question". The old wording told Claude to query whenever there was a
+  "1% chance" the vault might help, and to keep doing so even after the
+  user chose "直接開始工作" from the SessionStart menu. That is broader
+  than a capability description should be: it spent the user's tokens on
+  speculation and overrode an explicit opt-out. The menu choice is now
+  honoured for the rest of the session, and the default when no signal
+  matches is to answer directly. The marketplace entry's trigger text for
+  `using-cortex` and `cortex-query` was rewritten to match, since it
+  feeds the public site.
+
+### Fixed
+- Both READMEs described the SessionEnd flow as `hook → confirmation →
+  Raw/`. There is no confirmation step and never has been: recording is
+  automatic for any transcript over 4 KB, gated only by config presence
+  and the `CORTEX_SKIP_RECORD` opt-out. The diagram now says so, and the
+  hooks table carries an explicit note.
+- `CORTEX_NO_CLASSIFIER` was undocumented despite being the only way to
+  stop the filter from sending anything to Anthropic. It is now in both
+  environment-variable tables.
+- The Dependencies section still said `pip install -e ./cortex-vec`,
+  missed when 1.3.1 moved installation to PyPI.
+
 ## [1.3.1] - 2026-08-05
 
 ### Added

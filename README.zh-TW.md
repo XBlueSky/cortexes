@@ -114,6 +114,11 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 | Session Report | SessionEnd | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
 | Memory Injection | SessionStart | 互動式選單：偵測 vault backlog 狀態後詢問下一步 |
 
+> **錄製是自動的。** 每個超過 4 KB 的 session 在結束時都會寫進你的
+> vault，不會逐次詢問。設定 `CORTEX_SKIP_RECORD=1` 可跳過某次 session；
+> 完整的擷取內容、排除項目，以及哪些資料會離開你的機器，見
+> [`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md)。
+
 #### Transcript Filter（0.9.0+）
 
 SessionEnd hook 在寫進 Raw/ 前會跑一條 TOML-driven filter pipeline，把不具知識價值的
@@ -151,7 +156,7 @@ log.md                         ← evolve/distill 的時序歷程
 每個 session:
   SessionStart → 提示有 memory 可用 → 使用者決定是否載入
   工作...
-  session 結束 → SessionEnd hook → 確認 → Raw/
+  session 結束 → SessionEnd hook → 過濾 → Raw/   （自動，不會詢問）
 
 隨時:
   /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
@@ -336,6 +341,7 @@ cortex-vec eval run \
 | `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
 | `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
+| `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。不會有任何資料送往 Anthropic |
 
 ## Dependencies
 
@@ -349,8 +355,23 @@ cortex-vec eval run \
 安裝：
 
 ```bash
-pip install -e ./cortex-vec
+uv tool install cortex-vec
 ```
+
+## 隱私
+
+Cortexes 是 local-first：vault 是你自己硬碟上的 Markdown，索引建在本機，
+作者收不到任何東西——沒有伺服器、沒有帳號、沒有 telemetry。
+
+有兩個功能會連到遠端服務，兩者都由你控制。Transcript filter 會把過大的
+區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送給
+Anthropic 做壓縮分類——設定 `CORTEX_NO_CLASSIFIER=1` 即可停用。語意索引
+會把 vault 頁面內容送往 OpenAI 產生 embedding——這只在你設定
+`OPENAI_API_KEY` 時才會發生，沒有設定時檢索完全跑在本機 BM25 上。
+
+[`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md) 完整記錄了每一條資料流：session
+記錄包含什麼、寫入前排除什麼、檔案存在哪裡、git commit 與 push 行為、
+如何逐項關閉，以及如何刪除你的資料。
 
 ## Project Structure
 
