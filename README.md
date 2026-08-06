@@ -124,6 +124,12 @@ See [`site/README.md`](site/README.md) for local builds.
 | Session Report | SessionEnd | On session end, filters the transcript through a TOML pipeline before writing to Raw/ |
 | Memory Injection | SessionStart | Interactive menu — checks vault backlog status and asks what to do next |
 
+> **Recording is automatic.** Every session over 4 KB is written to your
+> vault when it ends — there is no per-session prompt. Set
+> `CORTEX_SKIP_RECORD=1` to skip a session, and see
+> [`PRIVACY.md`](PRIVACY.md) for exactly what is captured, what is
+> excluded, and what (if anything) leaves your machine.
+
 #### Transcript Filter (0.9.0+)
 
 Before writing to Raw/, the SessionEnd hook runs a TOML-driven filter pipeline that
@@ -164,7 +170,7 @@ traps that let a naive check pass while reporting the wrong set.
 Every session:
   SessionStart → surfaces available memory → user decides whether to load it
   ...work happens...
-  session ends → SessionEnd hook → confirmation → Raw/
+  session ends → SessionEnd hook → filter → Raw/   (automatic, no prompt)
 
 Anytime:
   /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
@@ -389,6 +395,7 @@ cortex-vec eval run \
 | `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
 | `CORTEX_VAULT_PATH` | No | Overrides `vault_path` from config.json |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
+| `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Nothing is sent to Anthropic |
 
 ## Dependencies
 
@@ -402,8 +409,26 @@ cortex-vec eval run \
 Install:
 
 ```bash
-pip install -e ./cortex-vec
+uv tool install cortex-vec
 ```
+
+## Privacy
+
+Cortexes is local-first: your vault is Markdown on your own disk, the index
+is local, and the authors receive nothing — there is no server, no account,
+and no telemetry.
+
+Two features do reach a remote service, both under your control. The
+transcript filter sends oversized blocks (>12 KB, capped at 5 per session)
+to Anthropic through your own Claude Code to classify them for compression —
+disable with `CORTEX_NO_CLASSIFIER=1`. Semantic indexing sends vault page
+content to OpenAI for embeddings — this only happens if you set
+`OPENAI_API_KEY`, and without it retrieval runs entirely on local BM25.
+
+[`PRIVACY.md`](PRIVACY.md) documents every data flow in full: what a session
+record contains, what is stripped before writing, where files live, git
+commit and push behaviour, how to turn each feature off, and how to delete
+your data.
 
 ## Project Structure
 

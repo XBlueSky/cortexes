@@ -21,7 +21,7 @@ skills:
       - "note this decision down"
       - "remember this"
   - name: cortex-query
-    trigger: When the user wants to search the vault ("查 cortex", "之前有記過"), or proactively before answering any question about existing projects or internal tooling.
+    trigger: When the user wants to search the vault ("查 cortex", "之前有記過"), or when the request names a topic the SessionStart hook listed for this vault.
     examples:
       - "check cortex for nginx notes"
       - "have I written about this before"
@@ -43,9 +43,11 @@ skills:
       - "takeoff resume"
       - "takeoff done"
   - name: using-cortex
-    trigger: Triggers unconditionally at session start or on any non-trivial request — checks whether the vault already has relevant memory before guessing, asking, or re-exploring.
+    trigger: When the user refers to earlier work ("上次的", "之前那個", "we discussed"), asks to resume a previous session, or names a topic the SessionStart hook listed — routes the request to cortex-query. Stays out of the way otherwise.
     examples:
-      - "(auto-triggered at session start)"
+      - "上次那個 nginx 的問題後來怎麼解的"
+      - "continue where we left off"
+      - "we discussed this last week — what did we decide"
 
 commands:
   - name: genesis
