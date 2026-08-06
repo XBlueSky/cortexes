@@ -1,0 +1,63 @@
+name: Publish cortex-vec
+
+# cortex-vec 的 PyPI 發佈。push tag `cortex-vec-v<version>` 時觸發：
+# 先驗證 tag 版本與 pyproject.toml 一致（擋住忘了 bump 就打 tag 的失誤），
+# build sdist + wheel，再透過 PyPI Trusted Publishing（OIDC）上傳 —— repo
+# 不保存任何 API token。
+#
+# PyPI 端的一次性設定（帳號 → Publishing → Add a new pending publisher）：
+#   PyPI project name: cortex-vec
+#   Owner:             XBlueSky
+#   Repository:        cortexes
+#   Workflow name:     publish-cortex-vec.yml
+#   Environment:       pypi
+#
+# 發佈流程：bump cortex-vec/pyproject.toml 的 version、合併後
+#   git tag cortex-vec-v<version> && git push origin cortex-vec-v<version>
+
+on:
+  push:
+    tags: ["cortex-vec-v*"]
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches pyproject version
+        run: |
+          tag="${GITHUB_REF_NAME#cortex-vec-v}"
+          ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' cortex-vec/pyproject.toml)
+          if [ "$tag" != "$ver" ]; then
+            echo "tag version ($tag) != pyproject version ($ver)" >&2
+            exit 1
+          fi
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build cortex-vec --out-dir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/cortex-vec
+    permissions:
+      id-token: write # Trusted Publishing 的 OIDC 憑證
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

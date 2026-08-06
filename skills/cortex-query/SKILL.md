@@ -33,7 +33,9 @@ Use `cortex-vec` for semantic search:
 cortex-vec search "<query>" --n 5
 ```
 
-`cortex-vec` is installed as a CLI tool (via pip).
+`cortex-vec` is installed as a CLI tool (from PyPI via `uv tool install
+cortex-vec` or pip — see the README's Quick Start; `/cortex:genesis` offers
+the install when it is missing).
 
 **Context-aware filtering:** If the current session is inside a git repo,
 detect the repo name and add `--repo` filter as default scope:

@@ -48,12 +48,29 @@ git); the vector store is just a rebuildable derived index.
 
 ### 2. Install the cortex-vec CLI
 
+The CLI is published on PyPI as
+[`cortex-vec`](https://pypi.org/project/cortex-vec/):
+
 ```bash
-# cortex-vec ships inside the installed plugin; install from the latest cached version
-pip install -e "$(ls -d ~/.claude/plugins/cache/cortex/cortex/*/cortex-vec | sort -V | tail -1)"
+# Recommended: isolated tool install via uv
+uv tool install cortex-vec
+
+# Or with pip
+pip install cortex-vec
+```
+
+Upgrade with `uv tool upgrade cortex-vec` (or `pip install -U cortex-vec`)
+after a plugin update. `/cortex:genesis` checks for the CLI and offers this
+install when it is missing. To run the unreleased development version
+instead, install from the repo:
+
+```bash
+uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
 Requires the `OPENAI_API_KEY` environment variable (used for embeddings).
+Without it, `search` degrades to BM25-only — see
+[Environment Variables](#environment-variables).
 
 ### 3. Initialize
 

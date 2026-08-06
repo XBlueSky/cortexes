@@ -1,8 +1,21 @@
 [project]
 name = "cortex-vec"
 version = "0.7.0"
-description = "Vector store CLI for the cortex vault"
+description = "Vector store CLI for the cortex vault — hybrid BM25 + embedding retrieval over a markdown knowledge vault"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "XBlueSky" }]
 requires-python = ">=3.10"
+keywords = ["knowledge-base", "semantic-search", "bm25", "chromadb", "claude-code"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Indexing",
+]
 dependencies = [
     "chromadb",
     "openai",
@@ -19,8 +32,13 @@ dev = ["pytest>=7"]
 [project.scripts]
 cortex-vec = "cortex_vec.cli:main"
 
+[project.urls]
+Homepage = "https://cortexes.pages.dev"
+Repository = "https://github.com/XBlueSky/cortexes"
+Changelog = "https://github.com/XBlueSky/cortexes/blob/plugin/CHANGELOG.md"
+
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]

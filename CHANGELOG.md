@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-05
+
+### Added
+- `cortex-vec` is published to PyPI. A `publish-cortex-vec` workflow
+  builds the sdist/wheel and uploads through PyPI Trusted Publishing
+  (OIDC, no stored token) whenever a `cortex-vec-v<version>` tag is
+  pushed, after verifying the tag matches the version in
+  `cortex-vec/pyproject.toml`. Package metadata — readme, license,
+  project URLs, classifiers — filled in for the PyPI page.
+
+### Changed
+- `cortex-vec` now installs from PyPI (`uv tool install cortex-vec`, or
+  pip) instead of an editable install out of Claude Code's plugin cache.
+  The cache path is internal layout — it moves on every plugin update,
+  silently leaving the CLI pinned to a stale copy, and it breaks outright
+  if the cache structure changes. A PyPI install is a normal, upgradable
+  package install; a git-URL install stays documented for running the
+  unreleased development version. `/cortex:genesis` now starts by
+  checking that `cortex-vec` is on PATH and offers the install command
+  when it is missing.
+
+### Removed
+- The last literal occurrences of the pre-1.2.2 maintainer identity and
+  internal tooling names: a changelog note now describes the old author
+  metadata without spelling it out, a username-matching example and a
+  wikilink test fixture use neutral names, and the website plan
+  document's footer credits the project identity.
+
 ## [1.3.0] - 2026-08-05
 
 ### Added
@@ -217,8 +245,8 @@ Kept as-is: the maintainer's own name/email, as in 0.23.0.
   synonym pairs instead (`perf`/`performance`,
   `login`/`signin`+`authentication`).
 
-Kept as-is: the maintainer's own name/email (`tonyhu@synology.com`) as
-plugin author metadata.
+Kept as-is at the time: the maintainer's own name/email as plugin author
+metadata (replaced by the project identity in 1.2.2).
 
 ## [0.22.0] - 2026-07-02
 
@@ -595,8 +623,8 @@ feature.
 
 ### Fixed
 - `cortex-weekly` (Source D, Source E): username matching is now strictly
-  literal. The skill no longer infers alternate identities (e.g. `jhu` is
-  NOT treated as a variant of `tonyhu`) or accepts substring matches. If
+  literal. The skill no longer infers alternate identities (e.g. `jdoe` is
+  NOT treated as a variant of `johndoe`) or accepts substring matches. If
   no activity entry has `user` exactly equal to the configured username,
   the source returns zero bullets for that section. Prevents false-positive
   support / issue-tracker entries from being attributed to users with
