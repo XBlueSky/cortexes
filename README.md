@@ -73,9 +73,10 @@ instead, install from the repo:
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
-Requires the `OPENAI_API_KEY` environment variable (used for embeddings).
-Without it, `search` degrades to BM25-only — see
-[Environment Variables](#environment-variables).
+`OPENAI_API_KEY` is **optional**. Setting it enables embeddings, and with
+them semantic (vector) search. Without it nothing breaks: `search` runs on
+the local BM25 index, entirely on your machine and with nothing sent to
+OpenAI — see [Environment Variables](#environment-variables).
 
 ### 3. Initialize
 

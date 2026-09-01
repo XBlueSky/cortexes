@@ -56,3 +56,60 @@ test('every commands/*.md declares a name matching its filename', () => {
     assert.match(md, new RegExp(`^name: ${f.replace(/\.md$/, '')}$`, 'm'), `${f} name mismatch`);
   }
 });
+
+// Slash-command frontmatter is the skill frontmatter set. `skills:` is a
+// subagent field, not one of these — declaring it in a command file parses
+// fine and does nothing, which is worse than an error because it reads like
+// the skill is wired up. Source: code.claude.com/docs/en/slash-commands.
+const FRONTMATTER_FIELDS = new Set([
+  'name', 'description', 'when_to_use', 'argument-hint', 'arguments',
+  'disable-model-invocation', 'user-invocable', 'allowed-tools',
+  'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background',
+  'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
+]);
+
+function frontmatterKeys(md) {
+  const m = md.match(/^---\n([\s\S]*?)\n---/);
+  assert.ok(m, 'no frontmatter block');
+  return [...m[1].matchAll(/^([A-Za-z_][A-Za-z0-9_-]*):/gm)].map(x => x[1]);
+}
+
+test('no command declares a frontmatter field Claude Code does not support', () => {
+  for (const f of readdirSync(COMMANDS_DIR).filter(x => x.endsWith('.md'))) {
+    for (const key of frontmatterKeys(readFileSync(join(COMMANDS_DIR, f), 'utf8'))) {
+      assert.ok(FRONTMATTER_FIELDS.has(key), `${f}: unsupported frontmatter field "${key}"`);
+    }
+  }
+});
+
+test('no command relies on a skills: frontmatter field', () => {
+  for (const f of readdirSync(COMMANDS_DIR).filter(x => x.endsWith('.md'))) {
+    const md = readFileSync(join(COMMANDS_DIR, f), 'utf8');
+    assert.doesNotMatch(md, /^skills:/m, `${f} declares a no-op skills: field`);
+  }
+});
+
+// With `skills:` gone, the body is the only thing that wires a command to its
+// skill, so a delegating command must name the skill in its fully qualified
+// `cortexes:<skill>` form at least once. Later prose may use the short name.
+test('commands that delegate name their skill fully qualified at least once', () => {
+  const DELEGATES = {
+    'query.md': 'cortexes:cortex-query',
+    'evolve.md': 'cortexes:cortex-evolve',
+    'distill.md': 'cortexes:cortex-distill',
+    'broadcast.md': 'cortexes:cortex-broadcast',
+    'takeoff.md': 'cortexes:cortex-takeoff',
+  };
+  for (const [file, skill] of Object.entries(DELEGATES)) {
+    const md = readFileSync(join(COMMANDS_DIR, file), 'utf8');
+    assert.ok(md.includes(skill), `${file} must invoke ${skill} by its fully qualified name`);
+  }
+});
+
+test('query is user-invoked only', () => {
+  const md = readFileSync(join(COMMANDS_DIR, 'query.md'), 'utf8');
+  assert.match(md, /^disable-model-invocation: true$/m,
+    'query.md must set disable-model-invocation: true so only the user can run it');
+  assert.match(md, /^description: Manually search/m,
+    'query.md description must begin with "Manually search"');
+});

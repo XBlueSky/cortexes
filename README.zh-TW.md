@@ -65,8 +65,9 @@ cortex-vec`）升級。`/cortexes:genesis` 會檢查 CLI 是否已安裝，缺�
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
-需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。沒有 key 時
-`search` 會自動降級為 BM25-only。
+`OPENAI_API_KEY` 是**選用的**。設定它會啟用 embedding，也就啟用語意
+（向量）搜尋。不設定也不會壞掉：`search` 會走本機 BM25 索引，完全在你的
+機器上跑，不會有任何資料送往 OpenAI。
 
 ### 3. 初始化
 

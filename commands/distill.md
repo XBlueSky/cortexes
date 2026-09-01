@@ -9,11 +9,11 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
-skills:
-  - cortex-distill
 ---
 
-Use the cortex-distill skill to process unprocessed Raw/ files.
+Invoke the `cortexes:cortex-distill` skill and follow it for the whole run.
+Command frontmatter cannot load a skill for you, so invoke it explicitly with
+its fully qualified name via the Skill tool.
 
 If the user provided a date argument, filter Raw files to that date range.
 Otherwise, process all unprocessed files.

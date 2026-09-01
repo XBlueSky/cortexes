@@ -2,7 +2,7 @@
 
 # 隱私政策
 
-**最後更新：2026-08-06**
+**最後更新：2026-09-01**
 
 Cortexes 是一個 local-first 的 Claude Code plugin。你的知識庫就是你指定
 目錄下的純 Markdown 檔案，索引也建在本機。**Cortexes 的作者不會收到你的
@@ -18,6 +18,7 @@ Cortexes 是一個 local-first 的 Claude Code plugin。你的知識庫就是你
 |---|---|---|
 | Session 逐字記錄 | 你的本機 vault（`Raw/`） | **開啟** |
 | 過濾時超過 12 KB 的文字區塊 | Anthropic，透過你自己的 Claude Code | **開啟**（可關閉） |
+| Session 開始時注入的 vault metadata（repo 名稱、vault 路徑、主題名稱、baton 摘要） | Anthropic，透過你自己的 Claude Code | **開啟**（可關閉） |
 | Vault 頁面內容，用於建索引 | OpenAI | 僅在設有 `OPENAI_API_KEY` 時 |
 | Vault commit | 你的本機 git repo | **開啟** |
 | Vault push 到 git remote | 你設定的那個 remote | **關閉**（需自行開啟） |
@@ -70,6 +71,31 @@ session 最多 5 次呼叫**的上限，每次 20 秒逾時，並且是透過 `c
 程度，永遠不影響你的資料是否被保存。
 
 設定 `CORTEX_NO_CLASSIFIER=1` 即可完全停用。
+
+### Session 開始時注入的 vault metadata
+
+通往 Anthropic 的路徑不只分類器這一條。另外，`SessionStart` hook 會在你的
+第一則訊息被回答之前，**把 vault metadata 加進該 session 的 context**。它
+注入的內容包括：
+
+- 目前的 **repo 名稱**（由 `origin` git remote 推導）；
+- 你的 **vault 在磁碟上的絕對路徑**；
+- `Notes/` 與 `Projects/` 底下每一個頂層項目的**主題名稱** —— 只有目錄與
+  檔案名稱，不含頁面內容；
+- 此 repo 每一份待處理 takeoff baton 的 **topic** 與單行 **`summary:`**；
+  另外，當 baton 的 **`workdir:`** 與目前 repo 的 toplevel 不同時，該路徑
+  也會一併注入（同名 clone 的 baton 會標示來源）。
+
+這就是一般的 session context，所以只要該 session 與模型互動，這些內容就會
+連同對話其餘部分一起送往 Anthropic —— 透過**你自己的 Claude Code 安裝與你
+自己的 Anthropic 憑證**，適用你帳號 session 的一般處理方式。Cortexes 不會
+把它送到別的地方。頁面**內容**不會被注入；要載入內容必須從選單主動選擇。
+
+**注入發生在選單顯示之前，所以無法在選單階段拒絕。** 選擇選項 4
+（「直接開始工作」）會停止後續載入任何 vault 內容，並在該 session 後續不再
+主動搜尋，但它**無法收回已經進入 context 的 metadata**。如果 repo 名稱、
+vault 路徑，或某個主題／baton 摘要本身就是敏感資訊，請直接停用該 hook，
+不要倚賴選單 —— 見 [§7](#7-如何關閉各項功能)。
 
 ## 3. 送往 OpenAI 的資料
 
@@ -139,7 +165,8 @@ repository。推到公開 repository 的 vault 就是公開的。
 |---|---|
 | 跳過某一次 session 的錄製 | 在該 session 環境設定 `CORTEX_SKIP_RECORD=1` |
 | 完全停止錄製 | 從 `hooks/hooks.json` 移除 `SessionEnd` 項目，或停用整個 plugin |
-| 停止送任何資料給 Anthropic | 設定 `CORTEX_NO_CLASSIFIER=1` |
+| 停止過濾器對 Anthropic 的分類呼叫 | 設定 `CORTEX_NO_CLASSIFIER=1` |
+| 停止在 session 開始時注入 vault metadata | 從 `hooks/hooks.json` 移除 `SessionStart` 項目，或停用整個 plugin |
 | 停止送任何資料給 OpenAI | 取消設定 `OPENAI_API_KEY`——檢索退回本機 BM25 |
 | 停止自動 commit | 把 `~/.cortex/config.json` 的 `git.auto_commit` 設為 `false` |
 | 停止推送到 remote | 把 `git.auto_push` 設為 `false`（此為預設值） |

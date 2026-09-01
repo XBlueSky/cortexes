@@ -16,7 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invoked bare. Running it counts as an explicit request, so it searches even
   in a session that opted out of the vault. A new `site/tests/commands.test.mjs`
   fails if the marketplace entry ever again documents a command with no file
-  behind it.
+  behind it. The command is **user-invoked only** — it sets
+  `disable-model-invocation: true`, so Claude never fires it on its own and
+  running it is unambiguously the user's request.
+- `tests/test_query_command_smoke.py` — a runtime smoke test that drives the
+  real CLI: it points `~/.cortex/config.json` at a synthetic vault, runs
+  `claude -p "/cortexes:query <sentinel>"` with `--plugin-dir`, and asserts
+  the sentinel page comes back while a decoy note does not. It also asserts
+  `/cortex:query` returns `Unknown command`. Opt-in via `CORTEX_RUNTIME_SMOKE=1`
+  (it needs an authenticated CLI and spends tokens, which CI has neither), and
+  it refuses to run if `~/.cortex` already exists. File-existence and
+  `plugin details` inventory checks proved the file shipped; this proves the
+  command resolves and searches.
 
 ### Changed
 - **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
@@ -89,6 +100,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The landing page's Recall stage said semantic search was "checked before
   every answer". It is checked when a request points back at prior work.
 - The SessionStart label users see is now `[Cortexes]`.
+- **Removed the no-op `skills:` frontmatter from every command.** Slash-command
+  frontmatter is the skill frontmatter set, and `skills:` is not in it — it is
+  a *subagent* field (see the field table at
+  code.claude.com/docs/en/slash-commands). Declaring it in a command file
+  parses cleanly and does nothing, which is worse than an error because it
+  reads like the skill is wired up. All five delegating commands now name
+  their skill in the body by its fully qualified id (`cortexes:cortex-query`
+  and friends) and say explicitly that frontmatter cannot load it for them.
+  `site/tests/commands.test.mjs` gained an allowlist check against the
+  documented frontmatter fields so the next no-op field fails the build.
+- **Privacy disclosure for SessionStart.** `PRIVACY.md` and
+  `PRIVACY.zh-TW.md` now document that the hook adds the repository name, the
+  absolute vault path, the `Notes/`/`Projects/` topic names, and each pending
+  baton's topic and summary (plus its `workdir:` when it differs from the
+  current repo) to the session's context — ordinary context, so it reaches
+  Anthropic with the rest of the conversation through the user's own Claude
+  Code and credentials. It also states plainly that the injection happens
+  **before** the menu and that option 4 cannot retract metadata already in
+  context. Both files gain an at-a-glance row and a §7 row for disabling the
+  hook, and §7's "stop sending anything to Anthropic" row is corrected to
+  "stop the filter's classifier calls", which is all `CORTEX_NO_CLASSIFIER`
+  ever did.
+- The marketplace entry no longer says option 4 keeps the vault out of the
+  session entirely; it prevents subsequent content loading and proactive
+  searches.
+- Both READMEs now present `OPENAI_API_KEY` as **optional** — it enables
+  embeddings and semantic search; without it retrieval runs on the local BM25
+  index with nothing sent to OpenAI. The old wording led with "Requires".
 - Both READMEs' Quick Start adds the missing `/plugin install cortexes@cortex`
   after `marketplace add`, documents `/cortexes:query` in the command table,
   and gains an "Upgrading from 1.x to 2.0" section covering the marketplace

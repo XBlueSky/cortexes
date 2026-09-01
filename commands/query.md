@@ -1,17 +1,18 @@
 ---
 name: query
-description: Search the cortex vault (Notes, Projects, Weekly, Raw) for existing notes
+description: Manually search the cortex vault (Notes, Projects, Weekly, Raw) for existing notes
 argument-hint: "[what to search for]"
+disable-model-invocation: true
 allowed-tools:
   - Read
   - Glob
   - Grep
   - Bash
-skills:
-  - cortex-query
 ---
 
-Use the cortex-query skill to search the vault.
+Invoke the `cortexes:cortex-query` skill and follow it for the actual search.
+Command frontmatter cannot load a skill for you, so invoke it explicitly with
+its fully qualified name via the Skill tool.
 
 Argument handling:
 
@@ -21,15 +22,14 @@ Argument handling:
   their answer. Do not guess a query from the conversation, and do not
   search the whole vault "to see what's there".
 
-Running this command **is** the user's explicit request (using-cortex signal
-1), so the narrow proactive-retrieval policy does not apply here: search,
-even if the session earlier opted out of the vault via SessionStart option 4.
+This command is user-invoked only (`disable-model-invocation: true`), so
+running it **is** the user's explicit request — using-cortex signal 1. Search
+even if the session earlier picked "直接開始工作" at SessionStart.
 
-Follow the cortex-query skill's layered strategy: `cortex-vec search` first
-(repo-scoped by default inside a git repo, overridable with "search all"),
-grep as the exact-match supplement, and `Raw/` only on request. Present
-results in the skill's response format, and read a full page only when the
-user picks one.
+Follow the skill's layered strategy: `cortex-vec search` first (repo-scoped by
+default inside a git repo, overridable with "search all"), grep as the
+exact-match supplement, and `Raw/` only on request. Present results in the
+skill's response format, and read a full page only when the user picks one.
 
 If `cortex-vec` is not installed, say so and fall back to grep rather than
 failing. Semantic scoring needs `OPENAI_API_KEY`; without it `cortex-vec`

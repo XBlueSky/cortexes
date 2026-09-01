@@ -2,7 +2,7 @@
 
 # Privacy Policy
 
-**Last updated: 2026-08-06**
+**Last updated: 2026-09-01**
 
 Cortexes is a local-first Claude Code plugin. Your knowledge vault is plain
 Markdown in a directory you choose, indexed locally. **The authors of
@@ -19,6 +19,7 @@ This document covers the plugin (commands, skills, hooks) and the
 |---|---|---|
 | Session transcripts | Your local vault (`Raw/`) | **On** |
 | Large text blocks (>12 KB) during filtering | Anthropic, via your own Claude Code | **On** (opt-out) |
+| Vault metadata at session start (repo name, vault path, topic names, baton summaries) | Anthropic, via your own Claude Code | **On** (opt-out) |
 | Vault page content, for indexing | OpenAI | Only with `OPENAI_API_KEY` |
 | Vault commits | Your local git repo | **On** |
 | Vault pushes to a git remote | The remote you configured | **Off** (opt-in) |
@@ -77,6 +78,36 @@ the feature only ever affects compression, never whether your data is
 preserved.
 
 Set `CORTEX_NO_CLASSIFIER=1` to disable it entirely.
+
+### Vault metadata injected at session start
+
+The classifier is not the only path to Anthropic. Separately, the
+`SessionStart` hook **adds vault metadata to the session's context** before
+your first message is answered. It injects:
+
+- the current **repository name**, derived from the `origin` git remote;
+- the **absolute path of your vault** on disk;
+- the **topic names** of every top-level entry under `Notes/` and
+  `Projects/` — directory and file names only, not page contents;
+- for each pending takeoff baton in this repository, its **topic** and its
+  one-line **`summary:`** — plus the baton's **`workdir:`** path whenever
+  that path differs from the current repository's toplevel (batons from a
+  same-named clone are labelled with their origin).
+
+This is ordinary session context, so it is sent to Anthropic along with the
+rest of the conversation whenever the session talks to the model — through
+**your own Claude Code installation and your own Anthropic credentials**,
+under the normal handling that applies to your account's sessions. Cortexes
+does not send it anywhere else. Note *contents* are not injected; loading
+those is opt-in through the menu.
+
+**The injection happens before the menu is shown, so it cannot be declined
+at the menu.** Choosing option 4 ("直接開始工作") stops any further vault
+content from being loaded and suppresses proactive searches for the rest of
+the session, but it **cannot retract metadata that is already in context**.
+If a repository name, a vault path, or a topic or baton summary is itself
+sensitive, disable the hook rather than relying on the menu — see
+[§7](#7-how-to-turn-things-off).
 
 ## 3. Data sent to OpenAI
 
@@ -152,7 +183,8 @@ the entire codebase are the OpenAI and Anthropic calls described above.
 |---|---|
 | Skip recording one session | Set `CORTEX_SKIP_RECORD=1` in that session's environment |
 | Stop all recording | Remove the `SessionEnd` entry from `hooks/hooks.json`, or disable the plugin |
-| Stop sending anything to Anthropic | Set `CORTEX_NO_CLASSIFIER=1` |
+| Stop the filter's classifier calls to Anthropic | Set `CORTEX_NO_CLASSIFIER=1` |
+| Stop injecting vault metadata at session start | Remove the `SessionStart` entry from `hooks/hooks.json`, or disable the plugin |
 | Stop sending anything to OpenAI | Unset `OPENAI_API_KEY` — retrieval falls back to local BM25 |
 | Stop automatic commits | Set `git.auto_commit` to `false` in `~/.cortex/config.json` |
 | Stop pushing to a remote | Set `git.auto_push` to `false` (this is the default) |

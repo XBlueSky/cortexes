@@ -80,7 +80,7 @@ hooks:
   - event: SessionEnd
     why: Auto-generates a full report (commits, findings, decisions) and saves it to the vault's Raw/ on session end — the entry point for automatic capture. It also reclaims redundant snapshots, so one conversation stays one Raw across /clear and --resume.
   - event: SessionStart
-    why: Detects the current repo and injects the vault's topic names plus a short menu — metadata and an offer, not note contents. Loading anything is opt-in; picking option 1 runs the search, while picking "直接開始工作" keeps the vault out of the session entirely.
+    why: Detects the current repo and injects the vault's topic names plus a short menu — metadata and an offer, not note contents. Loading anything is opt-in; option 1 runs the search, while "直接開始工作" prevents subsequent content loading and proactive searches for that session.
 
 tips:
   - Retrieval is deliberately narrow — it fires on four signals, not on every hard question. When you do want the vault consulted, say so or run /cortexes:query; that always counts.

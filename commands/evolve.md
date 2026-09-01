@@ -9,11 +9,11 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
-skills:
-  - cortex-evolve
 ---
 
-Use the cortex-evolve skill to save content to the cortex vault.
+Invoke the `cortexes:cortex-evolve` skill and follow it to save to the vault.
+Command frontmatter cannot load a skill for you, so invoke it explicitly with
+its fully qualified name via the Skill tool.
 
 If the user provided arguments, use them as the content or topic to save.
 If no arguments, ask the user what they want to save.
