@@ -106,6 +106,17 @@ test('commands that delegate name their skill fully qualified at least once', ()
   }
 });
 
+// A bare `- Bash` in allowed-tools pre-approves *any* shell command for the
+// turn. A read-only search has no business holding that; scope it to the
+// commands the flow actually runs.
+test('query does not pre-approve unrestricted Bash', () => {
+  const md = readFileSync(join(COMMANDS_DIR, 'query.md'), 'utf8');
+  assert.doesNotMatch(md, /^\s*-\s*Bash\s*$/m,
+    'query.md must not pre-approve bare Bash — scope it to the exact commands it needs');
+  assert.match(md, /^\s*-\s*Bash\(cortex-vec search:/m,
+    'query.md should still pre-approve the cortex-vec search it depends on');
+});
+
 test('query is user-invoked only', () => {
   const md = readFileSync(join(COMMANDS_DIR, 'query.md'), 'utf8');
   assert.match(md, /^disable-model-invocation: true$/m,

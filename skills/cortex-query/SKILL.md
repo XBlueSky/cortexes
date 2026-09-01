@@ -44,8 +44,12 @@ the vault.
 
 ## Resolve Vault Path
 
-Read `~/.cortex/config.json` to get `vault_path`.
-If the file doesn't exist, tell the user to run `/cortexes:genesis` first.
+If `CORTEX_VAULT_PATH` is set in the environment, **that is the vault** — use
+it and skip the config file. This is the documented override; the hooks and
+`cortex-vec` both honour it.
+
+Otherwise read `~/.cortex/config.json` and take `vault_path`. If neither is
+available, tell the user to run `/cortexes:genesis` first.
 
 ## Search Strategy (Layered)
 
@@ -81,12 +85,27 @@ The user can override this by saying "search all" or "search across everything".
 
 ### Layer 2: Exact Match (supplement)
 
-If Layer 1 returns no strong results (all scores < 0.60), or if the user
-is searching for an exact string (command, config path, error message):
+If Layer 1 returns no strong results (all scores < 0.60), if `cortex-vec` is
+unavailable, or if the user is searching for an exact string (command, config
+path, error message), search the text directly.
 
 ```bash
 grep -ri "<query>" <vault_path>/Notes/ <vault_path>/Projects/
 ```
+
+Use `grep` through Bash rather than the Grep tool: the vault normally lives
+outside the session's working directory, and the file tools are confined to
+the workspace, so the Grep tool cannot reach it. `/cortexes:query`
+pre-approves exactly this `grep` (and nothing else beyond `cortex-vec` and
+repo detection) for that reason.
+
+**If the grep is refused because the vault is outside the working
+directory**, do not report the search as failed. Say precisely that: Layer 1
+is unavailable and the fallback cannot reach the vault, and the fix is either
+to install `cortex-vec` (Layer 1 takes no path argument, so it is unaffected
+by the workspace boundary) or to add the vault to the session with
+`/add-dir <vault_path>`. Never imply the vault has no matching content when
+the search never ran.
 
 Show matching files with brief excerpts.
 

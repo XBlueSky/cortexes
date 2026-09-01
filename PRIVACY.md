@@ -7,8 +7,10 @@
 Cortexes is a local-first Claude Code plugin. Your knowledge vault is plain
 Markdown in a directory you choose, indexed locally. **The authors of
 Cortexes receive no data from you — there is no server, no account, and no
-telemetry.** The only data that leaves your machine goes to services you
-configure yourself, described in full below.
+telemetry.** Data that leaves your machine goes to services you already use
+or configure yourself — Anthropic through your own Claude Code, OpenAI if
+you set a key, and a git remote if you turn pushing on — described in full
+below.
 
 This document covers the plugin (commands, skills, hooks) and the
 `cortex-vec` CLI it depends on.
@@ -20,6 +22,7 @@ This document covers the plugin (commands, skills, hooks) and the
 | Session transcripts | Your local vault (`Raw/`) | **On** |
 | Large text blocks (>12 KB) during filtering | Anthropic, via your own Claude Code | **On** (opt-out) |
 | Vault metadata at session start (repo name, vault path, topic names, baton summaries) | Anthropic, via your own Claude Code | **On** (opt-out) |
+| Vault pages read during query / distill / broadcast / takeoff resume | Anthropic, via your own Claude Code | **On** whenever you use those flows |
 | Vault page content, for indexing | OpenAI | Only with `OPENAI_API_KEY` |
 | Vault commits | Your local git repo | **On** |
 | Vault pushes to a git remote | The remote you configured | **Off** (opt-in) |
@@ -98,8 +101,11 @@ This is ordinary session context, so it is sent to Anthropic along with the
 rest of the conversation whenever the session talks to the model — through
 **your own Claude Code installation and your own Anthropic credentials**,
 under the normal handling that applies to your account's sessions. Cortexes
-does not send it anywhere else. Note *contents* are not injected; loading
-those is opt-in through the menu.
+does not send it anywhere else. 
+Page **contents** are not injected at session start. They may still be
+loaded later in the same session — after you pick a menu option, run a
+command such as `/cortexes:query`, or make a request that matches one of
+`using-cortex`'s four signals — at which point the section above applies.
 
 **The injection happens before the menu is shown, so it cannot be declined
 at the menu.** Choosing option 4 ("直接開始工作") stops any further vault
@@ -108,6 +114,37 @@ the session, but it **cannot retract metadata that is already in context**.
 If a repository name, a vault path, or a topic or baton summary is itself
 sensitive, disable the hook rather than relying on the menu — see
 [§7](#7-how-to-turn-things-off).
+
+### Vault content loaded during normal use
+
+Cortexes is a Claude Code plugin, and its skills work by **reading vault
+files into the conversation**. Whenever you run a query, a distill, a
+broadcast, or resume a takeoff baton, the pages those flows open — under
+`Notes/`, `Projects/`, `Raw/`, and `.takeoff/` — become part of the active
+Claude Code context and are sent to Anthropic with the rest of the session,
+exactly as any file you open in Claude Code is.
+
+This is **ordinary Claude Code processing under your own account**, using
+your own installation and your own credentials, governed by whatever data
+handling already applies to your Claude Code sessions. It is **not** a
+Cortexes server, a telemetry channel, or a separate upload; Cortexes has no
+server and receives nothing. It does mean the honest answer to "does my
+vault content reach a model?" is **yes — whenever a Cortexes flow reads
+it**. That is the point of the plugin: the retrieved page is what grounds
+the answer.
+
+The scope is what a flow actually reads, not the whole vault:
+
+- **query** (`/cortexes:query`, or a `using-cortex` signal) — the search
+  hits it presents, plus any page you then ask it to open.
+- **distill** — the `Raw/` record being distilled (map-first, so spans
+  rather than whole files where it can) and the pages it writes.
+- **broadcast** — the `Raw/` record being fused and each candidate page it
+  opens or edits.
+- **takeoff resume** — the `.takeoff/` baton for that work line.
+
+If a page is too sensitive to send to a model, it is too sensitive to keep
+in a vault that a model searches. Keep it somewhere else.
 
 ## 3. Data sent to OpenAI
 
@@ -174,8 +211,18 @@ it from git history. See [§8](#8-deleting-your-data).
 ## 6. Telemetry
 
 There is none. Cortexes makes no analytics calls, no usage reporting, no
-crash reporting, and no update checks. The only outbound network requests in
-the entire codebase are the OpenAI and Anthropic calls described above.
+crash reporting and no update checks, and the authors receive nothing.
+
+Outbound network traffic originated by the plugin's own code is limited to
+three things: the filter's classifier calls to Anthropic ([§2](#2-data-sent-to-anthropic)),
+the embedding calls to OpenAI ([§3](#3-data-sent-to-openai)), and `git push`
+to the remote you configured, if you turn that on ([§5](#5-git-behaviour)).
+
+Separately — and this is not a Cortexes network channel — because the plugin
+runs *inside* Claude Code, every flow that reads vault content into the
+conversation is carried by **Claude Code's own session requests to
+Anthropic**, under your account. See
+[§2](#vault-content-loaded-during-normal-use).
 
 ## 7. How to turn things off
 
@@ -189,8 +236,13 @@ the entire codebase are the OpenAI and Anthropic calls described above.
 | Stop automatic commits | Set `git.auto_commit` to `false` in `~/.cortex/config.json` |
 | Stop pushing to a remote | Set `git.auto_push` to `false` (this is the default) |
 
-Disabling every remote feature leaves a fully offline, fully local plugin
-with no reduction in recording, distillation, or lexical search.
+Turning all of these off keeps recording, indexing and lexical search fully
+local. It does **not** make the plugin offline: query, distill, broadcast
+and takeoff resume are Claude-driven flows, so using them necessarily puts
+the vault content they read into your Claude Code session, which Anthropic
+processes ([§2](#vault-content-loaded-during-normal-use)).
+`CORTEX_NO_CLASSIFIER=1` stops the filter's nested classifier calls only —
+it has no effect on normal Claude session processing.
 
 ## 8. Deleting your data
 

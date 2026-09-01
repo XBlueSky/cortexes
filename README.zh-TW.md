@@ -392,11 +392,21 @@ uv tool install cortex-vec
 Cortexes 是 local-first：vault 是你自己硬碟上的 Markdown，索引建在本機，
 作者收不到任何東西——沒有伺服器、沒有帳號、沒有 telemetry。
 
-有兩個功能會連到遠端服務，兩者都由你控制。Transcript filter 會把過大的
-區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送給
-Anthropic 做壓縮分類——設定 `CORTEX_NO_CLASSIFIER=1` 即可停用。語意索引
-會把 vault 頁面內容送往 OpenAI 產生 embedding——這只在你設定
-`OPENAI_API_KEY` 時才會發生，沒有設定時檢索完全跑在本機 BM25 上。
+但這跟「沒有任何資料離開你的機器」不是同一回事。Cortexes 是 Claude Code
+plugin，所以 query、distill、broadcast 或 takeoff resume 讀到的 vault 頁面
+會成為當前 session 的一部分，並在你自己的帳號底下由 Anthropic 處理——這是
+一般的 Claude Code 處理，不是 Cortexes 的通道。SessionStart hook 另外會在
+選單出現之前，把 repo 名稱、vault 路徑，以及你的 `Notes/`／`Projects/`
+主題名稱放進該 context；頁面內容不會在那時被注入，但可能在你選了選單選項、
+執行指令，或提出符合 `using-cortex` 訊號的請求之後才被載入。
+
+由 plugin 自身程式碼發起的流程有三個，全部由你控制：Transcript filter 會
+把過大的區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送
+給 Anthropic 做壓縮分類——`CORTEX_NO_CLASSIFIER=1` 可停用它，而它只停掉這
+組巢狀呼叫，不影響一般 session 處理；語意索引會把 vault 頁面內容送往
+OpenAI 產生 embedding，只在你設定 `OPENAI_API_KEY` 時發生，未設定時檢索走
+本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行開啟時發生
+（預設關閉）。
 
 [`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md) 完整記錄了每一條資料流：session
 記錄包含什麼、寫入前排除什麼、檔案存在哪裡、git commit 與 push 行為、

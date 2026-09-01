@@ -1,6 +1,7 @@
 """Configuration loading and constants."""
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -29,8 +30,16 @@ _RETRIEVAL_DEFAULTS = {
 
 
 def load_config():
-    """Load ~/.cortex/config.json. Exit with error if not found."""
+    """Load ~/.cortex/config.json.
+
+    With CORTEX_VAULT_PATH set, the config file is optional: the override
+    already answers the only question that needs it to exist, and everything
+    else falls back to defaults. Without the override, a missing file is
+    still a hard error pointing at genesis.
+    """
     if not CORTEX_CONFIG.exists():
+        if os.environ.get("CORTEX_VAULT_PATH"):
+            return {}
         print(
             "Error: ~/.cortex/config.json not found. Run /cortexes:genesis first.",
             file=sys.stderr,
@@ -41,7 +50,22 @@ def load_config():
 
 
 def get_vault_path():
-    """Return the vault path from config. Exit with error if invalid."""
+    """Return the vault path. CORTEX_VAULT_PATH wins over config.json.
+
+    Both READMEs have documented CORTEX_VAULT_PATH as "overrides vault_path
+    from config.json" since it was introduced, and the shell hooks honour it,
+    but this resolver did not — so the override worked for the hooks and was
+    silently ignored by the CLI and the skills that read through it.
+    """
+    override = os.environ.get("CORTEX_VAULT_PATH", "")
+    if override:
+        if not Path(override).is_dir():
+            print(
+                f"Error: CORTEX_VAULT_PATH '{override}' is not a directory.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return Path(override)
     cfg = load_config()
     vault = cfg.get("vault_path", "")
     if not vault or not Path(vault).is_dir():

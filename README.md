@@ -449,12 +449,24 @@ Cortexes is local-first: your vault is Markdown on your own disk, the index
 is local, and the authors receive nothing — there is no server, no account,
 and no telemetry.
 
-Two features do reach a remote service, both under your control. The
-transcript filter sends oversized blocks (>12 KB, capped at 5 per session)
-to Anthropic through your own Claude Code to classify them for compression —
-disable with `CORTEX_NO_CLASSIFIER=1`. Semantic indexing sends vault page
-content to OpenAI for embeddings — this only happens if you set
-`OPENAI_API_KEY`, and without it retrieval runs entirely on local BM25.
+That is not the same as "nothing leaves your machine". Cortexes is a Claude
+Code plugin, so the vault pages a query, distill, broadcast, or takeoff
+resume reads become part of the active session and are processed by
+Anthropic under your own account — ordinary Claude Code processing, not a
+Cortexes channel. The SessionStart hook additionally puts the repo name, the
+vault path, and your `Notes/`/`Projects/` topic names into that context
+before the menu appears; page contents are not injected there, but may be
+loaded later once you pick a menu option, run a command, or make a request
+that matches a `using-cortex` signal.
+
+Three flows are initiated by the plugin's own code, all under your control:
+the transcript filter sends oversized blocks (>12 KB, capped at 5 per
+session) to Anthropic through your own Claude Code to classify them for
+compression — `CORTEX_NO_CLASSIFIER=1` disables it, and stops only those
+nested calls, not normal session processing; semantic indexing sends vault
+page content to OpenAI for embeddings, only if you set `OPENAI_API_KEY`, and
+without it retrieval runs on the local BM25 index; and `git push` to a
+remote you configured, only if you turn it on (off by default).
 
 [`PRIVACY.md`](PRIVACY.md) documents every data flow in full: what a session
 record contains, what is stripped before writing, where files live, git

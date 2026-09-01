@@ -29,8 +29,14 @@ mind:
   uploaded by default.
 - **Semantic search** sends the content being indexed to OpenAI to generate
   embeddings. If your vault contains sensitive data, evaluate that trade-off
-  yourself — without `OPENAI_API_KEY` set, search runs entirely on local
-  BM25 and nothing leaves your machine.
+  yourself — without `OPENAI_API_KEY` set, **no vault content is sent to
+  OpenAI** and search runs on the local BM25 index.
+- **Retrieved content still reaches Anthropic.** Cortexes is a Claude Code
+  plugin: whatever a query, distill, broadcast, or takeoff resume reads out
+  of `Notes/`, `Projects/`, `Raw/`, or `.takeoff/` enters the current Claude
+  Code session and is processed by Anthropic under your own account. That is
+  true in BM25-only mode too. It is ordinary Claude Code processing, not a
+  Cortexes server or telemetry channel — see [PRIVACY.md](PRIVACY.md).
 
 ## Supported Versions
 

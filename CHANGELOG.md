@@ -125,6 +125,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The marketplace entry no longer says option 4 keeps the vault out of the
   session entirely; it prevents subsequent content loading and proactive
   searches.
+- **`CORTEX_VAULT_PATH` now actually overrides the vault path.** Both READMEs
+  have documented it as "overrides `vault_path` from config.json" since it was
+  introduced, and the shell hooks honoured it — but
+  `cortex_vec.config.get_vault_path()` ignored it and the `cortex-query` skill
+  was told to read `~/.cortex/config.json` unconditionally. The override now
+  works through the CLI and the skill too, and with it set the config file is
+  optional (retrieval settings fall back to defaults). Five unit tests cover
+  the precedence, the optional-config case, and both error paths.
+- **Complete Anthropic data-flow disclosure.** `PRIVACY.md` /
+  `PRIVACY.zh-TW.md` gain a section stating that any page a query, distill,
+  broadcast, or takeoff resume reads out of `Notes/`, `Projects/`, `Raw/`, or
+  `.takeoff/` enters the active Claude Code context and is processed by
+  Anthropic under the user's own account — ordinary Claude Code processing,
+  not a Cortexes server or telemetry channel, with the per-flow scope spelled
+  out. Three claims that were wrong in light of it are fixed: §6 no longer
+  says the OpenAI and Anthropic calls are the *only* outbound requests (it
+  now also names `git push`, and separates plugin-originated traffic from
+  Claude Code's own session traffic); §7 no longer promises a "fully offline"
+  plugin, because query/distill/broadcast are Claude-driven; and
+  `CORTEX_NO_CLASSIFIER` is described as stopping the nested classifier calls
+  only, not normal session processing. The SessionStart section now also says
+  page contents may be loaded later in the session after a menu choice, a
+  command, or a qualifying request. Same corrections applied to both READMEs
+  and both `SECURITY.md` files, where "nothing leaves your machine" is
+  replaced by the accurate split: no vault content goes to OpenAI without a
+  key, but retrieved content still enters the Claude Code session.
+- `commands/query.md` no longer pre-approves bare `Bash`. A read-only search
+  had blanket shell approval for its turn; it is now scoped to
+  `cortex-vec search`, `cortex-vec status`, `grep`, `git rev-parse` and
+  `git remote`. A regression test rejects a bare `- Bash` entry.
+
+  **Trade-off, verified by the runtime smoke test:** a blanket `Bash`
+  approval also escaped the session's workspace boundary. Scoped entries do
+  not, so with a vault outside the working directory the *grep fallback* now
+  needs `/add-dir <vault_path>` (or a vault inside the workspace).
+  `cortex-vec search` takes no path argument and is unaffected, so the normal
+  installed-CLI path still works untouched. Both the skill and the command
+  now say this explicitly, and instruct Claude to report the boundary rather
+  than return an empty result that would read as "nothing in the vault".
+- `cortex-takeoff` no longer illustrates the helper path with a hard-coded
+  `<...>/cortex/<version>/skills/cortex-takeoff` cache layout — a pre-rename
+  path that would now mislead. It documents only the stable relative fact
+  (`../../hooks/scripts/takeoff.sh` from the skill base directory) and tells
+  Claude to use the base directory it was announced, verbatim.
+- The runtime smoke test no longer writes to `$HOME`. It isolates through
+  `CORTEX_VAULT_PATH` instead of creating `~/.cortex`, so nothing under the
+  home directory is created or removed; it also sets `CORTEX_SKIP_RECORD=1`
+  and `CORTEX_NO_CLASSIFIER=1`, drops `OPENAI_API_KEY` from the subprocess
+  environment, and gives the decoy note its own sentinel so the negative
+  assertion cannot pass by matching incidental prose.
 - Both READMEs now present `OPENAI_API_KEY` as **optional** — it enables
   embeddings and semantic search; without it retrieval runs on the local BM25
   index with nothing sent to OpenAI. The old wording led with "Requires".
