@@ -117,6 +117,19 @@ test('query does not pre-approve unrestricted Bash', () => {
     'query.md should still pre-approve the cortex-vec search it depends on');
 });
 
+// Scoping to a bare verb is not scoping: `git remote:*` also pre-approves
+// `git remote add|remove|rename|set-url`. A read-only search gets the one
+// read-only subcommand it uses, and nothing it never calls.
+test('query pre-approves only read-only, actually-used subcommands', () => {
+  const md = readFileSync(join(COMMANDS_DIR, 'query.md'), 'utf8');
+  assert.doesNotMatch(md, /^\s*-\s*Bash\(git remote:\*\)/m,
+    'Bash(git remote:*) also allows add/remove/rename/set-url — use git remote get-url');
+  assert.match(md, /^\s*-\s*Bash\(git remote get-url:/m,
+    'repo detection needs git remote get-url');
+  assert.doesNotMatch(md, /^\s*-\s*Bash\(cortex-vec status:/m,
+    'the search flow never runs cortex-vec status — do not pre-approve it');
+});
+
 test('query is user-invoked only', () => {
   const md = readFileSync(join(COMMANDS_DIR, 'query.md'), 'utf8');
   assert.match(md, /^disable-model-invocation: true$/m,

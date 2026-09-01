@@ -110,8 +110,18 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    這不影響你搜得到的東西。Cortexes **不會**搬動、改寫或刪除既有的
    `Weekly/`；還想留的內容請自己複製到 `Notes/` 或 `Projects/`，慢慢來就好，
    沒搬的檔案會原封不動留在原地。
-5. **其他都沒變。** `cortex-vec`、`~/.cortex/config.json`、vector/BM25 索引與
-   快取、`CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
+5. **順便升級 CLI。**
+
+   ```bash
+   uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
+   ```
+
+   Weekly 的移除要靠 `cortex-vec` 0.8.0 才會到 CLI 端 —— `search --help`
+   不再列出 `--type weekly`，`Weekly/` 也不再被歸類成 content type。plugin
+   搭 0.7.0 仍可運作，所以不急，但沒升級前 CLI 的說明還是會宣傳那個已退役的
+   過濾條件。
+6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
+   `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
    不用改設定。
 
 ## 官網
@@ -374,9 +384,9 @@ cortex-vec eval run \
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
-| `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
+| `CORTEX_VAULT_PATH` | No | 只有 SessionStart 與 takeoff 這兩支 **shell hook** 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
-| `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。不會有任何資料送往 Anthropic |
+| `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
 
 ## Dependencies
 

@@ -20,18 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `disable-model-invocation: true`, so Claude never fires it on its own and
   running it is unambiguously the user's request.
 - `tests/test_query_command_smoke.py` — a runtime smoke test that drives the
-  real CLI: it points `CORTEX_VAULT_PATH` at a synthetic vault under the
-  test's own tmp dir, runs `claude -p "/cortexes:query <sentinel>"` with
-  `--plugin-dir`, and asserts the sentinel page comes back while a decoy note
-  does not. It also asserts `/cortex:query` returns `Unknown command`.
-  Nothing under `$HOME` is created or removed — in particular it never
-  touches `~/.cortex`, which may hold a real vault configuration. It sets
-  `CORTEX_SKIP_RECORD=1` and `CORTEX_NO_CLASSIFIER=1`, drops `OPENAI_API_KEY`
-  from the subprocess environment, and gives the decoy its own sentinel so the
-  negative assertion cannot pass by matching incidental prose. Opt-in via
-  `CORTEX_RUNTIME_SMOKE=1` (it needs an authenticated CLI and spends tokens,
-  which CI has neither). File-existence and `plugin details` inventory checks
-  proved the file shipped; this proves the command resolves and searches.
+  real CLI. It runs `claude -p "/cortexes:query <sentinel>"` with
+  `--plugin-dir` and asserts the command resolves, reaches
+  `cortexes:cortex-query`, and follows the skill's documented no-vault path;
+  and that `/cortex:query` returns `Unknown command`. File-existence and
+  `plugin details` inventory checks proved the file shipped; this proves it
+  resolves and delegates.
+  It is hermetic by construction: nothing under `$HOME` is created or
+  removed, a stub `cortex-vec` sits first on `PATH` so no installed build can
+  run and no real `~/.cortex` index can be read, and every `CORTEX_*` variable
+  plus `OPENAI_API_KEY` is dropped from the subprocess environment. It does
+  not assert on retrieved content — the skill resolves the vault from
+  `~/.cortex/config.json` and cannot be redirected without writing under
+  `$HOME` — and it **skips** outright when a real `~/.cortex/config.json`
+  exists, rather than searching someone's own vault. Retrieval behaviour is
+  covered by the `cortex-vec` unit suite. Opt-in via `CORTEX_RUNTIME_SMOKE=1`
+  (it needs an authenticated CLI and spends tokens, which CI has neither).
 
 ### Changed
 - **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
@@ -129,14 +133,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The marketplace entry no longer says option 4 keeps the vault out of the
   session entirely; it prevents subsequent content loading and proactive
   searches.
-- **`CORTEX_VAULT_PATH` now actually overrides the vault path.** Both READMEs
-  have documented it as "overrides `vault_path` from config.json" since it was
-  introduced, and the shell hooks honoured it — but
-  `cortex_vec.config.get_vault_path()` ignored it and the `cortex-query` skill
-  was told to read `~/.cortex/config.json` unconditionally. The override now
-  works through the CLI and the skill too, and with it set the config file is
-  optional (retrieval settings fall back to defaults). Five unit tests cover
-  the precedence, the optional-config case, and both error paths.
+- **Both READMEs' environment-variable tables are corrected.** They still said
+  `CORTEX_NO_CLASSIFIER` meant "Nothing is sent to Anthropic" / 「不會有任何
+  資料送往 Anthropic」 long after `PRIVACY.md` had been corrected — and a table
+  row is exactly what someone reads before trusting a flag. The rows now say
+  the variable disables **only** the transcript filter's nested classifier
+  calls, and does not affect normal Claude Code session processing, including
+  SessionStart metadata and vault content loaded by commands and skills.
+  `tests/test_privacy_claims.py` sweeps both READMEs, both `PRIVACY` files,
+  both `SECURITY` files and the marketplace entry for absolute claims, and
+  allows "nothing leaves your machine" only where the text goes on to deny it.
+- **`cortex-vec` is released as 0.8.0.** The Weekly removal changed `cli.py`
+  and `parser.py`, so "the package is unchanged" stopped being true: without a
+  release, `uv tool install cortex-vec` would keep handing users a CLI whose
+  `search --help` still advertises `--type weekly`. Both READMEs' upgrade path
+  gains `uv tool upgrade cortex-vec`, and `tests/test_release_metadata.py`
+  fails if `pyproject.toml`'s version and the version the READMEs name ever
+  drift apart. Release order: plugin merge → `cortex-vec-v0.8.0` tag → PyPI →
+  plugin `v2.0.0` tag.
+- **`CORTEX_VAULT_PATH` is documented for what it actually is: a hook-only
+  variable, not a vault switch.** Both READMEs had described it as "overrides
+  `vault_path` from config.json", which was never true beyond the two
+  SessionStart-side shell hooks. Making it a real override was attempted here
+  and **backed out**: the write side — the SessionEnd recorder, `evolve`,
+  `distill`, `broadcast` — resolves the vault from `config.json` alone, and
+  the BM25 and vector indexes live at fixed `~/.cortex/` paths with a single
+  collection name. Honouring the variable on the read side only would split
+  reads from writes across two vaults sharing one index, and a `rebuild` under
+  the override would wipe the other vault's index. A real multi-vault design
+  needs all of that — hooks, skills, commands, index namespacing, provenance —
+  and belongs in its own release, not in a plugin rename. The env-var tables
+  now state the true scope; `cortex-query` reads `config.json` and says why.
 - **Complete Anthropic data-flow disclosure.** `PRIVACY.md` /
   `PRIVACY.zh-TW.md` gain a section stating that any page a query, distill,
   broadcast, or takeoff resume reads out of `Notes/`, `Projects/`, `Raw/`, or
@@ -157,8 +184,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   key, but retrieved content still enters the Claude Code session.
 - `commands/query.md` no longer pre-approves bare `Bash`. A read-only search
   had blanket shell approval for its turn; it is now scoped to
-  `cortex-vec search`, `cortex-vec status`, `grep`, `git rev-parse` and
-  `git remote`. A regression test rejects a bare `- Bash` entry.
+  `cortex-vec search`, `grep`, `git rev-parse` and `git remote get-url` —
+  every entry read-only and actually used by the flow. `git remote:*` would
+  have covered `add`, `remove`, `rename` and `set-url` as well, and
+  `cortex-vec status` is never called by a search. Regression tests reject a
+  bare `- Bash`, the unscoped `git remote`, and the unused `status`.
 
   **Trade-off, verified by the runtime smoke test:** a blanket `Bash`
   approval also escaped the session's workspace boundary. Scoped entries do

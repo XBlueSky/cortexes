@@ -123,9 +123,20 @@ and indexes are untouched — there is no data migration.
    move, rewrite, or delete an existing `Weekly/`; copy anything still worth
    keeping into `Notes/` or `Projects/` yourself, at your own pace, and
    whatever you leave stays where it is.
-5. **Nothing else changes.** `cortex-vec`, `~/.cortex/config.json`, the
-   vector/BM25 indexes and caches, and the `CORTEX_*` environment variables
-   all keep their names and paths. No rebuild, no re-index, no config edit.
+5. **Upgrade the CLI too.**
+
+   ```bash
+   uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
+   ```
+
+   `cortex-vec` 0.8.0 is what carries the Weekly removal into the CLI —
+   `--type weekly` is gone from `search --help` and `Weekly/` is no longer
+   classified as a content type. The plugin works with 0.7.0, so this is not
+   urgent, but until you upgrade the CLI's own help still advertises the
+   retired filter.
+6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
+   and caches, and the `CORTEX_*` environment variables all keep their names
+   and paths. No rebuild, no re-index, no config edit.
 
 ## Website
 
@@ -432,9 +443,9 @@ cortex-vec eval run \
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
-| `CORTEX_VAULT_PATH` | No | Overrides `vault_path` from config.json |
+| `CORTEX_VAULT_PATH` | No | Read by the SessionStart and takeoff **shell hooks** only. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
-| `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Nothing is sent to Anthropic |
+| `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |
 
 ## Dependencies
 

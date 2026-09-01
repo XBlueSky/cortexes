@@ -8,10 +8,9 @@ allowed-tools:
   - Glob
   - Grep
   - Bash(cortex-vec search:*)
-  - Bash(cortex-vec status:*)
   - Bash(grep:*)
   - Bash(git rev-parse:*)
-  - Bash(git remote:*)
+  - Bash(git remote get-url:*)
 ---
 
 Invoke the `cortexes:cortex-query` skill and follow it for the actual search.
@@ -35,9 +34,13 @@ default inside a git repo, overridable with "search all"), exact-match search
 as the supplement, and `Raw/` only on request. Present results in the skill's
 response format, and read a full page only when the user picks one.
 
-This command pre-approves only the commands that flow needs — `cortex-vec`,
-`grep`, and the two `git` calls used to detect the repo — rather than shell
-access in general. `grep` is on that list because the vault usually sits
+This command pre-approves only what the search itself runs — `cortex-vec
+search`, `grep`, and the two read-only `git` calls used to detect the repo —
+rather than shell access in general. Each entry is scoped to the subcommand:
+`git remote get-url`, not `git remote`, which would also cover `add`,
+`remove`, `rename` and `set-url` — write operations a read-only search has no
+business pre-approving. `cortex-vec status` is deliberately absent; the search
+flow never calls it. `grep` is on the list because the vault usually sits
 outside the session's working directory, where the Grep tool cannot reach.
 
 Scoped Bash does not escape the workspace boundary the way a blanket `Bash`
