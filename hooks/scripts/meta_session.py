@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect cortex maintenance-pipeline sessions.
+"""Detect cortexes maintenance-pipeline sessions.
 
 The SessionEnd hook records every session into Raw/. But sessions whose whole
 purpose is maintaining the vault — distilling, broadcasting into related pages,
@@ -12,9 +12,9 @@ We don't drop these sessions (they stay as an audit trail); the caller stamps a
 
 Detection is precise-by-design. We match ONLY the pure-maintenance skills via a
 structured `Skill` tool_use. We deliberately do NOT match:
-  - cortex:evolve / cortex:query — fire inside normal work sessions worth recording
-  - cortex:using-cortex          — auto-loaded every session (would flag everything)
-  - a mere text mention of "cortex:distill" (e.g. editing the distill code) —
+  - cortexes:evolve / cortexes:query — fire inside normal work sessions worth recording
+  - cortexes:using-cortex            — auto-loaded every session (would flag everything)
+  - a mere text mention of "cortexes:distill" (e.g. editing the distill code) —
     only an actual Skill invocation counts.
 """
 from __future__ import annotations
@@ -27,18 +27,25 @@ from pathlib import Path
 # original work — it only processes the vault.
 #
 # Each appears in transcripts under TWO ids: the slash-command alias
-# (`cortex:distill`) and the dominant plugin:skill id (`cortex:cortex-distill`).
-# Both must be matched. Deliberately excluded in both forms: evolve, query,
-# using-cortex — those fire inside normal work sessions worth recording.
+# (`cortexes:distill`) and the dominant plugin:skill id
+# (`cortexes:cortex-distill` — the skills kept their `cortex-` names through
+# the 2.0.0 plugin rename). Both must be matched. Deliberately excluded in
+# both forms: evolve, query, using-cortex — those fire inside normal work
+# sessions worth recording.
+#
+# `cortex` is the pre-2.0.0 plugin id. The skill namespace follows the plugin
+# name, and this hook reads whatever transcript SessionEnd hands it, including
+# ones written before the rename — so both namespaces stay matched.
 _PIPELINE = ("distill", "broadcast", "genesis")
+_NAMESPACES = ("cortexes", "cortex")
 META_SESSION_SKILLS = frozenset(
-    [f"cortex:{name}" for name in _PIPELINE]
-    + [f"cortex:cortex-{name}" for name in _PIPELINE]
+    [f"{ns}:{name}" for ns in _NAMESPACES for name in _PIPELINE]
+    + [f"{ns}:cortex-{name}" for ns in _NAMESPACES for name in _PIPELINE]
 )
 
 
 def is_meta_session(path: Path) -> bool:
-    """True if the transcript invokes a cortex maintenance-pipeline skill."""
+    """True if the transcript invokes a cortexes maintenance-pipeline skill."""
     try:
         with Path(path).open(encoding="utf-8") as f:
             for line in f:

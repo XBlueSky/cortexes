@@ -23,7 +23,13 @@ Cortexes 會處理你的個人知識 vault 與 API 憑證，請留意：
 - **Vault 內容** 是你的原始 session 記錄與筆記。索引（ChromaDB / BM25）儲存在本機 `~/.cortex/`，
   預設不進 git、不上傳。
 - **語意搜尋** 會把待索引的文件內容送到 OpenAI 產生 embedding。若你的 vault 含敏感資料，
-  請自行評估；未設定 `OPENAI_API_KEY` 時可完全走本機 BM25-only，不外送任何內容。
+  請自行評估；未設定 `OPENAI_API_KEY` 時**不會有任何 vault 內容送往 OpenAI**，搜尋改走
+  本機 BM25 索引。
+- **被檢索到的內容仍然會進到 Anthropic。** Cortexes 是 Claude Code plugin：query、distill、
+  broadcast 或 takeoff resume 從 `Notes/`、`Projects/`、`Raw/`、`.takeoff/` 讀出來的內容，
+  都會進入當前 Claude Code session，並在你自己的帳號底下由 Anthropic 處理。即使在
+  BM25-only 模式也是如此。這是一般的 Claude Code 處理，不是 Cortexes 的伺服器或 telemetry
+  通道——見 [PRIVACY.zh-TW.md](PRIVACY.zh-TW.md)。
 
 ## 支援版本
 

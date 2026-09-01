@@ -16,7 +16,7 @@ function skillBlock(s) {
 
 function cmdBlock(c) {
   return `<article class="doc-item" id="cmd-${esc(c.name)}">
-    <h3 class="doc-name mono">/cortex:${esc(c.name)}</h3>
+    <h3 class="doc-name mono">/cortexes:${esc(c.name)}</h3>
     <p class="doc-desc">${esc(c.summary ?? c.description ?? '')}</p>
     <div class="card-ex">${chips(c.examples)}</div>
   </article>`;
@@ -46,5 +46,5 @@ export function renderDocs(plugin) {
     ${noteList('Watch out', plugin.traps)}
   </div></section>`;
 
-  return layout({ title: 'Cortex — Docs', body, activeNav: 'docs' });
+  return layout({ title: 'Cortexes — Docs', body, activeNav: 'docs' });
 }

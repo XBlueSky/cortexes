@@ -13,7 +13,7 @@ Save content to the cortex Obsidian vault.
 ## Resolve Vault Path
 
 Read `~/.cortex/config.json` to get `vault_path`.
-If the file doesn't exist, tell the user to run `/cortex:genesis` first.
+If the file doesn't exist, tell the user to run `/cortexes:genesis` first.
 All file paths below are relative to the vault root.
 
 ## Determine Content Type
@@ -83,7 +83,7 @@ After writing the file:
    Rows are per-page, not per-repo: a new repo means a new `###` sub-section,
    not a single row standing for the whole repo.
 3. Bump the `updated` date in frontmatter. There is no `entries:` count to
-   maintain — the field was removed by design (see `/cortex:genesis`).
+   maintain — the field was removed by design (see `/cortexes:genesis`).
 
 ## Append Log Entry
 

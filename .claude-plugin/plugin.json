@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "cortex",
-  "displayName": "Cortex",
-  "version": "1.3.2",
+  "name": "cortexes",
+  "displayName": "Cortexes",
+  "version": "2.0.0",
   "description": "Personal knowledge vault plugin — session recording, memory distillation, indexed retrieval",
   "author": {
     "name": "XBlueSky",

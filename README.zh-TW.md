@@ -21,7 +21,7 @@
 
 ## What It Does
 
-Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
+Cortexes 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
 
 - **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
 - **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
@@ -35,9 +35,14 @@ Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code ses
 ### 1. 安裝 plugin
 
 ```bash
-# 從 GitHub
+# 先加 marketplace，再從中安裝 plugin
 /plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
+/plugin install cortexes@cortex
 ```
+
+Marketplace 名稱是 `cortex`，其中的 plugin 是 `cortexes`，所以安裝 id 是
+`cortexes@cortex`。Marketplace 名稱刻意沿用 1.x，既有的 `marketplace add`
+註冊才不會失效。
 
 ### 2. 安裝 cortex-vec CLI
 
@@ -53,20 +58,21 @@ pip install cortex-vec
 ```
 
 plugin 更新後用 `uv tool upgrade cortex-vec`（或 `pip install -U
-cortex-vec`）升級。`/cortex:genesis` 會檢查 CLI 是否已安裝，缺少時主動
+cortex-vec`）升級。`/cortexes:genesis` 會檢查 CLI 是否已安裝，缺少時主動
 提供安裝指令。想跑尚未釋出的開發版，可改從 repo 安裝：
 
 ```bash
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
-需要 `OPENAI_API_KEY` 環境變數（用於 embedding）。沒有 key 時
-`search` 會自動降級為 BM25-only。
+`OPENAI_API_KEY` 是**選用的**。設定它會啟用 embedding，也就啟用語意
+（向量）搜尋。不設定也不會壞掉：`search` 會走本機 BM25 索引，完全在你的
+機器上跑，不會有任何資料送往 OpenAI。
 
 ### 3. 初始化
 
 ```bash
-/cortex:genesis /path/to/your/vault
+/cortexes:genesis /path/to/your/vault
 ```
 
 這會設定 vault 路徑、author 資訊，並建立語意索引。
@@ -80,6 +86,44 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 「broadcast」      → 把新 Raw 融合進既有頁面
 ```
 
+## 從 1.x 升級到 2.0
+
+2.0.0 把 **plugin** 從 `cortex` 改名為 `cortexes`。你的 vault、設定與索引都
+不動 — 沒有任何資料需要遷移。
+
+1. **更新 marketplace。** 在 Claude Code 執行
+   `/plugin marketplace update cortex`（或移除後重新 add）。
+2. **開一個新 session。** Marketplace manifest 帶了 `renames` 映射
+   （`cortex` → `cortexes`），改名會自動接續：update 會把你已啟用的 plugin
+   重新指向 `cortexes@cortex`，下一次 session 啟動時就會實體化為 2.0.0，
+   **不需要**先解除安裝再裝一次。這兩步之間，`/plugin` 可能還會列出舊的
+   `cortex` 那一列並標註 `Renamed to "cortexes" in the "cortex" marketplace`
+   —— 那是 migration 已排定，不是錯誤。真的要從頭重裝時，id 是
+   `/plugin install cortexes@cortex`。
+3. **改用新的指令前綴。** `/cortex:*` 已不再解析，全部移到 `/cortexes:*`
+   （`/cortexes:genesis`、`/cortexes:evolve`、`/cortexes:distill`、
+   `/cortexes:query`、`/cortexes:broadcast`、`/cortexes:takeoff`）。自然語言
+   觸發詞不變 —「存到 cortex」「查 cortex」照常可用。
+4. **vault 裡若還有 `Weekly/`，把還要用的內容搬走。** `Weekly/` 已不再屬於
+   vault 分類：2.0 不會建立、不索引、不搜尋、也不列出它。它其實早就到不了了
+   —— 週報 skill 在 0.22.0 移除，`Weekly/` 更早在 0.5.0 就退出索引 —— 所以
+   這不影響你搜得到的東西。Cortexes **不會**搬動、改寫或刪除既有的
+   `Weekly/`；還想留的內容請自己複製到 `Notes/` 或 `Projects/`，慢慢來就好，
+   沒搬的檔案會原封不動留在原地。
+5. **順便升級 CLI。**
+
+   ```bash
+   uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
+   ```
+
+   Weekly 的移除要靠 `cortex-vec` 0.8.0 才會到 CLI 端 —— `search --help`
+   不再列出 `--type weekly`，`Weekly/` 也不再被歸類成 content type。plugin
+   搭 0.7.0 仍可運作，所以不急，但沒升級前 CLI 的說明還是會宣傳那個已退役的
+   過濾條件。
+6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
+   `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
+   不用改設定。
+
 ## 官網
 
 線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `.cc-marketspec/dist/manifest.json` 自動生成）。
@@ -91,11 +135,12 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 
 | Command | Description |
 |---------|-------------|
-| `/cortex:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
-| `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
-| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
-| `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
-| `/cortex:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
+| `/cortexes:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
+| `/cortexes:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
+| `/cortexes:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
+| `/cortexes:query` | 搜尋 vault — 語意搜尋（`cortex-vec`），並有 grep 與 BM25 fallback。執行這個指令本身就算明確要求，即使該 session 已選「直接開始工作」也會查 |
+| `/cortexes:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
+| `/cortexes:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
 
 ### Skills（自動觸發）
 
@@ -159,12 +204,12 @@ log.md                         ← evolve/distill 的時序歷程
   session 結束 → SessionEnd hook → 過濾 → Raw/   （自動，不會詢問）
 
 隨時:
-  /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
-  /cortex:query     → vector search → 精確讀檔
+  /cortexes:evolve    → Notes/Projects + _index.md + log.md + vector store
+  /cortexes:query     → vector search → 精確讀檔
 
 定期:
-  /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
-  /cortex:broadcast → pending-merge → 融合進既有 Notes/Projects
+  /cortexes:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
+  /cortexes:broadcast → pending-merge → 融合進既有 Notes/Projects
 ```
 
 ### Retrieval Strategy
@@ -208,7 +253,7 @@ cortex-vec status                               # 同時顯示 vector 與 BM25 e
 
 ### 提煉導覽指令（1.0.0+）
 
-`/cortex:distill` 靠這組唯讀指令走訪一份 Raw,**全程不把整個檔案載入 context**。
+`/cortexes:distill` 靠這組唯讀指令走訪一份 Raw,**全程不把整個檔案載入 context**。
 每份 Raw 只被解析一次成為 gap-free、無重疊的 source partition;`raw-span` 是唯一
 會回傳原始文字的 reader,每一頁都有硬上限,因此超大 session 會以 bounded 續頁分批
 提煉,而不會撐爆 context:
@@ -339,9 +384,9 @@ cortex-vec eval run \
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
-| `CORTEX_VAULT_PATH` | No | 覆蓋 config.json 的 vault_path |
+| `CORTEX_VAULT_PATH` | No | 只有 `session-start-inject.sh` 與 `takeoff.sh` helper 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
-| `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。不會有任何資料送往 Anthropic |
+| `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
 
 ## Dependencies
 
@@ -363,11 +408,21 @@ uv tool install cortex-vec
 Cortexes 是 local-first：vault 是你自己硬碟上的 Markdown，索引建在本機，
 作者收不到任何東西——沒有伺服器、沒有帳號、沒有 telemetry。
 
-有兩個功能會連到遠端服務，兩者都由你控制。Transcript filter 會把過大的
-區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送給
-Anthropic 做壓縮分類——設定 `CORTEX_NO_CLASSIFIER=1` 即可停用。語意索引
-會把 vault 頁面內容送往 OpenAI 產生 embedding——這只在你設定
-`OPENAI_API_KEY` 時才會發生，沒有設定時檢索完全跑在本機 BM25 上。
+但這跟「沒有任何資料離開你的機器」不是同一回事。Cortexes 是 Claude Code
+plugin，所以 query、distill、broadcast 或 takeoff resume 讀到的 vault 頁面
+會成為當前 session 的一部分，並在你自己的帳號底下由 Anthropic 處理——這是
+一般的 Claude Code 處理，不是 Cortexes 的通道。SessionStart hook 另外會在
+選單出現之前，把 repo 名稱、vault 路徑，以及你的 `Notes/`／`Projects/`
+主題名稱放進該 context；頁面內容不會在那時被注入，但可能在你選了選單選項、
+執行指令，或提出符合 `using-cortex` 訊號的請求之後才被載入。
+
+由 plugin 自身程式碼發起的流程有三個，全部由你控制：Transcript filter 會
+把過大的區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送
+給 Anthropic 做壓縮分類——`CORTEX_NO_CLASSIFIER=1` 可停用它，而它只停掉這
+組巢狀呼叫，不影響一般 session 處理；語意索引會把 vault 頁面內容送往
+OpenAI 產生 embedding，只在你設定 `OPENAI_API_KEY` 時發生，未設定時檢索走
+本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行開啟時發生
+（預設關閉）。
 
 [`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md) 完整記錄了每一條資料流：session
 記錄包含什麼、寫入前排除什麼、檔案存在哪裡、git commit 與 push 行為、
@@ -376,7 +431,7 @@ Anthropic 做壓縮分類——設定 `CORTEX_NO_CLASSIFIER=1` 即可停用。�
 ## Project Structure
 
 ```
-commands/       Slash commands（/cortex:*）
+commands/       Slash commands（/cortexes:*）
 skills/         自動觸發的 skills
 hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python 語意索引 CLI

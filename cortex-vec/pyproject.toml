@@ -1,6 +1,6 @@
 [project]
 name = "cortex-vec"
-version = "0.7.0"
+version = "0.8.0"
 description = "Vector store CLI for the cortex vault — hybrid BM25 + embedding retrieval over a markdown knowledge vault"
 readme = "README.md"
 license = "Apache-2.0"

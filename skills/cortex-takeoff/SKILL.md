@@ -5,7 +5,7 @@ description: >
   hand-off note that lets the next Claude session continue a long-running task.
   A repo can hold several batons at once, one per work line (topic). Use when
   the user says "交接", "takeoff", "交棒", "context 快滿了交接給下個 session",
-  "hand off to next session", "/cortex:takeoff", "takeoff resume", or
+  "hand off to next session", "/cortexes:takeoff", "takeoff resume", or
   "takeoff done". The baton is scaffolding, not knowledge: it is never
   committed, distilled, broadcast, or indexed.
 ---
@@ -27,12 +27,16 @@ retired to the new layout on their next hand-off. Never create new ones.
 
 The repo slug and git-safety are handled by `takeoff.sh`, bundled in this plugin
 at `hooks/scripts/takeoff.sh`. In every mode below, FIRST set `TK` to that helper,
-resolved relative to THIS skill's base directory. The skill-load message announces
-the base directory as `<...>/cortex/<version>/skills/cortex-takeoff`; `takeoff.sh`
-sits two levels up. Substitute the actual announced base-dir path:
+resolved relative to THIS skill's base directory.
+
+Claude Code announces that base directory when it loads the skill. Use **exactly
+the path it announced**, verbatim — do not assume, reconstruct, or hard-code any
+install layout; the marketplace, plugin name, and version all appear in real
+paths and all of them change. The only stable fact is the relative one:
+`takeoff.sh` sits two levels up from the skill's base directory.
 
 ```bash
-TK="<skill-base-dir>/../../hooks/scripts/takeoff.sh"
+TK="<the skill base dir Claude Code announced>/../../hooks/scripts/takeoff.sh"
 test -f "$TK" || { echo "cortex: takeoff.sh not found at $TK" >&2; exit 1; }
 ```
 
@@ -63,7 +67,7 @@ Determined by the command argument:
 | `resume [topic]`    | **resume** — load a baton (do not delete) |
 | `done [topic]`      | **done** — clear a baton (soft-delete to trash) |
 
-## Create (`/cortex:takeoff [topic]`)
+## Create (`/cortexes:takeoff [topic]`)
 
 1. Set `TK`, resolve `cwd`, then survey the existing work lines:
 

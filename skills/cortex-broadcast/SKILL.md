@@ -23,7 +23,7 @@ jq -r '.broadcast.target_top_n // 5' ~/.cortex/config.json
 jq -r '.broadcast.target_min_score // 0.40' ~/.cortex/config.json
 ```
 
-If the config file doesn't exist, tell the user to run `/cortex:genesis` first.
+If the config file doesn't exist, tell the user to run `/cortexes:genesis` first.
 
 ## Step 1: Resolve Arguments
 
@@ -31,9 +31,9 @@ The command supports three invocations:
 
 | Form | Action |
 |------|--------|
-| `/cortex:broadcast` (no args) | Pop the first (oldest) Raw from the eligible queue |
-| `/cortex:broadcast <raw-path>` | Use the specified Raw (relative or absolute path) |
-| `/cortex:broadcast --list` | Print the eligible queue and exit |
+| `/cortexes:broadcast` (no args) | Pop the first (oldest) Raw from the eligible queue |
+| `/cortexes:broadcast <raw-path>` | Use the specified Raw (relative or absolute path) |
+| `/cortexes:broadcast --list` | Print the eligible queue and exit |
 
 ## Step 2: Build Eligible Queue
 
@@ -79,7 +79,7 @@ Eligible queue (N Raws):
   2. Raw/2026/04/17/163941_session_libsynosdk.md
      outcome: new → Projects/libsynosdk/build-flag-semantics.md
 
-Run /cortex:broadcast to process the first, or /cortex:broadcast <path> for a specific one.
+Run /cortexes:broadcast to process the first, or /cortexes:broadcast <path> for a specific one.
 ```
 
 Exit after listing.
@@ -250,7 +250,7 @@ If the user types `abort` / `cancel` during page conversation:
 - Exit the skill cleanly with a message:
   ```
   Aborted. <N> pages committed, Raw marker unchanged.
-  Re-run /cortex:broadcast <raw-path> to resume.
+  Re-run /cortexes:broadcast <raw-path> to resume.
   ```
 
 ## Step 9: Finalize Raw Marker and Log
@@ -335,12 +335,12 @@ Detect the invocation mode:
   (Step 9 dispatches broadcast for every new / pending-merge Raw
   automatically). Return cleanly to the distill flow when finalized —
   do not prompt for next Raw; distill manages its own iteration.
-- **Standalone mode**: invoked by `/cortex:broadcast` (with or without
+- **Standalone mode**: invoked by `/cortexes:broadcast` (with or without
   args) from a fresh shell — i.e., not from within distill.
 
 In standalone mode, if:
 
-- Skill was invoked by `/cortex:broadcast` without args, AND
+- Skill was invoked by `/cortexes:broadcast` without args, AND
 - The eligible queue still has entries after this run,
 
 then ask the user:

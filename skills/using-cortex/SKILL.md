@@ -14,8 +14,8 @@ description: >
 # Using Cortex — When to Consult the Vault
 
 The cortex vault is the user's own knowledge base: distilled Notes,
-Projects, Weekly reports, and Raw session records. This skill decides
-**when** consulting it is warranted, and hands the actual search to the
+Projects, and Raw session records. This skill decides **when**
+consulting it is warranted, and hands the actual search to the
 `cortex-query` skill.
 
 Retrieval is worth doing when there is a concrete signal that prior context

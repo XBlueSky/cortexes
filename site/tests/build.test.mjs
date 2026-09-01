@@ -7,11 +7,11 @@ import { join } from 'node:path';
 import { build } from '../build.mjs';
 
 function fixtureRoot() {
-  const root = mkdtempSync(join(tmpdir(), 'cortex-build-'));
+  const root = mkdtempSync(join(tmpdir(), 'cortexes-build-'));
   mkdirSync(join(root, '.cc-marketspec', 'dist'), { recursive: true });
   writeFileSync(join(root, '.cc-marketspec', 'dist', 'manifest.json'), JSON.stringify({
     plugins: [{
-      id: 'cortex', name: 'cortex', tagline: 'T', intro: 'I',
+      id: 'cortexes', name: 'cortexes', version: '2.0.0', tagline: 'T', intro: 'I',
       skills: [{ name: 'cortex-query', trigger: '查', examples: ['查 cortex'] }],
       commands: [{ name: 'genesis', summary: '初始化' }],
       hooks: [{ event: 'SessionEnd', why: '記錄' }],
@@ -54,6 +54,6 @@ test('docs page rewrites asset path to ../assets', async () => {
 });
 
 test('throws on missing manifest', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'cortex-empty-'));
+  const root = mkdtempSync(join(tmpdir(), 'cortexes-empty-'));
   await assert.rejects(() => build({ root, outDir: join(root, 'out') }));
 });

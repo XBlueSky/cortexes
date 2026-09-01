@@ -1,5 +1,5 @@
 {
-  "description": "Cortex plugin hooks — session recording and memory injection",
+  "description": "Cortexes plugin hooks — session recording and memory injection",
   "hooks": {
     "SessionEnd": [
       {

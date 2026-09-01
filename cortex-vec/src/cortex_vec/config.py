@@ -32,7 +32,7 @@ def load_config():
     """Load ~/.cortex/config.json. Exit with error if not found."""
     if not CORTEX_CONFIG.exists():
         print(
-            "Error: ~/.cortex/config.json not found. Run /cortex:genesis first.",
+            "Error: ~/.cortex/config.json not found. Run /cortexes:genesis first.",
             file=sys.stderr,
         )
         sys.exit(1)

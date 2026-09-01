@@ -9,11 +9,11 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
-skills:
-  - cortex-broadcast
 ---
 
-Use the cortex-broadcast skill to process broadcast-eligible Raws.
+Invoke the `cortexes:cortex-broadcast` skill and follow it for the whole run.
+Command frontmatter cannot load a skill for you, so invoke it explicitly with
+its fully qualified name via the Skill tool.
 
 Argument handling:
 

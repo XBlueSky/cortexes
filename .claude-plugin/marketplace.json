@@ -6,13 +6,16 @@
     "name": "XBlueSky",
     "url": "https://github.com/XBlueSky"
   },
+  "renames": {
+    "cortex": "cortexes"
+  },
   "plugins": [
     {
-      "name": "cortex",
-      "displayName": "Cortex",
+      "name": "cortexes",
+      "displayName": "Cortexes",
       "source": "./",
       "description": "Personal knowledge vault plugin — auto-logs commits, manual memory saves, semantic retrieval",
-      "version": "1.3.2",
+      "version": "2.0.0",
       "category": "productivity",
       "homepage": "https://cortexes.pages.dev",
       "repository": "https://github.com/XBlueSky/cortexes",

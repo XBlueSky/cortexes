@@ -76,7 +76,7 @@ filter `_index.md` out explicitly, as above.
 
 ## Repairing drift
 
-`/cortex:genesis` rebuilds `_index.md` from the files on disk, which is the
+`/cortexes:genesis` rebuilds `_index.md` from the files on disk, which is the
 remediation for a structurally broken index. For a handful of missing or stale
 rows, edit them in place — genesis rewrites the whole file and will discard any
 hand-tuned ordering.

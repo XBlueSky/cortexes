@@ -20,7 +20,7 @@ body:
       label: Steps to reproduce
       description: The smallest steps that reproduce it.
       placeholder: |
-        1. Run `/cortex:...`
+        1. Run `/cortexes:...`
         2. ...
         3. See error ...
     validations:

@@ -2,9 +2,9 @@ import { esc, layout } from '../lib/html.mjs';
 
 const PIPELINE = [
   { num: '01 · SessionEnd hook', title: 'Capture', desc: 'Every session ends with a full report, saved to the vault’s Raw/.' },
-  { num: '02 · /cortex:distill', title: 'Distill', desc: 'Extract hard-won lessons, conventions, and key decisions into Notes.' },
+  { num: '02 · /cortexes:distill', title: 'Distill', desc: 'Extract hard-won lessons, conventions, and key decisions into Notes.' },
   { num: '03 · broadcast', title: 'Fuse', desc: 'Compound new knowledge into related existing pages, llm-wiki style.' },
-  { num: '04 · /cortex:query', title: 'Recall', desc: 'Mixed-language semantic search, checked before every answer.' },
+  { num: '04 · /cortexes:query', title: 'Recall', desc: 'Mixed-language semantic search, run when a request points back at prior work.' },
 ];
 
 // Generated abstract fluid/smoke spiral (see site/assets/hero-spiral.webp).
@@ -53,7 +53,7 @@ function skillsBento(skills) {
 }
 
 function cmdRow(c) {
-  return `<div class="cmd-row"><span class="cmd-name">/cortex:${esc(c.name)}</span><span class="cmd-desc">${esc(c.summary ?? c.description ?? '')}</span></div>`;
+  return `<div class="cmd-row"><span class="cmd-name">/cortexes:${esc(c.name)}</span><span class="cmd-desc">${esc(c.summary ?? c.description ?? '')}</span></div>`;
 }
 
 function logItem(v, i) {
@@ -122,13 +122,13 @@ function searchDemoSection() {
 
 // Illustrative vault topology — not the user's real graph. A lightweight,
 // dependency-free force-directed layout in the Obsidian graph-view style,
-// since Cortex writes directly into Obsidian vault format. Full-bleed and
+// since Cortexes writes directly into Obsidian vault format. Full-bleed and
 // darker than surrounding sections so it reads as the page's visual anchor.
 function graphSection() {
   return `<section class="graph-sec"><div class="wrap">
     <span class="eyebrow">obsidian-native</span>
     <h2>Your vault is a living graph,<br>not a filing cabinet.</h2>
-    <p>Cortex writes straight into Obsidian vault format — this is the shape wikilinks actually grow into. Try dragging a node.</p>
+    <p>Cortexes writes straight into Obsidian vault format — this is the shape wikilinks actually grow into. Try dragging a node.</p>
     <div class="graph-wrap">
       <span class="graph-hint">drag nodes · hover to highlight links</span>
       <div class="graph-legend">
@@ -188,5 +188,5 @@ export function renderLanding({ plugin, changelog }) {
     </div>
   </div></section>`;
 
-  return layout({ title: 'Cortex — external memory layer', body, activeNav: 'home' });
+  return layout({ title: 'Cortexes — external memory layer', body, activeNav: 'home' });
 }

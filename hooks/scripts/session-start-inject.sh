@@ -29,8 +29,9 @@ repo_name="$(cortex_repo_slug "$cwd" || true)"
 [[ -z "$repo_name" ]] && exit 0
 
 # --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
-# Gives the model grounding to recognize when an incoming user request
-# matches an existing vault topic, so cortex-query triggers proactively.
+# This is metadata, not content: it lists the topic names that exist so the
+# model can tell whether a later request actually matches one (using-cortex
+# signal 3). It never loads note bodies — that is opt-in via menu option 1.
 notes_topics=""
 projects_topics=""
 if [[ -d "$CORTEX_DIR/Notes" ]]; then
@@ -81,17 +82,19 @@ fi
 
 # --- Build interactive menu prompt ---
 read -r -d '' context <<'PROMPT_TEMPLATE' || true
-[Cortex] 你目前在 __REPO__ repo。Cortex vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。
+[Cortexes] 你目前在 __REPO__ repo。Cortexes vault 位於 __VAULT__（非 CWD），所有 vault 操作請使用此路徑。
 
-Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex）：
+Vault 目前涵蓋的主題（僅為主題名稱清單，不是內容；用來判斷請求是否命中訊號 3）：
   - Notes/: __NOTES_TOPICS__
   - Projects/: __PROJECTS_TOPICS__
 
-主動查詢規則（由 using-cortex skill 強制執行，無論使用者是否選 1-4 都生效）：
-- 若使用者後續的請求**命中**上述任一主題，**先**用 cortex-query 查 vault 再回答，不要憑印象或重新探索。
-- 若使用者問的是 ongoing project / 內部工具 / 重複出現過的領域，預設假設 vault 有 prior context，先查再說。
-- 「主動查」的成本遠低於「答錯後重來」。寧可多查一次。
-- 詳細規則見 using-cortex skill。
+何時查 vault（由 using-cortex skill 定義；只有以下四個訊號之一成立時才查）：
+1. 使用者明確要求：「查 cortex」「之前有記過嗎」「check my notes」。
+2. 使用者指涉先前的工作：「之前那個」「上次的」「我們討論過」「continue where we left off」。
+3. 使用者的請求命中上面**實際列出**的主題 — 以這份清單為準，不要用猜的。
+4. 使用者要求接續、交接或延續先前 session 的工作。
+
+四個訊號都不成立就直接回答，也不要提到 vault。問題困難、技術性強、開放式，或屬於 ongoing project／內部工具，**都不是**訊號。詳細規則見 using-cortex skill。
 
 在你第一次回覆使用者時，呈現以下格式：
 
@@ -106,7 +109,7 @@ Vault 目前涵蓋的主題（重要 — 用來判斷是否要主動查 cortex�
 - 不要在使用者選擇前預先掃描 Raw/
 - 使用者可以回覆編號或直接說需求
 - 保持簡短，不要過度解釋每個選項
-- 即使使用者選 4「直接開始工作」，主動查詢規則仍生效__TAKEOFF_RULE__
+- 使用者選 4「直接開始工作」或略過此選單時：本 session 後續**不再**主動查 vault，訊號 2-4 一律不觸發；只有使用者之後明確要求（訊號 1）才查__TAKEOFF_RULE__
 PROMPT_TEMPLATE
 
 # Substitute placeholders

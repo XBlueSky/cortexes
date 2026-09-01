@@ -16,5 +16,5 @@ export function renderChangelog(versions) {
     <div class="sec-head"><div><span class="eyebrow">changelog</span><h2>Version history</h2></div></div>
     ${versions.length ? versions.map(versionBlock).join('') : '<p class="muted">No entries yet.</p>'}
   </div></section>`;
-  return layout({ title: 'Cortex — Changelog', body, activeNav: 'changelog' });
+  return layout({ title: 'Cortexes — Changelog', body, activeNav: 'changelog' });
 }

@@ -6,11 +6,11 @@ allowed-tools:
   - Read
   - Write
   - Bash
-skills:
-  - cortex-takeoff
 ---
 
-Use the cortex-takeoff skill.
+Invoke the `cortexes:cortex-takeoff` skill and follow it.
+Command frontmatter cannot load a skill for you, so invoke it explicitly with
+its fully qualified name via the Skill tool.
 
 - No argument or `<topic>`: create — curate the current session into that
   work line's baton (without a topic the skill reuses or derives one).

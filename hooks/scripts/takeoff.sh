@@ -68,7 +68,7 @@ case "$cmd" in list|path|prepare|clear) ;; *) usage ;; esac
 
 vault="$(resolve_vault)"
 if [[ -z "$vault" || ! -d "$vault" ]]; then
-  echo "cortex: vault not configured (run /cortex:genesis)" >&2
+  echo "cortex: vault not configured (run /cortexes:genesis)" >&2
   exit 2
 fi
 

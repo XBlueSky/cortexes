@@ -5,6 +5,294 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-01
+
+### Added
+- **`/cortexes:query` is a real command.** The docs, the marketplace entry
+  and the landing page had listed a `query` command for releases, but
+  `commands/` never contained one — the only way in was the skill's natural
+  language triggers. `commands/query.md` now delegates to `cortex-query`,
+  takes `$ARGUMENTS` as the query verbatim, and asks what to search for when
+  invoked bare. Running it counts as an explicit request, so it searches even
+  in a session that opted out of the vault. A new `site/tests/commands.test.mjs`
+  fails if the marketplace entry ever again documents a command with no file
+  behind it. The command is **user-invoked only** — it sets
+  `disable-model-invocation: true`, so Claude never fires it on its own and
+  running it is unambiguously the user's request.
+- `tests/test_query_command_smoke.py` — a runtime smoke test that drives the
+  real CLI. It runs `claude -p "/cortexes:query <sentinel>"` with
+  `--plugin-dir` and asserts the command resolves, reaches
+  `cortexes:cortex-query`, and follows the skill's documented no-vault path;
+  and that `/cortex:query` returns `Unknown command`. File-existence and
+  `plugin details` inventory checks proved the file shipped; this proves it
+  resolves and delegates.
+  It is hermetic by construction: nothing under `$HOME` is created or
+  removed, a stub `cortex-vec` sits first on `PATH` so no installed build can
+  run and no real `~/.cortex` index can be read, and every `CORTEX_*` variable
+  plus `OPENAI_API_KEY` is dropped from the subprocess environment. It does
+  not assert on retrieved content — the skill resolves the vault from
+  `~/.cortex/config.json` and cannot be redirected without writing under
+  `$HOME` — and it **skips** outright when a real `~/.cortex/config.json`
+  exists, rather than searching someone's own vault. Retrieval behaviour is
+  covered by the `cortex-vec` unit suite. Opt-in via `CORTEX_RUNTIME_SMOKE=1`
+  (it needs an authenticated CLI and spends tokens, which CI has neither).
+
+### Changed
+- **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
+  the marketplace entry in `.claude-plugin/marketplace.json` move from
+  `cortex` / `Cortex` to `cortexes` / `Cortexes`, and the version jumps to
+  2.0.0. The plugin has always lived in the `cortexes` repository and
+  shipped its docs at `cortexes.pages.dev`; the manifest was the last
+  place still carrying the singular name. Keeping both spellings in play
+  also risked a slug collision in the public plugin directory, where
+  `cortex` is a generic enough name to be claimed by something unrelated.
+  One name everywhere removes both problems.
+- **Slash commands moved from `/cortex:*` to `/cortexes:*`.** Claude Code
+  derives the command namespace from the plugin name, so this follows
+  directly from the rename and is the one change visible in daily use:
+  `/cortex:genesis` → `/cortexes:genesis`, `/cortex:evolve` →
+  `/cortexes:evolve`, `/cortex:distill` → `/cortexes:distill`,
+  `/cortex:broadcast` → `/cortexes:broadcast`, `/cortex:takeoff` →
+  `/cortexes:takeoff`.
+  Every reference was updated with them: both READMEs, the command and
+  skill files, `docs/`, the cc-marketspec entry (renamed to
+  `.cc-marketspec/entries/plugin-cortexes.yaml` to match the plugin id it
+  is keyed by), the site templates and their tests, the `cortex-vec`
+  README, the CLI's "config not found" error, the takeoff hook script,
+  and the bug-report issue template. Muscle memory is the only migration
+  cost — typing `/cortex:` no longer resolves.
+- The marketplace manifest gained a `renames` mapping (`cortex` →
+  `cortexes`), the schema's supported way to tell Claude Code that an
+  installed plugin has a new name, so existing installs follow the rename
+  instead of looking like a removed plugin plus an unrelated new one. The
+  **top-level marketplace name stays `cortex`** on purpose: it is the
+  identifier under which people have already run `/plugin marketplace add
+  https://github.com/XBlueSky/cortexes.git#plugin`, and changing it would
+  orphan those registrations for no benefit.
+- Site page titles, the footer line, and the marketplace overlay's intro
+  now say Cortexes rather than Cortex.
+- The meta-session detector (`hooks/scripts/meta_session.py`) — which keeps
+  distill/broadcast/genesis runs from re-entering their own distill queue —
+  matched skill ids under the `cortex:` namespace. Claude Code derives the
+  skill namespace from the plugin name too, so the rename would have
+  silently switched the detector off and let every maintenance run leave a
+  self-referential Raw behind. It now matches `cortexes:` and keeps
+  `cortex:` alongside it, so transcripts written before 2.0.0 are still
+  recognised.
+- **Retrieval triggers now match the narrow `using-cortex` policy.** 1.3.2
+  narrowed `using-cortex` to four concrete signals, but the two places that
+  actually drive retrieval still carried the old "search on speculation"
+  wording, which overrode it in practice:
+  - `cortex-query`'s description told Claude to fire PROACTIVELY before any
+    non-trivial question about ongoing projects, internal tooling, plugin
+    development or infrastructure — i.e. on topic resemblance rather than on
+    a signal. It now runs only on an explicit request (including
+    `/cortexes:query`) or when `using-cortex` routes a request to it, and
+    says outright that difficulty is not a signal.
+  - The SessionStart hook injected a rule block asserting proactive search
+    applied "無論使用者是否選 1-4", told Claude to assume prior context exists
+    for any ongoing project or internal tool, argued that "寧可多查一次", and
+    ended by restating that option 4 did not stop it. All of that is gone,
+    replaced by the same four signals. Choosing option 4 — or skipping the
+    menu — now suppresses proactive lookup for the rest of the session, and
+    only an explicit request re-opens it. `tests/test_session_start_inject.py`
+    pins the injected text against every one of those removed rules.
+- The SessionStart hook's vault-topic block is labelled for what it is:
+  topic *names*, so a later request can be matched against signal 3. It never
+  loaded note contents; the marketplace entry now says so too, instead of
+  claiming the hook "injects relevant vault memory ... already loaded".
+- The marketplace entry no longer claims a missing `OPENAI_API_KEY` means
+  retrieval is unavailable. `cortex-vec` drops the embedding stream and
+  searches its local BM25 index instead — lexical, but real. The CLI itself
+  is the actual hard requirement.
+- The landing page's Recall stage said semantic search was "checked before
+  every answer". It is checked when a request points back at prior work.
+- The SessionStart label users see is now `[Cortexes]`.
+- **Removed the no-op `skills:` frontmatter from every command.** Slash-command
+  frontmatter is the skill frontmatter set, and `skills:` is not in it — it is
+  a *subagent* field (see the field table at
+  code.claude.com/docs/en/slash-commands). Declaring it in a command file
+  parses cleanly and does nothing, which is worse than an error because it
+  reads like the skill is wired up. All five delegating commands now name
+  their skill in the body by its fully qualified id (`cortexes:cortex-query`
+  and friends) and say explicitly that frontmatter cannot load it for them.
+  `site/tests/commands.test.mjs` gained an allowlist check against the
+  documented frontmatter fields so the next no-op field fails the build.
+- **Privacy disclosure for SessionStart.** `PRIVACY.md` and
+  `PRIVACY.zh-TW.md` now document that the hook adds the repository name, the
+  absolute vault path, the `Notes/`/`Projects/` topic names, and each pending
+  baton's topic and summary (plus its `workdir:` when it differs from the
+  current repo) to the session's context — ordinary context, so it reaches
+  Anthropic with the rest of the conversation through the user's own Claude
+  Code and credentials. It also states plainly that the injection happens
+  **before** the menu and that option 4 cannot retract metadata already in
+  context. Both files gain an at-a-glance row and a §7 row for disabling the
+  hook, and §7's "stop sending anything to Anthropic" row is corrected to
+  "stop the filter's classifier calls", which is all `CORTEX_NO_CLASSIFIER`
+  ever did.
+- The marketplace entry no longer says option 4 keeps the vault out of the
+  session entirely; it prevents subsequent content loading and proactive
+  searches.
+- **Both READMEs' environment-variable tables are corrected.** They still said
+  `CORTEX_NO_CLASSIFIER` meant "Nothing is sent to Anthropic" / 「不會有任何
+  資料送往 Anthropic」 long after `PRIVACY.md` had been corrected — and a table
+  row is exactly what someone reads before trusting a flag. The rows now say
+  the variable disables **only** the transcript filter's nested classifier
+  calls, and does not affect normal Claude Code session processing, including
+  SessionStart metadata and vault content loaded by commands and skills.
+  `tests/test_privacy_claims.py` sweeps both READMEs, both `PRIVACY` files,
+  both `SECURITY` files and the marketplace entry for absolute claims, and
+  allows "nothing leaves your machine" only where the text goes on to deny it.
+- **`PRIVACY` §6 listed a narrower OpenAI surface than §3.** §3 has always
+  named three uses — embeddings, summaries, optional reranking — but the
+  Telemetry section's outbound-traffic summary said only "the embedding calls
+  to OpenAI" / 「對 OpenAI 的 embedding 呼叫」, so the two halves of the same
+  policy disagreed about what leaves the machine, and the half a reader skims
+  was the narrower one. Both languages now name all three and point at
+  `git.auto_push` explicitly; the claims test asserts §6 covers each of them.
+- Documentation that described `CORTEX_VAULT_PATH` as read by "the two
+  SessionStart-side shell hooks" is corrected: only `session-start-inject.sh`
+  is a registered SessionStart hook — `takeoff.sh` is a helper the takeoff
+  skill shells out to.
+- **`cortex-vec` is released as 0.8.0.** The Weekly removal changed `cli.py`
+  and `parser.py`, so "the package is unchanged" stopped being true: without a
+  release, `uv tool install cortex-vec` would keep handing users a CLI whose
+  `search --help` still advertises `--type weekly`. Both READMEs' upgrade path
+  gains `uv tool upgrade cortex-vec`, and `tests/test_release_metadata.py`
+  fails if `pyproject.toml`'s version and the version the READMEs name ever
+  drift apart. Release order: plugin merge → `cortex-vec-v0.8.0` tag → PyPI →
+  plugin `v2.0.0` tag.
+- **`CORTEX_VAULT_PATH` is documented for what it actually is: a hook-only
+  variable, not a vault switch.** Both READMEs had described it as "overrides
+  `vault_path` from config.json", which was never true beyond the SessionStart
+  injection script and the `takeoff.sh` helper. Making it a real override was
+  attempted here
+  and **backed out**: the write side — the SessionEnd recorder, `evolve`,
+  `distill`, `broadcast` — resolves the vault from `config.json` alone, and
+  the BM25 and vector indexes live at fixed `~/.cortex/` paths with a single
+  collection name. Honouring the variable on the read side only would split
+  reads from writes across two vaults sharing one index, and a `rebuild` under
+  the override would wipe the other vault's index. A real multi-vault design
+  needs all of that — hooks, skills, commands, index namespacing, provenance —
+  and belongs in its own release, not in a plugin rename. The env-var tables
+  now state the true scope; `cortex-query` reads `config.json` and says why.
+- **Complete Anthropic data-flow disclosure.** `PRIVACY.md` /
+  `PRIVACY.zh-TW.md` gain a section stating that any page a query, distill,
+  broadcast, or takeoff resume reads out of `Notes/`, `Projects/`, `Raw/`, or
+  `.takeoff/` enters the active Claude Code context and is processed by
+  Anthropic under the user's own account — ordinary Claude Code processing,
+  not a Cortexes server or telemetry channel, with the per-flow scope spelled
+  out. Three claims that were wrong in light of it are fixed: §6 no longer
+  says the OpenAI and Anthropic calls are the *only* outbound requests (it
+  now also names `git push`, and separates plugin-originated traffic from
+  Claude Code's own session traffic); §7 no longer promises a "fully offline"
+  plugin, because query/distill/broadcast are Claude-driven; and
+  `CORTEX_NO_CLASSIFIER` is described as stopping the nested classifier calls
+  only, not normal session processing. The SessionStart section now also says
+  page contents may be loaded later in the session after a menu choice, a
+  command, or a qualifying request. Same corrections applied to both READMEs
+  and both `SECURITY.md` files, where "nothing leaves your machine" is
+  replaced by the accurate split: no vault content goes to OpenAI without a
+  key, but retrieved content still enters the Claude Code session.
+- `commands/query.md` no longer pre-approves bare `Bash`. A read-only search
+  had blanket shell approval for its turn; it is now scoped to
+  `cortex-vec search`, `grep`, `git rev-parse` and `git remote get-url` —
+  every entry read-only and actually used by the flow. `git remote:*` would
+  have covered `add`, `remove`, `rename` and `set-url` as well, and
+  `cortex-vec status` is never called by a search. Regression tests reject a
+  bare `- Bash`, the unscoped `git remote`, and the unused `status`.
+
+  **Trade-off, verified by the runtime smoke test:** a blanket `Bash`
+  approval also escaped the session's workspace boundary. Scoped entries do
+  not, so with a vault outside the working directory the *grep fallback* now
+  needs `/add-dir <vault_path>` (or a vault inside the workspace).
+  `cortex-vec search` takes no path argument and is unaffected, so the normal
+  installed-CLI path still works untouched. Both the skill and the command
+  now say this explicitly, and instruct Claude to report the boundary rather
+  than return an empty result that would read as "nothing in the vault".
+- **`cortex-query` no longer reads `score` as a verdict on relevance.**
+  `fusion.search()` reports `score` as the vector cosine similarity and
+  nothing else — by design, so distill/broadcast's absolute-threshold dedup
+  keeps working. It is **not** overall hybrid confidence, and it is not what
+  orders the list; RRF fusion, plus rerank when enabled, does that. The skill
+  treated it as confidence in two ways:
+  - Its table read "< 0.60: Weak match — mention only if nothing better
+    found", turning a semantic-overlap number into a relevance verdict. Any
+    high-ranked BM25 or graph hit with a low or zero cosine was to be buried —
+    in the BM25-only mode this release advertises as real retrieval, that is
+    *every* result. Layer 2 was gated on `all scores < 0.60`, always true
+    there. A live run reproduced it: the search found the right page, saw
+    `score 0.00`, and hedged about whether it counted.
+  - `0.0` was explained as the page being "not in the vector index".
+    `_vector_stream` returns only its own top-n for the query, so an indexed
+    page that merely placed lower in that stream reports `0.0` too. The number
+    establishes neither index membership nor BM25-only mode.
+
+  The thresholds are now stated only as semantic-overlap bands; final
+  relevance follows the returned order plus the fields the CLI actually
+  returns (`title`, `category`, `tags`, `summary`) and exact lexical evidence
+  from the Layer 2 grep — Layer 1 returns no excerpt.
+
+  `0.0` is documented as **ambiguous**, not as proof of provenance. The
+  implication runs one way only: `store.vector_stream` computes
+  `score = round(1 - dist, 4)` and `fusion.search` then reads
+  `round(vec_score.get(doc_id, 0.0), 4)`, so a printed `0.0` is a missing
+  vector score, a genuine cosine of zero, *or* a cosine that rounds to zero —
+  indistinguishable in the output. It establishes neither participation in
+  the vector stream, nor membership of the vector index, nor the retrieval
+  mode; BM25-only may be named only on independent evidence such as an
+  established missing `OPENAI_API_KEY`. `tests/test_query_skill_contract.py`
+  pins all of it plus the config-only vault resolution.
+- `cortex-takeoff` no longer illustrates the helper path with a hard-coded
+  `<...>/cortex/<version>/skills/cortex-takeoff` cache layout — a pre-rename
+  path that would now mislead. It documents only the stable relative fact
+  (`../../hooks/scripts/takeoff.sh` from the skill base directory) and tells
+  Claude to use the base directory it was announced, verbatim.
+- Both READMEs now present `OPENAI_API_KEY` as **optional** — it enables
+  embeddings and semantic search; without it retrieval runs on the local BM25
+  index with nothing sent to OpenAI. The old wording led with "Requires".
+- Both READMEs' Quick Start adds the missing `/plugin install cortexes@cortex`
+  after `marketplace add`, documents `/cortexes:query` in the command table,
+  and gains an "Upgrading from 1.x to 2.0" section covering the marketplace
+  update/reload, the `renames` migration, the new command prefix, and the
+  fact that the vault, config and indexes need no migration at all.
+
+### Removed
+- **`Weekly/` is no longer a Cortexes vault taxonomy or retrieval type.**
+  The `cortex-weekly` skill, its command, and the `weekly-compiler` agent
+  went in 0.22.0, but the *taxonomy* outlived them: `/cortexes:genesis`
+  still created `Weekly/` in every new vault and accepted it as proof that a
+  directory was a cortex vault, `cortex-vec` still classified `Weekly/` pages
+  as an active `weekly` content type and offered `--type weekly`, and the
+  skills still described the vault as containing "Weekly reports". None of it
+  was reachable — `Weekly/` came out of the index in 0.5.0 and `rebuild` has
+  scanned only `Notes/` and `Projects/` ever since, so `--type weekly` has
+  had nothing to filter since April. The plugin was advertising a
+  content type it no longer produced, indexed, or searched.
+  Genesis now creates `Raw/`, `Notes/`, `Projects/` and nothing else,
+  `classify_path` lets `Weekly/` fall through to `unknown`, the search help
+  reads `note/project`, and `tests/test_no_weekly_surface.py` plus
+  `cortex-vec/tests/test_no_weekly_type.py` fail if any of it comes back.
+  The `週報` / `weekly report` synonym pair stays: those are ordinary words
+  that can appear inside an ordinary Note, and a synonym is vocabulary, not
+  a content type.
+
+### Notes
+- **Nothing on disk changes.** This release renames a Claude Code plugin,
+  not the storage format or the retrieval backend. The `cortex-vec` CLI
+  and its `cortex_vec` Python package keep their names and their PyPI
+  listing, `~/.cortex/config.json` keeps its path and its schema, the
+  vector store, BM25 index, and caches keep their directories and their
+  internal collection names, and the `CORTEX_*` environment variables
+  (`CORTEX_SKIP_RECORD` and friends) are untouched. Existing vaults and
+  indexes work as-is; no rebuild, no re-index, no config migration.
+- **If your vault has a `Weekly/` directory, Cortexes leaves it alone.**
+  Nothing in this release moves, rewrites, or deletes it — genesis explicitly
+  will not touch an existing one. It is simply no longer created, indexed,
+  advertised, or searched, which is what it already was in practice. Move
+  anything still worth keeping into `Notes/` or `Projects/` by hand, at your
+  own pace; whatever you leave behind stays exactly where it is.
+
 ## [1.3.2] - 2026-08-06
 
 ### Added

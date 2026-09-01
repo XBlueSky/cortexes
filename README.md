@@ -21,7 +21,7 @@
 
 ## What It Does
 
-Cortex turns your working memory into a searchable knowledge base. Every
+Cortexes turns your working memory into a searchable knowledge base. Every
 Claude Code session gets automatically recorded when it ends, then can be
 distilled and retrieved later.
 
@@ -42,9 +42,14 @@ git); the vector store is just a rebuildable derived index.
 ### 1. Install the plugin
 
 ```bash
-# From GitHub
+# Add the marketplace, then install the plugin from it
 /plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
+/plugin install cortexes@cortex
 ```
+
+The marketplace is named `cortex` and the plugin inside it is `cortexes` —
+hence `cortexes@cortex`. The marketplace name is kept from 1.x on purpose so
+that existing `marketplace add` registrations keep working.
 
 ### 2. Install the cortex-vec CLI
 
@@ -60,7 +65,7 @@ pip install cortex-vec
 ```
 
 Upgrade with `uv tool upgrade cortex-vec` (or `pip install -U cortex-vec`)
-after a plugin update. `/cortex:genesis` checks for the CLI and offers this
+after a plugin update. `/cortexes:genesis` checks for the CLI and offers this
 install when it is missing. To run the unreleased development version
 instead, install from the repo:
 
@@ -68,14 +73,15 @@ instead, install from the repo:
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
-Requires the `OPENAI_API_KEY` environment variable (used for embeddings).
-Without it, `search` degrades to BM25-only — see
-[Environment Variables](#environment-variables).
+`OPENAI_API_KEY` is **optional**. Setting it enables embeddings, and with
+them semantic (vector) search. Without it nothing breaks: `search` runs on
+the local BM25 index, entirely on your machine and with nothing sent to
+OpenAI — see [Environment Variables](#environment-variables).
 
 ### 3. Initialize
 
 ```bash
-/cortex:genesis /path/to/your/vault
+/cortexes:genesis /path/to/your/vault
 ```
 
 This sets the vault path and author info, and builds the semantic index.
@@ -89,6 +95,49 @@ This sets the vault path and author info, and builds the semantic index.
 "broadcast"          → fuse new Raw content into existing pages
 ```
 
+## Upgrading from 1.x to 2.0
+
+2.0.0 renames the **plugin** from `cortex` to `cortexes`. Your vault, config
+and indexes are untouched — there is no data migration.
+
+1. **Update the marketplace.** In Claude Code run
+   `/plugin marketplace update cortex` (or remove and re-add it).
+2. **Start a new session.** The marketplace manifest ships a `renames`
+   mapping (`cortex` → `cortexes`), so the rename is carried for you: the
+   update re-points your enabled plugin at `cortexes@cortex`, and the next
+   session start materializes it at 2.0.0. You do **not** need to uninstall
+   and reinstall. In between the two steps `/plugin` may still list the old
+   `cortex` row annotated `Renamed to "cortexes" in the "cortex"
+   marketplace` — that is the migration staged, not an error. If you ever do
+   reinstall from scratch, the id is `/plugin install cortexes@cortex`.
+3. **Use the new command prefix.** `/cortex:*` no longer resolves; every
+   command moved to `/cortexes:*` (`/cortexes:genesis`, `/cortexes:evolve`,
+   `/cortexes:distill`, `/cortexes:query`, `/cortexes:broadcast`,
+   `/cortexes:takeoff`). Natural-language triggers are unchanged — "存到
+   cortex" and "查 cortex" still work.
+4. **If your vault has a `Weekly/` directory, move what you still want.**
+   `Weekly/` is no longer part of the vault taxonomy: 2.0 does not create it,
+   index it, search it, or list it. It was already unreachable — the weekly
+   report skill went in 0.22.0 and `Weekly/` left the index back in 0.5.0 —
+   so this changes nothing about what you can find. Cortexes will **not**
+   move, rewrite, or delete an existing `Weekly/`; copy anything still worth
+   keeping into `Notes/` or `Projects/` yourself, at your own pace, and
+   whatever you leave stays where it is.
+5. **Upgrade the CLI too.**
+
+   ```bash
+   uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
+   ```
+
+   `cortex-vec` 0.8.0 is what carries the Weekly removal into the CLI —
+   `--type weekly` is gone from `search --help` and `Weekly/` is no longer
+   classified as a content type. The plugin works with 0.7.0, so this is not
+   urgent, but until you upgrade the CLI's own help still advertises the
+   retired filter.
+6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
+   and caches, and the `CORTEX_*` environment variables all keep their names
+   and paths. No rebuild, no re-index, no config edit.
+
 ## Website
 
 Live docs and changelog: <https://cortexes.pages.dev> (Cloudflare Pages,
@@ -101,11 +150,12 @@ See [`site/README.md`](site/README.md) for local builds.
 
 | Command | Description |
 |---------|-------------|
-| `/cortex:genesis` | Initialize the vault — set path, author, rebuild the index |
-| `/cortex:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
-| `/cortex:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
-| `/cortex:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
-| `/cortex:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
+| `/cortexes:genesis` | Initialize the vault — set path, author, rebuild the index |
+| `/cortexes:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
+| `/cortexes:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
+| `/cortexes:query` | Search the vault — semantic (`cortex-vec`) with grep and BM25 fallbacks. Running it counts as an explicit request, so it searches even when the session opted out |
+| `/cortexes:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
+| `/cortexes:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
 
 ### Skills (auto-triggered)
 
@@ -173,12 +223,12 @@ Every session:
   session ends → SessionEnd hook → filter → Raw/   (automatic, no prompt)
 
 Anytime:
-  /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
-  /cortex:query     → vector search → precise file reads
+  /cortexes:evolve    → Notes/Projects + _index.md + log.md + vector store
+  /cortexes:query     → vector search → precise file reads
 
 Periodically:
-  /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
-  /cortex:broadcast → pending-merge → fused into existing Notes/Projects
+  /cortexes:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
+  /cortexes:broadcast → pending-merge → fused into existing Notes/Projects
 ```
 
 ### Retrieval Strategy
@@ -233,7 +283,7 @@ cortex-vec status                               # shows both vector and BM25 ent
 
 ### Distillation navigation (1.0.0+)
 
-`/cortex:distill` drives these read-only commands to walk a Raw **without
+`/cortexes:distill` drives these read-only commands to walk a Raw **without
 ever loading the whole file into context**. A Raw is parsed once into a
 gap-free, overlap-free source partition; `raw-span` is the only reader that
 returns original text, and every page is hard-capped so an oversized session
@@ -393,9 +443,9 @@ cortex-vec eval run \
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
-| `CORTEX_VAULT_PATH` | No | Overrides `vault_path` from config.json |
+| `CORTEX_VAULT_PATH` | No | Read only by `session-start-inject.sh` and the `takeoff.sh` helper. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
-| `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Nothing is sent to Anthropic |
+| `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |
 
 ## Dependencies
 
@@ -418,12 +468,24 @@ Cortexes is local-first: your vault is Markdown on your own disk, the index
 is local, and the authors receive nothing — there is no server, no account,
 and no telemetry.
 
-Two features do reach a remote service, both under your control. The
-transcript filter sends oversized blocks (>12 KB, capped at 5 per session)
-to Anthropic through your own Claude Code to classify them for compression —
-disable with `CORTEX_NO_CLASSIFIER=1`. Semantic indexing sends vault page
-content to OpenAI for embeddings — this only happens if you set
-`OPENAI_API_KEY`, and without it retrieval runs entirely on local BM25.
+That is not the same as "nothing leaves your machine". Cortexes is a Claude
+Code plugin, so the vault pages a query, distill, broadcast, or takeoff
+resume reads become part of the active session and are processed by
+Anthropic under your own account — ordinary Claude Code processing, not a
+Cortexes channel. The SessionStart hook additionally puts the repo name, the
+vault path, and your `Notes/`/`Projects/` topic names into that context
+before the menu appears; page contents are not injected there, but may be
+loaded later once you pick a menu option, run a command, or make a request
+that matches a `using-cortex` signal.
+
+Three flows are initiated by the plugin's own code, all under your control:
+the transcript filter sends oversized blocks (>12 KB, capped at 5 per
+session) to Anthropic through your own Claude Code to classify them for
+compression — `CORTEX_NO_CLASSIFIER=1` disables it, and stops only those
+nested calls, not normal session processing; semantic indexing sends vault
+page content to OpenAI for embeddings, only if you set `OPENAI_API_KEY`, and
+without it retrieval runs on the local BM25 index; and `git push` to a
+remote you configured, only if you turn it on (off by default).
 
 [`PRIVACY.md`](PRIVACY.md) documents every data flow in full: what a session
 record contains, what is stripped before writing, where files live, git
@@ -433,7 +495,7 @@ your data.
 ## Project Structure
 
 ```
-commands/       Slash commands (/cortex:*)
+commands/       Slash commands (/cortexes:*)
 skills/         Self-triggering skills
 hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python semantic indexing CLI
