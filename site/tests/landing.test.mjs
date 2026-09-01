@@ -31,6 +31,13 @@ test('renders command summaries', () => {
   assert.match(html, /提煉 Raw/);
 });
 
+test('renders commands under the /cortexes: namespace', () => {
+  const html = renderLanding({ plugin: PLUGIN, changelog: CHANGELOG });
+  assert.match(html, /\/cortexes:genesis/);
+  assert.match(html, /\/cortexes:distill/);
+  assert.doesNotMatch(html, /\/cortex:/);
+});
+
 test('renders latest changelog version', () => {
   const html = renderLanding({ plugin: PLUGIN, changelog: CHANGELOG });
   assert.match(html, /0\.23\.0/);

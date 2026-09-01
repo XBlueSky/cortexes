@@ -21,7 +21,7 @@ Search the cortex Obsidian vault using semantic search.
 ## Resolve Vault Path
 
 Read `~/.cortex/config.json` to get `vault_path`.
-If the file doesn't exist, tell the user to run `/cortex:genesis` first.
+If the file doesn't exist, tell the user to run `/cortexes:genesis` first.
 
 ## Search Strategy (Layered)
 
@@ -34,7 +34,7 @@ cortex-vec search "<query>" --n 5
 ```
 
 `cortex-vec` is installed as a CLI tool (from PyPI via `uv tool install
-cortex-vec` or pip — see the README's Quick Start; `/cortex:genesis` offers
+cortex-vec` or pip — see the README's Quick Start; `/cortexes:genesis` offers
 the install when it is missing).
 
 **Context-aware filtering:** If the current session is inside a git repo,

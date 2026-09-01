@@ -5,7 +5,7 @@ description: >
   hand-off note that lets the next Claude session continue a long-running task.
   A repo can hold several batons at once, one per work line (topic). Use when
   the user says "交接", "takeoff", "交棒", "context 快滿了交接給下個 session",
-  "hand off to next session", "/cortex:takeoff", "takeoff resume", or
+  "hand off to next session", "/cortexes:takeoff", "takeoff resume", or
   "takeoff done". The baton is scaffolding, not knowledge: it is never
   committed, distilled, broadcast, or indexed.
 ---
@@ -63,7 +63,7 @@ Determined by the command argument:
 | `resume [topic]`    | **resume** — load a baton (do not delete) |
 | `done [topic]`      | **done** — clear a baton (soft-delete to trash) |
 
-## Create (`/cortex:takeoff [topic]`)
+## Create (`/cortexes:takeoff [topic]`)
 
 1. Set `TK`, resolve `cwd`, then survey the existing work lines:
 

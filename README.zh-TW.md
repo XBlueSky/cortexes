@@ -21,7 +21,7 @@
 
 ## What It Does
 
-Cortex 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
+Cortexes 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
 
 - **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
 - **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
@@ -53,7 +53,7 @@ pip install cortex-vec
 ```
 
 plugin 更新後用 `uv tool upgrade cortex-vec`（或 `pip install -U
-cortex-vec`）升級。`/cortex:genesis` 會檢查 CLI 是否已安裝，缺少時主動
+cortex-vec`）升級。`/cortexes:genesis` 會檢查 CLI 是否已安裝，缺少時主動
 提供安裝指令。想跑尚未釋出的開發版，可改從 repo 安裝：
 
 ```bash
@@ -66,7 +66,7 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 ### 3. 初始化
 
 ```bash
-/cortex:genesis /path/to/your/vault
+/cortexes:genesis /path/to/your/vault
 ```
 
 這會設定 vault 路徑、author 資訊，並建立語意索引。
@@ -91,11 +91,11 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 
 | Command | Description |
 |---------|-------------|
-| `/cortex:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
-| `/cortex:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
-| `/cortex:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
-| `/cortex:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
-| `/cortex:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
+| `/cortexes:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
+| `/cortexes:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
+| `/cortexes:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
+| `/cortexes:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
+| `/cortexes:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
 
 ### Skills（自動觸發）
 
@@ -159,12 +159,12 @@ log.md                         ← evolve/distill 的時序歷程
   session 結束 → SessionEnd hook → 過濾 → Raw/   （自動，不會詢問）
 
 隨時:
-  /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
-  /cortex:query     → vector search → 精確讀檔
+  /cortexes:evolve    → Notes/Projects + _index.md + log.md + vector store
+  /cortexes:query     → vector search → 精確讀檔
 
 定期:
-  /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
-  /cortex:broadcast → pending-merge → 融合進既有 Notes/Projects
+  /cortexes:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
+  /cortexes:broadcast → pending-merge → 融合進既有 Notes/Projects
 ```
 
 ### Retrieval Strategy
@@ -208,7 +208,7 @@ cortex-vec status                               # 同時顯示 vector 與 BM25 e
 
 ### 提煉導覽指令（1.0.0+）
 
-`/cortex:distill` 靠這組唯讀指令走訪一份 Raw,**全程不把整個檔案載入 context**。
+`/cortexes:distill` 靠這組唯讀指令走訪一份 Raw,**全程不把整個檔案載入 context**。
 每份 Raw 只被解析一次成為 gap-free、無重疊的 source partition;`raw-span` 是唯一
 會回傳原始文字的 reader,每一頁都有硬上限,因此超大 session 會以 bounded 續頁分批
 提煉,而不會撐爆 context:
@@ -376,7 +376,7 @@ Anthropic 做壓縮分類——設定 `CORTEX_NO_CLASSIFIER=1` 即可停用。�
 ## Project Structure
 
 ```
-commands/       Slash commands（/cortex:*）
+commands/       Slash commands（/cortexes:*）
 skills/         自動觸發的 skills
 hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python 語意索引 CLI

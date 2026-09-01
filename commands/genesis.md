@@ -154,7 +154,7 @@ Display:
 
   Next steps:
   - Sessions auto-record to Raw/ on exit
-  - /cortex:evolve → save notes or project info
-  - /cortex:distill → refine raw records
-  - /cortex:query → search your vault
+  - /cortexes:evolve → save notes or project info
+  - /cortexes:distill → refine raw records
+  - /cortexes:query → search your vault
 ```

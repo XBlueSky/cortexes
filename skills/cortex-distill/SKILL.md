@@ -12,7 +12,7 @@ Extract valuable knowledge from Raw/ session dumps into Notes/ and Projects/.
 ## Resolve Vault Path
 
 Read `~/.cortex/config.json` to get `vault_path`.
-If the file doesn't exist, tell the user to run `/cortex:genesis` first.
+If the file doesn't exist, tell the user to run `/cortexes:genesis` first.
 
 ## Step 1: Find Unprocessed Raw Files
 
@@ -310,7 +310,7 @@ For each newly created file:
    exist yet. Then bump the `updated` date in frontmatter.
 
    Do NOT maintain an `entries:` count — the frontmatter has no such field, by
-   design (see `/cortex:genesis`).
+   design (see `/cortexes:genesis`).
 
 ## Step 7: Append Log Entry
 
@@ -390,7 +390,7 @@ at this layer:
 - Inside broadcast Step 7 (candidate menu): user types `quit` to abort
   before any page commits. The Raw stays in the broadcast-eligible
   queue (no `| broadcast:` marker is written), so it can be picked up
-  by a future standalone `/cortex:broadcast` run.
+  by a future standalone `/cortexes:broadcast` run.
 - Inside broadcast Step 8 (per-page conversation): user types `abort`
   / `cancel` to end the session. Prior committed pages stand; the Raw
   marker is left unchanged.

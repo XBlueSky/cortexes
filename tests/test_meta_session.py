@@ -92,6 +92,28 @@ class IsMetaSession(unittest.TestCase):
         ])
         self.assertTrue(is_meta_session(p))
 
+    # --- namespace: the plugin is `cortexes` since 2.0.0, `cortex` before it ---
+    def test_cortexes_namespace_distill_is_meta(self):
+        p = _write_jsonl([_skill_invocation("cortexes:distill")])
+        self.assertTrue(is_meta_session(p))
+
+    def test_cortexes_namespace_double_prefix_is_meta(self):
+        # Skills kept their `cortex-` names through the plugin rename, so the
+        # dominant id is `cortexes:cortex-distill`.
+        p = _write_jsonl([_skill_invocation("cortexes:cortex-distill")])
+        self.assertTrue(is_meta_session(p))
+
+    def test_cortexes_namespace_broadcast_and_genesis_are_meta(self):
+        for skill in ("cortexes:broadcast", "cortexes:cortex-broadcast",
+                      "cortexes:genesis", "cortexes:cortex-genesis"):
+            with self.subTest(skill=skill):
+                self.assertTrue(is_meta_session(_write_jsonl([_skill_invocation(skill)])))
+
+    def test_legacy_cortex_namespace_still_matched(self):
+        # Transcripts written before the 2.0.0 rename still carry `cortex:`.
+        p = _write_jsonl([_skill_invocation("cortex:cortex-distill")])
+        self.assertTrue(is_meta_session(p))
+
     # --- negative: real work sessions that merely TOUCH cortex ---
     def test_query_session_not_meta(self):
         # cortex:query fires proactively inside normal work — must be recorded.
@@ -122,6 +144,13 @@ class IsMetaSession(unittest.TestCase):
 
     def test_double_prefix_evolve_not_meta(self):
         p = _write_jsonl([_skill_invocation("cortex:cortex-evolve")])
+        self.assertFalse(is_meta_session(p))
+
+    def test_cortexes_namespace_query_not_meta(self):
+        p = _write_jsonl([
+            _skill_invocation("cortexes:cortex-query"),
+            _skill_invocation("cortexes:using-cortex"),
+        ])
         self.assertFalse(is_meta_session(p))
 
     def test_plugin_dev_session_not_meta(self):

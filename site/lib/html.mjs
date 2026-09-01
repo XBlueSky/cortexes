@@ -64,7 +64,7 @@ ${PAGE_THREAD_SVG}
 ${body}
 </main>
 <footer><div class="wrap foot-row">
-  <div>© 2026 XBlueSky · cortex — personal knowledge base plugin for Claude Code</div>
+  <div>© 2026 XBlueSky · cortexes — personal knowledge base plugin for Claude Code</div>
 </div></footer>
 </body>
 </html>

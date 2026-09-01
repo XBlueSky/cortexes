@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test gate for the cortex plugin: ruff lint + both pytest suites.
+# Test gate for the cortexes plugin: ruff lint + both pytest suites.
 #
 # Runnable standalone (./scripts/run-checks.sh) and wired into
 # .pre-commit-config.yaml. Uses the ambient `python3` (your pyenv interpreter)

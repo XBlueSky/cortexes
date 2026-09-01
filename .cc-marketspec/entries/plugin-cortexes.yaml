@@ -1,4 +1,4 @@
-# Presentation overlay for cortex. Every field is optional — native data
+# Presentation overlay for cortexes. Every field is optional — native data
 # already yields a valid manifest; this only enriches it.
 # yaml-language-server: $schema=../../node_modules/@xbluesky/cc-marketspec/schemas/entry.schema.json
 
@@ -7,7 +7,7 @@ group: knowledge
 tagline: Knowledge doesn't sit. It compounds.
 
 intro: >
-  Cortex is a personal memory layer for Claude Code. Every session automatically records
+  Cortexes is a personal memory layer for Claude Code. Every session automatically records
   commits, findings, and decisions, which can later be distilled into refined notes and
   retrieved with mixed-language semantic search. The vault is plain markdown + git as the
   source of truth; the vector store is just a rebuildable derived index. Built for anyone
@@ -52,23 +52,23 @@ skills:
 commands:
   - name: genesis
     examples:
-      - "/cortex:genesis /srv/cortex"
-      - "/cortex:genesis ~/cortex"
+      - "/cortexes:genesis /srv/cortex"
+      - "/cortexes:genesis ~/cortex"
   - name: evolve
     examples:
-      - "/cortex:evolve"
+      - "/cortexes:evolve"
   - name: distill
     examples:
-      - "/cortex:distill this week"
-      - "/cortex:distill 2026-06-30"
+      - "/cortexes:distill this week"
+      - "/cortexes:distill 2026-06-30"
   - name: broadcast
     examples:
-      - "/cortex:broadcast --list"
+      - "/cortexes:broadcast --list"
   - name: takeoff
     examples:
-      - "/cortex:takeoff vec-index-rebuild"
-      - "/cortex:takeoff resume"
-      - "/cortex:takeoff done vec-index-rebuild"
+      - "/cortexes:takeoff vec-index-rebuild"
+      - "/cortexes:takeoff resume"
+      - "/cortexes:takeoff done vec-index-rebuild"
 
 hooks:
   - event: SessionEnd
@@ -79,7 +79,7 @@ hooks:
 tips:
   - Let cortex-query search the vault before answering questions about existing projects or internal tooling — far cheaper than re-exploring or asking.
   - distill automatically dispatches broadcast afterward to fuse new knowledge into existing pages; no need to run it manually.
-  - The vault is the source of truth (markdown + git); the vector store can always be rebuilt with /cortex:genesis.
+  - The vault is the source of truth (markdown + git); the vector store can always be rebuilt with /cortexes:genesis.
 
 traps:
   - The takeoff baton is temporary scaffolding — it is never committed, distilled, broadcast, or indexed. Don't rely on it as the only place long-term knowledge lives.

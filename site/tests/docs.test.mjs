@@ -5,7 +5,7 @@ import { renderDocs } from '../templates/docs.mjs';
 
 const PLUGIN = {
   skills: [{ name: 'cortex-query', trigger: '查 vault', description: 'search vault', examples: ['查 cortex'] }],
-  commands: [{ name: 'genesis', summary: '初始化 vault', examples: ['/cortex:genesis ~/v'] }],
+  commands: [{ name: 'genesis', summary: '初始化 vault', examples: ['/cortexes:genesis ~/v'] }],
   hooks: [{ event: 'SessionEnd', why: '自動記錄' }],
   tips: [{ text: '先搜尋再回答' }],
   traps: [{ text: 'baton 不進 git' }],
@@ -16,6 +16,12 @@ test('renders skill trigger and examples', () => {
   assert.match(html, /cortex-query/);
   assert.match(html, /查 vault/);
   assert.match(html, /查 cortex/);
+});
+
+test('renders commands under the /cortexes: namespace', () => {
+  const html = renderDocs(PLUGIN);
+  assert.match(html, /\/cortexes:genesis/);
+  assert.doesNotMatch(html, /\/cortex:/);
 });
 
 test('renders hooks, tips, traps', () => {

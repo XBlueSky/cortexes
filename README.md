@@ -21,7 +21,7 @@
 
 ## What It Does
 
-Cortex turns your working memory into a searchable knowledge base. Every
+Cortexes turns your working memory into a searchable knowledge base. Every
 Claude Code session gets automatically recorded when it ends, then can be
 distilled and retrieved later.
 
@@ -60,7 +60,7 @@ pip install cortex-vec
 ```
 
 Upgrade with `uv tool upgrade cortex-vec` (or `pip install -U cortex-vec`)
-after a plugin update. `/cortex:genesis` checks for the CLI and offers this
+after a plugin update. `/cortexes:genesis` checks for the CLI and offers this
 install when it is missing. To run the unreleased development version
 instead, install from the repo:
 
@@ -75,7 +75,7 @@ Without it, `search` degrades to BM25-only — see
 ### 3. Initialize
 
 ```bash
-/cortex:genesis /path/to/your/vault
+/cortexes:genesis /path/to/your/vault
 ```
 
 This sets the vault path and author info, and builds the semantic index.
@@ -101,11 +101,11 @@ See [`site/README.md`](site/README.md) for local builds.
 
 | Command | Description |
 |---------|-------------|
-| `/cortex:genesis` | Initialize the vault — set path, author, rebuild the index |
-| `/cortex:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
-| `/cortex:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
-| `/cortex:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
-| `/cortex:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
+| `/cortexes:genesis` | Initialize the vault — set path, author, rebuild the index |
+| `/cortexes:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
+| `/cortexes:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
+| `/cortexes:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
+| `/cortexes:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
 
 ### Skills (auto-triggered)
 
@@ -173,12 +173,12 @@ Every session:
   session ends → SessionEnd hook → filter → Raw/   (automatic, no prompt)
 
 Anytime:
-  /cortex:evolve    → Notes/Projects + _index.md + log.md + vector store
-  /cortex:query     → vector search → precise file reads
+  /cortexes:evolve    → Notes/Projects + _index.md + log.md + vector store
+  /cortexes:query     → vector search → precise file reads
 
 Periodically:
-  /cortex:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
-  /cortex:broadcast → pending-merge → fused into existing Notes/Projects
+  /cortexes:distill   → Raw → Notes/Projects (+ pending-merge → broadcast)
+  /cortexes:broadcast → pending-merge → fused into existing Notes/Projects
 ```
 
 ### Retrieval Strategy
@@ -233,7 +233,7 @@ cortex-vec status                               # shows both vector and BM25 ent
 
 ### Distillation navigation (1.0.0+)
 
-`/cortex:distill` drives these read-only commands to walk a Raw **without
+`/cortexes:distill` drives these read-only commands to walk a Raw **without
 ever loading the whole file into context**. A Raw is parsed once into a
 gap-free, overlap-free source partition; `raw-span` is the only reader that
 returns original text, and every page is hard-capped so an oversized session
@@ -433,7 +433,7 @@ your data.
 ## Project Structure
 
 ```
-commands/       Slash commands (/cortex:*)
+commands/       Slash commands (/cortexes:*)
 skills/         Self-triggering skills
 hooks/          SessionStart/SessionEnd lifecycle hooks
 cortex-vec/     Python semantic indexing CLI

@@ -5,6 +5,61 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-01
+
+### Changed
+- **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
+  the marketplace entry in `.claude-plugin/marketplace.json` move from
+  `cortex` / `Cortex` to `cortexes` / `Cortexes`, and the version jumps to
+  2.0.0. The plugin has always lived in the `cortexes` repository and
+  shipped its docs at `cortexes.pages.dev`; the manifest was the last
+  place still carrying the singular name. Keeping both spellings in play
+  also risked a slug collision in the public plugin directory, where
+  `cortex` is a generic enough name to be claimed by something unrelated.
+  One name everywhere removes both problems.
+- **Slash commands moved from `/cortex:*` to `/cortexes:*`.** Claude Code
+  derives the command namespace from the plugin name, so this follows
+  directly from the rename and is the one change visible in daily use:
+  `/cortex:genesis` → `/cortexes:genesis`, `/cortex:evolve` →
+  `/cortexes:evolve`, `/cortex:distill` → `/cortexes:distill`,
+  `/cortex:broadcast` → `/cortexes:broadcast`, `/cortex:takeoff` →
+  `/cortexes:takeoff`.
+  Every reference was updated with them: both READMEs, the command and
+  skill files, `docs/`, the cc-marketspec entry (renamed to
+  `.cc-marketspec/entries/plugin-cortexes.yaml` to match the plugin id it
+  is keyed by), the site templates and their tests, the `cortex-vec`
+  README, the CLI's "config not found" error, the takeoff hook script,
+  and the bug-report issue template. Muscle memory is the only migration
+  cost — typing `/cortex:` no longer resolves.
+- The marketplace manifest gained a `renames` mapping (`cortex` →
+  `cortexes`), the schema's supported way to tell Claude Code that an
+  installed plugin has a new name, so existing installs follow the rename
+  instead of looking like a removed plugin plus an unrelated new one. The
+  **top-level marketplace name stays `cortex`** on purpose: it is the
+  identifier under which people have already run `/plugin marketplace add
+  https://github.com/XBlueSky/cortexes.git#plugin`, and changing it would
+  orphan those registrations for no benefit.
+- Site page titles, the footer line, and the marketplace overlay's intro
+  now say Cortexes rather than Cortex.
+- The meta-session detector (`hooks/scripts/meta_session.py`) — which keeps
+  distill/broadcast/genesis runs from re-entering their own distill queue —
+  matched skill ids under the `cortex:` namespace. Claude Code derives the
+  skill namespace from the plugin name too, so the rename would have
+  silently switched the detector off and let every maintenance run leave a
+  self-referential Raw behind. It now matches `cortexes:` and keeps
+  `cortex:` alongside it, so transcripts written before 2.0.0 are still
+  recognised.
+
+### Notes
+- **Nothing on disk changes.** This release renames a Claude Code plugin,
+  not the storage format or the retrieval backend. The `cortex-vec` CLI
+  and its `cortex_vec` Python package keep their names and their PyPI
+  listing, `~/.cortex/config.json` keeps its path and its schema, the
+  vector store, BM25 index, and caches keep their directories and their
+  internal collection names, and the `CORTEX_*` environment variables
+  (`CORTEX_SKIP_RECORD` and friends) are untouched. Existing vaults and
+  indexes work as-is; no rebuild, no re-index, no config migration.
+
 ## [1.3.2] - 2026-08-06
 
 ### Added

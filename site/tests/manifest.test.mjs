@@ -6,16 +6,17 @@ import { join } from 'node:path';
 import { loadManifest, getPlugin } from '../lib/manifest.mjs';
 
 function tmpManifest(obj) {
-  const dir = mkdtempSync(join(tmpdir(), 'cortex-mf-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cortexes-mf-'));
   const p = join(dir, 'manifest.json');
   writeFileSync(p, JSON.stringify(obj));
   return p;
 }
 
 test('loads a valid manifest', () => {
-  const p = tmpManifest({ plugins: [{ id: 'cortex', name: 'cortex' }] });
+  const p = tmpManifest({ plugins: [{ id: 'cortexes', name: 'cortexes', version: '2.0.0' }] });
   const m = loadManifest(p);
-  assert.equal(getPlugin(m).id, 'cortex');
+  assert.equal(getPlugin(m).id, 'cortexes');
+  assert.equal(getPlugin(m).version, '2.0.0');
 });
 
 test('throws when no plugins', () => {
