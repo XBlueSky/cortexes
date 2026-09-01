@@ -50,11 +50,10 @@ has no usable `vault_path`, tell the user to run `/cortexes:genesis` first.
 Do **not** read `CORTEX_VAULT_PATH` here. Only the SessionStart injection
 script and the `takeoff.sh` helper honour it; the write side — the SessionEnd
 recorder, `evolve`, `distill`, `broadcast` — resolves the vault from
-`config.json` alone, and the
-BM25/vector indexes live at a single fixed `~/.cortex/` location regardless.
-Honouring it on the read side would split reads and writes across two vaults
-while both shared one index. `config.json` is the one source of truth until a
-real multi-vault design lands.
+`config.json` alone, and the BM25/vector indexes live at a single fixed
+`~/.cortex/` location regardless. Honouring it on the read side would split
+reads and writes across two vaults while both shared one index. `config.json`
+is the one source of truth until a real multi-vault design lands.
 
 ## Search Strategy (Layered)
 
@@ -88,11 +87,26 @@ The user can override this by saying "search all" or "search across everything".
 - Score 0.60-0.80: Possible match — present as suggestions
 - Score < 0.60: Weak match — mention only if nothing better found
 
+**`score` is the vector cosine similarity, and only that.** A hit that came
+from the BM25 or graph stream and is not in the vector index reports **exactly
+`0.0`** — that is "no cosine available", *not* a weak match. Ranking order
+already reflects the full fusion, so when the scores are all `0.0`:
+
+- Trust the **order**, and judge relevance from the title, category and
+  matched text rather than from the number.
+- Do **not** demote those hits or bury them as "weak matches". A lexical hit
+  on an exact identifier is usually the strongest evidence there is.
+- Say which mode produced them. Without `OPENAI_API_KEY` every result scores
+  `0.0` because there is no vector stream at all; that is the documented BM25
+  fallback, and it is a real search. `cortex-vec status` shows `Entries: 0`
+  when nothing is embedded.
+
 ### Layer 2: Exact Match (supplement)
 
-If Layer 1 returns no strong results (all scores < 0.60), if `cortex-vec` is
-unavailable, or if the user is searching for an exact string (command, config
-path, error message), search the text directly.
+If Layer 1 returns no *relevant* results, if `cortex-vec` is unavailable, or
+if the user is searching for an exact string (command, config path, error
+message), search the text directly. Judge "no relevant results" by the hits
+themselves — an all-`0.0` scoreboard means BM25-only mode, not failure.
 
 ```bash
 grep -ri "<query>" <vault_path>/Notes/ <vault_path>/Projects/
