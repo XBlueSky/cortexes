@@ -231,12 +231,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The thresholds are now stated only as semantic-overlap bands; final
   relevance follows the returned order plus the fields the CLI actually
   returns (`title`, `category`, `tags`, `summary`) and exact lexical evidence
-  from the Layer 2 grep — Layer 1 returns no excerpt. `0.0` is described by
-  provenance ("no score from the current vector result stream"), and BM25-only
-  mode may be named only on independent evidence, such as an established
-  missing `OPENAI_API_KEY`. `tests/test_query_skill_contract.py` pins all of
-  it plus the config-only vault resolution; **7 of its 8 cases fail against
-  the previous skill**.
+  from the Layer 2 grep — Layer 1 returns no excerpt.
+
+  `0.0` is documented as **ambiguous**, not as proof of provenance. The
+  implication runs one way only: `store.vector_stream` computes
+  `score = round(1 - dist, 4)` and `fusion.search` then reads
+  `round(vec_score.get(doc_id, 0.0), 4)`, so a printed `0.0` is a missing
+  vector score, a genuine cosine of zero, *or* a cosine that rounds to zero —
+  indistinguishable in the output. It establishes neither participation in
+  the vector stream, nor membership of the vector index, nor the retrieval
+  mode; BM25-only may be named only on independent evidence such as an
+  established missing `OPENAI_API_KEY`. `tests/test_query_skill_contract.py`
+  pins all of it plus the config-only vault resolution.
 - `cortex-takeoff` no longer illustrates the helper path with a hard-coded
   `<...>/cortex/<version>/skills/cortex-takeoff` cache layout — a pre-rename
   path that would now mislead. It documents only the stable relative fact

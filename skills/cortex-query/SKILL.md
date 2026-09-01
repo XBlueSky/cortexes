@@ -94,9 +94,9 @@ on relevance:
 
 - `> 0.80` — strong semantic overlap with the embedding
 - `0.60–0.80` — moderate semantic overlap
-- `< 0.60` — little semantic overlap *on the embedding*, which is not by
-  itself a statement about whether the page answers the question
-- `0.0` — no score from the current vector result stream (see below)
+- non-zero `< 0.60` — little semantic overlap *on the embedding*, which is
+  not by itself a verdict on whether the page answers the question
+- `0.0` — ambiguous in the current CLI output; see below
 
 **Relevance follows the returned order, not the number.** The list comes back
 already fused across every active stream, and reranked when `--rerank` is on,
@@ -108,13 +108,20 @@ returns no excerpt; matched text comes from the Layer 2 grep supplement.
 **Never demote a high-ranked BM25 or graph result solely because its cosine is
 low or zero.** Fusion routinely places such a hit above a higher-cosine one on
 purpose, and an exact match on an identifier, command or error string is
-usually the strongest evidence available while carrying no cosine at all.
+usually the strongest evidence available even when the embedding scores it
+low or gives it nothing at all.
 
-**What `0.0` means, exactly.** The document received no score from the current
-vector result stream. That is the whole claim. It does **not** establish that
-the page is absent from the vector index — that stream returns only its own
-top results for this query, so an indexed page that merely placed lower in it
-also reports `0.0`.
+**What `0.0` means.** The current CLI emits `0.0` both when a result received
+no score from the current vector result stream and when an actual cosine is
+zero or rounds to zero at four decimal places. The implication runs one way
+only: a result with no vector score always prints `0.0`, but a printed `0.0`
+does not tell you which of those produced it.
+
+So `0.0` establishes none of the following: whether the document took part in
+the vector result stream, whether it exists in the vector index at all, or
+which retrieval mode produced the result set. Treat the vector evidence as
+unavailable or indeterminate, and rely on the returned order and the result
+fields instead.
 
 **Do not infer BM25-only mode from `0.0` alone.** Say retrieval ran without a
 vector stream only when you know that independently — the user has established

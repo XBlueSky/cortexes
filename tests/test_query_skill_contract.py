@@ -77,15 +77,40 @@ class QuerySkillContract(unittest.TestCase):
         )
 
     # --- what 0.0 does and does not prove ------------------------------
-    def test_zero_is_described_by_provenance_not_by_index_membership(self):
+    def test_zero_is_documented_as_ambiguous(self):
+        """`0.0` is emitted by three different situations, so it proves nothing.
+
+        `store.vector_stream` computes `score = round(1 - dist, 4)` and
+        `fusion.search` then reads `round(vec_score.get(doc_id, 0.0), 4)`. A
+        printed `0.0` is therefore a missing vector score, a genuine cosine of
+        zero, or a cosine that rounds to zero — indistinguishable in the
+        output. The implication runs one way only, and an earlier draft stated
+        the converse as fact ("That is the whole claim").
+        """
         self.assertRegex(
             self.text,
-            r"(?is)received no score from the current\s*\n?vector result stream",
-            "0.0 must be described as 'no score from the current vector stream'",
+            r"(?is)`0\.0`.{0,300}(ambiguous|does not distinguish)",
+            "the skill must call a printed 0.0 ambiguous",
+        )
+        self.assertRegex(
+            self.text,
+            r"(?is)(no score|missing).{0,200}(rounds? to zero|actual cosine)",
+            "the skill must name the rounding/genuine-zero cases, not just absence",
+        )
+        self.assertNotIn(
+            "The document received no score from the current vector result stream. "
+            "That is the whole claim.",
+            self.text,
+            "0.0 does not establish the absence of a vector score",
         )
         self.assertNotIn(
             "not in the vector index", self.text,
             "0.0 does not establish that a page is absent from the vector index",
+        )
+        self.assertRegex(
+            self.text,
+            r"(?is)`0\.0` establishes none of the following",
+            "the skill must state outright what 0.0 does not establish",
         )
 
     def test_retrieval_mode_is_not_inferred_from_zero(self):
