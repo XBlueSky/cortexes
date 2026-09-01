@@ -27,7 +27,7 @@ def main():
     p_search = sub.add_parser("search", help="Semantic search")
     p_search.add_argument("query", help="Search query text")
     p_search.add_argument("--repo", help="Filter by repo")
-    p_search.add_argument("--type", help="Filter by type (note/project/weekly)")
+    p_search.add_argument("--type", help="Filter by type (note/project)")
     p_search.add_argument("--category", help="Filter by category")
     p_search.add_argument("--n", type=int, default=5, help="Number of results")
     p_search.add_argument("--no-bm25", action="store_true", help="Disable BM25 stream")

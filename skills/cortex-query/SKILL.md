@@ -75,7 +75,7 @@ cortex-vec search "<query>" --repo <detected-repo> --n 5
 The user can override this by saying "search all" or "search across everything".
 
 **Additional filters:** Apply when the user specifies:
-- `--type note|project|weekly` — filter by content type
+- `--type note|project` — filter by content type
 - `--category Nginx|Linux|...` — filter by category
 
 **Interpreting scores:**
@@ -136,4 +136,3 @@ Found N results for "<query>":
 - Use wikilink format when referencing notes: `[[note-name]]`
 - If multiple matches, list them and ask which one to read
 - If user wants details → read the full file
-- For Weekly entries, show the date and summary line

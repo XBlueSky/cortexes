@@ -1,6 +1,6 @@
 ---
 name: query
-description: Manually search the cortex vault (Notes, Projects, Weekly, Raw) for existing notes
+description: Manually search the cortex vault (Notes, Projects, Raw) for existing notes
 argument-hint: "[what to search for]"
 disable-model-invocation: true
 allowed-tools:

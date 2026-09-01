@@ -44,7 +44,7 @@ user wants to reconfigure or abort.
 If the user provided an argument, use that as the vault path.
 Otherwise, ask: "Where is the cortex vault? (e.g. /srv/cortex, ~/cortex)"
 
-If the path exists and contains Notes/ or Weekly/ or Raw/, recognize it as an existing vault.
+If the path exists and contains Notes/ or Projects/ or Raw/, recognize it as an existing vault.
 If the path doesn't exist, ask if they want to create it.
 
 ### 4. Ask for author info
@@ -75,7 +75,13 @@ Ensure these directories exist in the vault:
 - `Raw/`
 - `Notes/`
 - `Projects/`
-- `Weekly/`
+
+Those three are the whole taxonomy. Do **not** create `Weekly/` — it is no
+longer a Cortexes content type. If an existing vault already has a `Weekly/`
+directory, leave it and its files exactly where they are: never move, rewrite,
+or delete them. Tell the user it is no longer created, indexed, or searched,
+and that anything still worth keeping should be moved into `Notes/` or
+`Projects/` by hand, at their own pace.
 
 Ensure `log.md` exists at the vault root. If missing, create it with:
 
@@ -103,8 +109,9 @@ Scan every page under `Notes/<topic>/` and `Projects/<repo>/`, skipping any path
 containing `_archive`. For each page extract the title, the tags from
 frontmatter, and a one-line summary.
 
-`Weekly/` and `Raw/` are deliberately NOT indexed — they are chronological and
-navigated by date, so an index table would only duplicate the directory listing.
+`Raw/` is deliberately NOT indexed — it is chronological and navigated by date,
+so an index table would only duplicate the directory listing. A leftover
+`Weekly/` is not indexed either, and is not listed in `_index.md`.
 
 Write `<vault_path>/_index.md`. Both top-level sections group their rows into
 `###` sub-sections — by topic under Notes, by repo under Projects — so the

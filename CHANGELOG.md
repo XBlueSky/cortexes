@@ -20,14 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `disable-model-invocation: true`, so Claude never fires it on its own and
   running it is unambiguously the user's request.
 - `tests/test_query_command_smoke.py` — a runtime smoke test that drives the
-  real CLI: it points `~/.cortex/config.json` at a synthetic vault, runs
-  `claude -p "/cortexes:query <sentinel>"` with `--plugin-dir`, and asserts
-  the sentinel page comes back while a decoy note does not. It also asserts
-  `/cortex:query` returns `Unknown command`. Opt-in via `CORTEX_RUNTIME_SMOKE=1`
-  (it needs an authenticated CLI and spends tokens, which CI has neither), and
-  it refuses to run if `~/.cortex` already exists. File-existence and
-  `plugin details` inventory checks proved the file shipped; this proves the
-  command resolves and searches.
+  real CLI: it points `CORTEX_VAULT_PATH` at a synthetic vault under the
+  test's own tmp dir, runs `claude -p "/cortexes:query <sentinel>"` with
+  `--plugin-dir`, and asserts the sentinel page comes back while a decoy note
+  does not. It also asserts `/cortex:query` returns `Unknown command`.
+  Nothing under `$HOME` is created or removed — in particular it never
+  touches `~/.cortex`, which may hold a real vault configuration. It sets
+  `CORTEX_SKIP_RECORD=1` and `CORTEX_NO_CLASSIFIER=1`, drops `OPENAI_API_KEY`
+  from the subprocess environment, and gives the decoy its own sentinel so the
+  negative assertion cannot pass by matching incidental prose. Opt-in via
+  `CORTEX_RUNTIME_SMOKE=1` (it needs an authenticated CLI and spends tokens,
+  which CI has neither). File-existence and `plugin details` inventory checks
+  proved the file shipped; this proves the command resolves and searches.
 
 ### Changed
 - **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
@@ -169,12 +173,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path that would now mislead. It documents only the stable relative fact
   (`../../hooks/scripts/takeoff.sh` from the skill base directory) and tells
   Claude to use the base directory it was announced, verbatim.
-- The runtime smoke test no longer writes to `$HOME`. It isolates through
-  `CORTEX_VAULT_PATH` instead of creating `~/.cortex`, so nothing under the
-  home directory is created or removed; it also sets `CORTEX_SKIP_RECORD=1`
-  and `CORTEX_NO_CLASSIFIER=1`, drops `OPENAI_API_KEY` from the subprocess
-  environment, and gives the decoy note its own sentinel so the negative
-  assertion cannot pass by matching incidental prose.
 - Both READMEs now present `OPENAI_API_KEY` as **optional** — it enables
   embeddings and semantic search; without it retrieval runs on the local BM25
   index with nothing sent to OpenAI. The old wording led with "Requires".
@@ -183,6 +181,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and gains an "Upgrading from 1.x to 2.0" section covering the marketplace
   update/reload, the `renames` migration, the new command prefix, and the
   fact that the vault, config and indexes need no migration at all.
+
+### Removed
+- **`Weekly/` is no longer a Cortexes vault taxonomy or retrieval type.**
+  The `cortex-weekly` skill, its command, and the `weekly-compiler` agent
+  went in 0.22.0, but the *taxonomy* outlived them: `/cortexes:genesis`
+  still created `Weekly/` in every new vault and accepted it as proof that a
+  directory was a cortex vault, `cortex-vec` still classified `Weekly/` pages
+  as an active `weekly` content type and offered `--type weekly`, and the
+  skills still described the vault as containing "Weekly reports". None of it
+  was reachable — `Weekly/` came out of the index in 0.5.0 and `rebuild` has
+  scanned only `Notes/` and `Projects/` ever since, so `--type weekly` has
+  had nothing to filter since April. The plugin was advertising a
+  content type it no longer produced, indexed, or searched.
+  Genesis now creates `Raw/`, `Notes/`, `Projects/` and nothing else,
+  `classify_path` lets `Weekly/` fall through to `unknown`, the search help
+  reads `note/project`, and `tests/test_no_weekly_surface.py` plus
+  `cortex-vec/tests/test_no_weekly_type.py` fail if any of it comes back.
+  The `週報` / `weekly report` synonym pair stays: those are ordinary words
+  that can appear inside an ordinary Note, and a synonym is vocabulary, not
+  a content type.
 
 ### Notes
 - **Nothing on disk changes.** This release renames a Claude Code plugin,
@@ -193,6 +211,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   internal collection names, and the `CORTEX_*` environment variables
   (`CORTEX_SKIP_RECORD` and friends) are untouched. Existing vaults and
   indexes work as-is; no rebuild, no re-index, no config migration.
+- **If your vault has a `Weekly/` directory, Cortexes leaves it alone.**
+  Nothing in this release moves, rewrites, or deletes it — genesis explicitly
+  will not touch an existing one. It is simply no longer created, indexed,
+  advertised, or searched, which is what it already was in practice. Move
+  anything still worth keeping into `Notes/` or `Projects/` by hand, at your
+  own pace; whatever you leave behind stays exactly where it is.
 
 ## [1.3.2] - 2026-08-06
 

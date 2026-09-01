@@ -115,7 +115,15 @@ and indexes are untouched — there is no data migration.
    `/cortexes:distill`, `/cortexes:query`, `/cortexes:broadcast`,
    `/cortexes:takeoff`). Natural-language triggers are unchanged — "存到
    cortex" and "查 cortex" still work.
-4. **Nothing else changes.** `cortex-vec`, `~/.cortex/config.json`, the
+4. **If your vault has a `Weekly/` directory, move what you still want.**
+   `Weekly/` is no longer part of the vault taxonomy: 2.0 does not create it,
+   index it, search it, or list it. It was already unreachable — the weekly
+   report skill went in 0.22.0 and `Weekly/` left the index back in 0.5.0 —
+   so this changes nothing about what you can find. Cortexes will **not**
+   move, rewrite, or delete an existing `Weekly/`; copy anything still worth
+   keeping into `Notes/` or `Projects/` yourself, at your own pace, and
+   whatever you leave stays where it is.
+5. **Nothing else changes.** `cortex-vec`, `~/.cortex/config.json`, the
    vector/BM25 indexes and caches, and the `CORTEX_*` environment variables
    all keep their names and paths. No rebuild, no re-index, no config edit.
 

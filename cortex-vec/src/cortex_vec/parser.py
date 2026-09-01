@@ -40,6 +40,10 @@ def classify_path(rel_path):
 
     Returns:
         tuple: (doc_type, category) e.g. ("note", "Nginx"), ("project", "acme-core")
+
+    `Weekly/` is no longer a Cortexes content type. A vault that still has the
+    directory keeps it on disk untouched; its pages simply classify as
+    ``unknown`` and are not indexed (rebuild only scans Notes/ and Projects/).
     """
     parts = Path(rel_path).parts
     if not parts:
@@ -54,8 +58,6 @@ def classify_path(rel_path):
             return "archive", ""
         repo = parts[1] if len(parts) > 1 else ""
         return "project", repo
-    elif top == "Weekly":
-        return "weekly", ""
     elif top == "Raw":
         return "raw", ""
     return "unknown", ""

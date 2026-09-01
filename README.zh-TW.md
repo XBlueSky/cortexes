@@ -104,7 +104,13 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    （`/cortexes:genesis`、`/cortexes:evolve`、`/cortexes:distill`、
    `/cortexes:query`、`/cortexes:broadcast`、`/cortexes:takeoff`）。自然語言
    觸發詞不變 —「存到 cortex」「查 cortex」照常可用。
-4. **其他都沒變。** `cortex-vec`、`~/.cortex/config.json`、vector/BM25 索引與
+4. **vault 裡若還有 `Weekly/`，把還要用的內容搬走。** `Weekly/` 已不再屬於
+   vault 分類：2.0 不會建立、不索引、不搜尋、也不列出它。它其實早就到不了了
+   —— 週報 skill 在 0.22.0 移除，`Weekly/` 更早在 0.5.0 就退出索引 —— 所以
+   這不影響你搜得到的東西。Cortexes **不會**搬動、改寫或刪除既有的
+   `Weekly/`；還想留的內容請自己複製到 `Notes/` 或 `Projects/`，慢慢來就好，
+   沒搬的檔案會原封不動留在原地。
+5. **其他都沒變。** `cortex-vec`、`~/.cortex/config.json`、vector/BM25 索引與
    快取、`CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
    不用改設定。
 

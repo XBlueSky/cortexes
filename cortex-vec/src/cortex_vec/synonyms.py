@@ -9,6 +9,8 @@ from .tokenize import tokenize
 SYNONYM_GROUPS = [
     ["套件", "package"],
     ["憑證", "certificate", "cert", "tls", "ssl"],
+    # Ordinary vocabulary that can appear inside any Note — not a content
+    # type. Cortexes has no Weekly/ taxonomy (see parser.classify_path).
     ["週報", "weekly report"],
     ["登入", "login", "signin", "authentication", "auth"],
     ["記憶體", "memory", "ram"],
