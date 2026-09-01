@@ -213,10 +213,12 @@ it from git history. See [§8](#8-deleting-your-data).
 There is none. Cortexes makes no analytics calls, no usage reporting, no
 crash reporting and no update checks, and the authors receive nothing.
 
-Outbound network traffic originated by the plugin's own code is limited to
-three things: the filter's classifier calls to Anthropic ([§2](#2-data-sent-to-anthropic)),
-the embedding calls to OpenAI ([§3](#3-data-sent-to-openai)), and `git push`
-to the remote you configured, if you turn that on ([§5](#5-git-behaviour)).
+Outbound network traffic originated by the plugin's own code goes to three
+destinations: Anthropic for the filter's classifier calls
+([§2](#2-data-sent-to-anthropic)); OpenAI for the embeddings, summary
+generation, and optional reranking described in
+[§3](#3-data-sent-to-openai); and the git remote you configured when
+`git.auto_push` is enabled ([§5](#5-git-behaviour)).
 
 Separately — and this is not a Cortexes network channel — because the plugin
 runs *inside* Claude Code, every flow that reads vault content into the

@@ -143,6 +143,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/test_privacy_claims.py` sweeps both READMEs, both `PRIVACY` files,
   both `SECURITY` files and the marketplace entry for absolute claims, and
   allows "nothing leaves your machine" only where the text goes on to deny it.
+- **`PRIVACY` §6 listed a narrower OpenAI surface than §3.** §3 has always
+  named three uses — embeddings, summaries, optional reranking — but the
+  Telemetry section's outbound-traffic summary said only "the embedding calls
+  to OpenAI" / 「對 OpenAI 的 embedding 呼叫」, so the two halves of the same
+  policy disagreed about what leaves the machine, and the half a reader skims
+  was the narrower one. Both languages now name all three and point at
+  `git.auto_push` explicitly; the claims test asserts §6 covers each of them.
+- Documentation that described `CORTEX_VAULT_PATH` as read by "the two
+  SessionStart-side shell hooks" is corrected: only `session-start-inject.sh`
+  is a registered SessionStart hook — `takeoff.sh` is a helper the takeoff
+  skill shells out to.
 - **`cortex-vec` is released as 0.8.0.** The Weekly removal changed `cli.py`
   and `parser.py`, so "the package is unchanged" stopped being true: without a
   release, `uv tool install cortex-vec` would keep handing users a CLI whose
@@ -153,8 +164,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin `v2.0.0` tag.
 - **`CORTEX_VAULT_PATH` is documented for what it actually is: a hook-only
   variable, not a vault switch.** Both READMEs had described it as "overrides
-  `vault_path` from config.json", which was never true beyond the two
-  SessionStart-side shell hooks. Making it a real override was attempted here
+  `vault_path` from config.json", which was never true beyond the SessionStart
+  injection script and the `takeoff.sh` helper. Making it a real override was
+  attempted here
   and **backed out**: the write side — the SessionEnd recorder, `evolve`,
   `distill`, `broadcast` — resolves the vault from `config.json` alone, and
   the BM25 and vector indexes live at fixed `~/.cortex/` paths with a single

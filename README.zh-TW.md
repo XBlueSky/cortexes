@@ -384,7 +384,7 @@ cortex-vec eval run \
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
-| `CORTEX_VAULT_PATH` | No | 只有 SessionStart 與 takeoff 這兩支 **shell hook** 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
+| `CORTEX_VAULT_PATH` | No | 只有 `session-start-inject.sh` 與 `takeoff.sh` helper 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
 | `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
 

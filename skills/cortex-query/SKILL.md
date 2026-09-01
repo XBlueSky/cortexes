@@ -47,9 +47,10 @@ the vault.
 Read `~/.cortex/config.json` and take `vault_path`. If the file is missing or
 has no usable `vault_path`, tell the user to run `/cortexes:genesis` first.
 
-Do **not** read `CORTEX_VAULT_PATH` here. The two SessionStart-side shell
-hooks honour it, but the write side — the SessionEnd recorder, `evolve`,
-`distill`, `broadcast` — resolves the vault from `config.json` alone, and the
+Do **not** read `CORTEX_VAULT_PATH` here. Only the SessionStart injection
+script and the `takeoff.sh` helper honour it; the write side — the SessionEnd
+recorder, `evolve`, `distill`, `broadcast` — resolves the vault from
+`config.json` alone, and the
 BM25/vector indexes live at a single fixed `~/.cortex/` location regardless.
 Honouring it on the read side would split reads and writes across two vaults
 while both shared one index. `config.json` is the one source of truth until a

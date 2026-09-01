@@ -193,9 +193,10 @@ repository。推到公開 repository 的 vault 就是公開的。
 沒有。Cortexes 不做任何分析回報、使用統計、當機回報或更新檢查，作者也
 收不到任何東西。
 
-由 plugin 自身程式碼發出的對外網路流量只有三種：過濾器對 Anthropic 的
-分類呼叫（[§2](#2-送往-anthropic-的資料)）、對 OpenAI 的 embedding 呼叫
-（[§3](#3-送往-openai-的資料)），以及你若開啟推送才會發生的 `git push`
+由 plugin 自身程式碼發出的對外網路流量只到三個目的地：Anthropic，用於
+過濾器的分類呼叫（[§2](#2-送往-anthropic-的資料)）；OpenAI，用於
+[§3](#3-送往-openai-的資料) 描述的 embedding、摘要產生與選用的重排序；
+以及你在 `git.auto_push` 開啟時所設定的 git remote
 （[§5](#5-git-行為)）。
 
 另外——這不是 Cortexes 的網路通道——由於本 plugin 跑在 Claude Code **內**，

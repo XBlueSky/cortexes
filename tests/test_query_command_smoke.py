@@ -8,8 +8,9 @@ that the no-op `skills:` frontmatter is gone. This drives the real CLI.
 Scope, and why it is what it is:
 
 `cortex-query` resolves the vault from `~/.cortex/config.json` and nothing
-else — `CORTEX_VAULT_PATH` is honoured only by the two SessionStart-side
-shell hooks (see the README's env-var table). There is therefore no way to
+else — `CORTEX_VAULT_PATH` is honoured only by the SessionStart injection
+script and the `takeoff.sh` helper (see the README's env-var table). There is
+therefore no way to
 point the skill at a synthetic vault without writing under `$HOME`, and
 writing there is not acceptable: `~/.cortex` may hold a real configuration.
 So this test does not assert on retrieved content. It asserts the two things

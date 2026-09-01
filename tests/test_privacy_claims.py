@@ -75,6 +75,31 @@ class PrivacyClaims(unittest.TestCase):
                             f"text denies, not as a promise — {line.strip()!r}",
                         )
 
+    def test_telemetry_section_lists_every_openai_use(self):
+        """§6 must not describe a narrower OpenAI surface than §3 does.
+
+        §3 has always listed three: embeddings, summaries, and optional
+        reranking. §6's outbound-traffic summary said "the embedding calls",
+        so the two halves of the same policy disagreed about what leaves the
+        machine — the half a reader skims being the narrower one.
+        """
+        english = (ROOT / "PRIVACY.md").read_text(encoding="utf-8")
+        traditional_chinese = (ROOT / "PRIVACY.zh-TW.md").read_text(encoding="utf-8")
+
+        def section(text):
+            # Collapse the hard wrapping so a phrase split across two lines
+            # still matches; the test is about content, not line breaks.
+            body = text.split("## 6. Telemetry", 1)[1].split("## 7.", 1)[0]
+            return " ".join(body.split())
+
+        telemetry_en = section(english)
+        telemetry_zh = section(traditional_chinese)
+
+        for phrase in ("embedding", "summary generation", "optional reranking"):
+            self.assertIn(phrase, telemetry_en, f"PRIVACY.md §6 omits {phrase!r}")
+        for phrase in ("embedding", "摘要", "重排序"):
+            self.assertIn(phrase, telemetry_zh, f"PRIVACY.zh-TW.md §6 omits {phrase!r}")
+
     def test_no_classifier_row_is_scoped(self):
         """The env-var tables must say what the flag actually covers."""
         for name, marker in (("README.md", "only"), ("README.zh-TW.md", "只")):
