@@ -4,7 +4,7 @@ const PIPELINE = [
   { num: '01 · SessionEnd hook', title: 'Capture', desc: 'Every session ends with a full report, saved to the vault’s Raw/.' },
   { num: '02 · /cortexes:distill', title: 'Distill', desc: 'Extract hard-won lessons, conventions, and key decisions into Notes.' },
   { num: '03 · broadcast', title: 'Fuse', desc: 'Compound new knowledge into related existing pages, llm-wiki style.' },
-  { num: '04 · /cortexes:query', title: 'Recall', desc: 'Mixed-language semantic search, checked before every answer.' },
+  { num: '04 · /cortexes:query', title: 'Recall', desc: 'Mixed-language semantic search, run when a request points back at prior work.' },
 ];
 
 // Generated abstract fluid/smoke spiral (see site/assets/hero-spiral.webp).

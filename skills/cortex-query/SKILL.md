@@ -1,22 +1,46 @@
 ---
 name: cortex-query
 description: >
-  Search and retrieve content from the cortex vault — the user's external
-  memory. Use (1) when the user says "查 cortex", "之前有記過",
-  "cortex 裡有沒有", "check my notes", "what did I write about", AND
-  (2) PROACTIVELY — before answering any non-trivial question about ongoing
-  projects, internal company tooling, cortex-vec, plugin development,
-  NAS debugging, infrastructure workflows, or any topic that resembles
-  prior work the user might have notes on. When the SessionStart hook lists
-  vault topics and the user's request matches one, search cortex BEFORE
-  asking clarifying questions or guessing. Treat the vault as authoritative
-  prior context: searching it cheaply is always better than reinventing an
-  answer the user already wrote down.
+  Search and retrieve content from the cortexes vault — the user's external
+  memory. Use when the user explicitly asks to search or recall the vault
+  ("查 cortex", "之前有記過", "cortex 裡有沒有", "check my notes", "what did
+  I write about", `/cortexes:query`), or when the using-cortex skill routes a
+  request here after one of its four prior-context signals. Do not use for
+  general questions, for fresh work with no prior-context signal, because a
+  question is merely hard or technical, or after the user has opted out of
+  the vault.
 ---
 
 # Cortex Query — Search the Vault
 
-Search the cortex Obsidian vault using semantic search.
+Search the cortexes Obsidian vault using semantic search.
+
+## When to Run This Skill
+
+Run it in exactly two cases:
+
+1. **The user explicitly asks.** "查 cortex", "之前有記過嗎", "cortex 裡有沒有",
+   "check my notes", "what did I write about X", or the `/cortexes:query`
+   command. An explicit request is always sufficient on its own.
+2. **`using-cortex` routes the request here** after one of its four concrete
+   signals fired (explicit request, reference to prior work, a topic the
+   SessionStart hook actually listed, or resuming a previous session). That
+   skill owns the decision; this one owns the search.
+
+### Do not run it
+
+- For general questions, or for fresh work with no prior-context signal.
+- Because a question is difficult, technical, open-ended, or touches
+  infrastructure or internal tooling. **Difficulty is not a signal.**
+- When the user picked option 4 ("直接開始工作") from the SessionStart menu,
+  skipped the menu, or said "don't check cortex" — that opt-out holds for
+  the rest of the session until the user explicitly asks (case 1).
+- When the conversation, the current repo, or the current turn already
+  supplies the answer.
+
+An unprompted search costs the user tokens and latency, and unrelated notes
+pollute the answer. When no case applies, answer directly and do not mention
+the vault.
 
 ## Resolve Vault Path
 

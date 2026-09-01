@@ -9,9 +9,11 @@ tagline: Knowledge doesn't sit. It compounds.
 intro: >
   Cortexes is a personal memory layer for Claude Code. Every session automatically records
   commits, findings, and decisions, which can later be distilled into refined notes and
-  retrieved with mixed-language semantic search. The vault is plain markdown + git as the
-  source of truth; the vector store is just a rebuildable derived index. Built for anyone
-  who wants working memory to compound across sessions instead of resetting every time.
+  retrieved with mixed-language search when a request actually points back at prior work.
+  The vault is plain markdown + git as the source of truth; the vector store is just a
+  rebuildable derived index, and search keeps working from a local BM25 index when no
+  embedding key is set. Built for anyone who wants working memory to compound across
+  sessions instead of resetting every time.
 
 skills:
   - name: cortex-evolve
@@ -21,7 +23,7 @@ skills:
       - "note this decision down"
       - "remember this"
   - name: cortex-query
-    trigger: When the user wants to search the vault ("查 cortex", "之前有記過"), or when the request names a topic the SessionStart hook listed for this vault.
+    trigger: When the user explicitly asks to search the vault ("查 cortex", "之前有記過", "/cortexes:query"), or when using-cortex routes a request here after one of its four signals. Not for general or merely difficult questions.
     examples:
       - "check cortex for nginx notes"
       - "have I written about this before"
@@ -43,7 +45,7 @@ skills:
       - "takeoff resume"
       - "takeoff done"
   - name: using-cortex
-    trigger: When the user refers to earlier work ("上次的", "之前那個", "we discussed"), asks to resume a previous session, or names a topic the SessionStart hook listed — routes the request to cortex-query. Stays out of the way otherwise.
+    trigger: Four signals only — an explicit request, a reference to earlier work ("上次的", "之前那個", "we discussed"), a topic SessionStart actually listed, or resuming a session. Routes those to cortex-query, answers directly otherwise, and stays off once the user picks "直接開始工作".
     examples:
       - "上次那個 nginx 的問題後來怎麼解的"
       - "continue where we left off"
@@ -61,6 +63,10 @@ commands:
     examples:
       - "/cortexes:distill this week"
       - "/cortexes:distill 2026-06-30"
+  - name: query
+    examples:
+      - "/cortexes:query nginx 憑證更新"
+      - "/cortexes:query what did I decide about the vector store"
   - name: broadcast
     examples:
       - "/cortexes:broadcast --list"
@@ -74,13 +80,15 @@ hooks:
   - event: SessionEnd
     why: Auto-generates a full report (commits, findings, decisions) and saves it to the vault's Raw/ on session end — the entry point for automatic capture. It also reclaims redundant snapshots, so one conversation stays one Raw across /clear and --resume.
   - event: SessionStart
-    why: Detects the current repo at session start and injects relevant vault memory into context, so Claude starts with prior background already loaded.
+    why: Detects the current repo and injects the vault's topic names plus a short menu — metadata and an offer, not note contents. Loading anything is opt-in; picking option 1 runs the search, while picking "直接開始工作" keeps the vault out of the session entirely.
 
 tips:
-  - Let cortex-query search the vault before answering questions about existing projects or internal tooling — far cheaper than re-exploring or asking.
+  - Retrieval is deliberately narrow — it fires on four signals, not on every hard question. When you do want the vault consulted, say so or run /cortexes:query; that always counts.
   - distill automatically dispatches broadcast afterward to fuse new knowledge into existing pages; no need to run it manually.
   - The vault is the source of truth (markdown + git); the vector store can always be rebuilt with /cortexes:genesis.
+  - Legacy phrasing still works — "存到 cortex", "查 cortex" and friends keep triggering the skills after the 2.0.0 rename to Cortexes; only the slash-command prefix moved.
 
 traps:
   - The takeoff baton is temporary scaffolding — it is never committed, distilled, broadcast, or indexed. Don't rely on it as the only place long-term knowledge lives.
-  - Semantic search requires OPENAI_API_KEY and the cortex-vec CLI installed; missing either means cortex-query can't retrieve results.
+  - Without OPENAI_API_KEY, cortex-vec drops the embedding stream and searches its local BM25 index instead — still real retrieval, just lexical. The CLI itself is the hard requirement; install it with uv or pip.
+  - Picking "直接開始工作" at session start suppresses proactive lookup for the rest of that session by design. Ask explicitly, or run /cortexes:query, to search anyway.

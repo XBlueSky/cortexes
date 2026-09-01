@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2026-09-01
 
+### Added
+- **`/cortexes:query` is a real command.** The docs, the marketplace entry
+  and the landing page had listed a `query` command for releases, but
+  `commands/` never contained one — the only way in was the skill's natural
+  language triggers. `commands/query.md` now delegates to `cortex-query`,
+  takes `$ARGUMENTS` as the query verbatim, and asks what to search for when
+  invoked bare. Running it counts as an explicit request, so it searches even
+  in a session that opted out of the vault. A new `site/tests/commands.test.mjs`
+  fails if the marketplace entry ever again documents a command with no file
+  behind it.
+
 ### Changed
 - **The Claude Code plugin identity is now `cortexes`.** `plugin.json` and
   the marketplace entry in `.claude-plugin/marketplace.json` move from
@@ -49,6 +60,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   self-referential Raw behind. It now matches `cortexes:` and keeps
   `cortex:` alongside it, so transcripts written before 2.0.0 are still
   recognised.
+- **Retrieval triggers now match the narrow `using-cortex` policy.** 1.3.2
+  narrowed `using-cortex` to four concrete signals, but the two places that
+  actually drive retrieval still carried the old "search on speculation"
+  wording, which overrode it in practice:
+  - `cortex-query`'s description told Claude to fire PROACTIVELY before any
+    non-trivial question about ongoing projects, internal tooling, plugin
+    development or infrastructure — i.e. on topic resemblance rather than on
+    a signal. It now runs only on an explicit request (including
+    `/cortexes:query`) or when `using-cortex` routes a request to it, and
+    says outright that difficulty is not a signal.
+  - The SessionStart hook injected a rule block asserting proactive search
+    applied "無論使用者是否選 1-4", told Claude to assume prior context exists
+    for any ongoing project or internal tool, argued that "寧可多查一次", and
+    ended by restating that option 4 did not stop it. All of that is gone,
+    replaced by the same four signals. Choosing option 4 — or skipping the
+    menu — now suppresses proactive lookup for the rest of the session, and
+    only an explicit request re-opens it. `tests/test_session_start_inject.py`
+    pins the injected text against every one of those removed rules.
+- The SessionStart hook's vault-topic block is labelled for what it is:
+  topic *names*, so a later request can be matched against signal 3. It never
+  loaded note contents; the marketplace entry now says so too, instead of
+  claiming the hook "injects relevant vault memory ... already loaded".
+- The marketplace entry no longer claims a missing `OPENAI_API_KEY` means
+  retrieval is unavailable. `cortex-vec` drops the embedding stream and
+  searches its local BM25 index instead — lexical, but real. The CLI itself
+  is the actual hard requirement.
+- The landing page's Recall stage said semantic search was "checked before
+  every answer". It is checked when a request points back at prior work.
+- The SessionStart label users see is now `[Cortexes]`.
+- Both READMEs' Quick Start adds the missing `/plugin install cortexes@cortex`
+  after `marketplace add`, documents `/cortexes:query` in the command table,
+  and gains an "Upgrading from 1.x to 2.0" section covering the marketplace
+  update/reload, the `renames` migration, the new command prefix, and the
+  fact that the vault, config and indexes need no migration at all.
 
 ### Notes
 - **Nothing on disk changes.** This release renames a Claude Code plugin,

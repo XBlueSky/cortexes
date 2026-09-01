@@ -42,9 +42,14 @@ git); the vector store is just a rebuildable derived index.
 ### 1. Install the plugin
 
 ```bash
-# From GitHub
+# Add the marketplace, then install the plugin from it
 /plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
+/plugin install cortexes@cortex
 ```
+
+The marketplace is named `cortex` and the plugin inside it is `cortexes` —
+hence `cortexes@cortex`. The marketplace name is kept from 1.x on purpose so
+that existing `marketplace add` registrations keep working.
 
 ### 2. Install the cortex-vec CLI
 
@@ -89,6 +94,28 @@ This sets the vault path and author info, and builds the semantic index.
 "broadcast"          → fuse new Raw content into existing pages
 ```
 
+## Upgrading from 1.x to 2.0
+
+2.0.0 renames the **plugin** from `cortex` to `cortexes`. Your vault, config
+and indexes are untouched — there is no data migration.
+
+1. **Update the marketplace, then reload.** In Claude Code run
+   `/plugin marketplace update cortex` (or remove and re-add it). Restart the
+   session so the new manifest is loaded.
+2. **The rename is carried for you.** The marketplace manifest ships a
+   `renames` mapping (`cortex` → `cortexes`), so an existing install follows
+   the rename in place and shows up as `cortexes@cortex`. You do not need to
+   uninstall and reinstall. If you ever do reinstall, the id is
+   `/plugin install cortexes@cortex`.
+3. **Use the new command prefix.** `/cortex:*` no longer resolves; every
+   command moved to `/cortexes:*` (`/cortexes:genesis`, `/cortexes:evolve`,
+   `/cortexes:distill`, `/cortexes:query`, `/cortexes:broadcast`,
+   `/cortexes:takeoff`). Natural-language triggers are unchanged — "存到
+   cortex" and "查 cortex" still work.
+4. **Nothing else changes.** `cortex-vec`, `~/.cortex/config.json`, the
+   vector/BM25 indexes and caches, and the `CORTEX_*` environment variables
+   all keep their names and paths. No rebuild, no re-index, no config edit.
+
 ## Website
 
 Live docs and changelog: <https://cortexes.pages.dev> (Cloudflare Pages,
@@ -104,6 +131,7 @@ See [`site/README.md`](site/README.md) for local builds.
 | `/cortexes:genesis` | Initialize the vault — set path, author, rebuild the index |
 | `/cortexes:evolve` | Manually save knowledge to Notes or Projects (also writes `log.md`) |
 | `/cortexes:distill` | Distill Raw/ session records into Notes/Projects (map-first navigation + two-stage evaluation + pending-merge exit) |
+| `/cortexes:query` | Search the vault — semantic (`cortex-vec`) with grep and BM25 fallbacks. Running it counts as an explicit request, so it searches even when the session opted out |
 | `/cortexes:broadcast` | Fuse newly distilled content into related existing pages (llm-wiki-style ingest) |
 | `/cortexes:takeoff` | Hand-off batons — curate temporary, non-git hand-offs for a later session to resume, one per work line (`[topic]` / `resume [topic]` / `done [topic]` subcommands) |
 

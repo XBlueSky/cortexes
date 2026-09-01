@@ -35,9 +35,14 @@ Cortexes 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code s
 ### 1. 安裝 plugin
 
 ```bash
-# 從 GitHub
+# 先加 marketplace，再從中安裝 plugin
 /plugin marketplace add https://github.com/XBlueSky/cortexes.git#plugin
+/plugin install cortexes@cortex
 ```
+
+Marketplace 名稱是 `cortex`，其中的 plugin 是 `cortexes`，所以安裝 id 是
+`cortexes@cortex`。Marketplace 名稱刻意沿用 1.x，既有的 `marketplace add`
+註冊才不會失效。
 
 ### 2. 安裝 cortex-vec CLI
 
@@ -80,6 +85,26 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 「broadcast」      → 把新 Raw 融合進既有頁面
 ```
 
+## 從 1.x 升級到 2.0
+
+2.0.0 把 **plugin** 從 `cortex` 改名為 `cortexes`。你的 vault、設定與索引都
+不動 — 沒有任何資料需要遷移。
+
+1. **更新 marketplace 後重載。** 在 Claude Code 執行
+   `/plugin marketplace update cortex`（或移除後重新 add），然後重開 session
+   讓新的 manifest 生效。
+2. **改名會自動接續。** Marketplace manifest 帶了 `renames` 映射
+   （`cortex` → `cortexes`），既有安裝會就地跟著改名，顯示為
+   `cortexes@cortex`，不需要先解除安裝再裝一次。真的要重裝時，id 是
+   `/plugin install cortexes@cortex`。
+3. **改用新的指令前綴。** `/cortex:*` 已不再解析，全部移到 `/cortexes:*`
+   （`/cortexes:genesis`、`/cortexes:evolve`、`/cortexes:distill`、
+   `/cortexes:query`、`/cortexes:broadcast`、`/cortexes:takeoff`）。自然語言
+   觸發詞不變 —「存到 cortex」「查 cortex」照常可用。
+4. **其他都沒變。** `cortex-vec`、`~/.cortex/config.json`、vector/BM25 索引與
+   快取、`CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
+   不用改設定。
+
 ## 官網
 
 線上文件與 changelog：<https://cortexes.pages.dev>（Cloudflare Pages，從 `.cc-marketspec/dist/manifest.json` 自動生成）。
@@ -94,6 +119,7 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 | `/cortexes:genesis` | 初始化 vault — 設定路徑、author、重建索引 |
 | `/cortexes:evolve` | 手動存入知識到 Notes 或 Projects（同時寫 `log.md`） |
 | `/cortexes:distill` | 提煉 Raw/ session 記錄到 Notes/Projects（map-first 導覽 + 兩階段評估 + pending-merge 出口） |
+| `/cortexes:query` | 搜尋 vault — 語意搜尋（`cortex-vec`），並有 grep 與 BM25 fallback。執行這個指令本身就算明確要求，即使該 session 已選「直接開始工作」也會查 |
 | `/cortexes:broadcast` | 把新 distill 的內容融合進相關既有頁面（llm-wiki 式 ingest） |
 | `/cortexes:takeoff` | 交接接力棒 — curate 暫時、不進 git 的 hand-off,讓之後的 session 接續;一條工作線一支(`[topic]` / `resume [topic]` / `done [topic]` 子指令) |
 

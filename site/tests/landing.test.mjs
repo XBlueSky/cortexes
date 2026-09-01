@@ -12,6 +12,7 @@ const PLUGIN = {
   commands: [
     { name: 'genesis', summary: '初始化 vault' },
     { name: 'distill', summary: '提煉 Raw' },
+    { name: 'query', summary: '搜尋 vault' },
   ],
 };
 const CHANGELOG = [
@@ -35,6 +36,7 @@ test('renders commands under the /cortexes: namespace', () => {
   const html = renderLanding({ plugin: PLUGIN, changelog: CHANGELOG });
   assert.match(html, /\/cortexes:genesis/);
   assert.match(html, /\/cortexes:distill/);
+  assert.match(html, /\/cortexes:query/);
   assert.doesNotMatch(html, /\/cortex:/);
 });
 
