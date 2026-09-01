@@ -210,20 +210,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed-CLI path still works untouched. Both the skill and the command
   now say this explicitly, and instruct Claude to report the boundary rather
   than return an empty result that would read as "nothing in the vault".
-- **`cortex-query` no longer reads a `0.0` score as a weak match.** `fusion.py`
-  reports `score` as the vector cosine similarity and nothing else — by design,
-  so distill/broadcast's absolute-threshold dedup keeps working — which means a
-  hit from the BM25 or graph stream that is not in the vector index scores
-  exactly `0.0`. The skill's table said "< 0.60: weak match, mention only if
-  nothing better found", so in the BM25-only mode this release explicitly
-  advertises as real retrieval, *every* result was to be treated as barely
-  worth mentioning, and Layer 2 was gated on `all scores < 0.60`, which is
-  always true there. A live run reproduced it: the search found the right page,
-  saw `score 0.00`, and hedged about whether it counted. The skill now
-  documents `0.0` as "no cosine available", tells Claude to trust the fusion
-  order and the matched text instead, and to name the retrieval mode.
-  `tests/test_query_skill_contract.py` pins that and the config-only vault
-  resolution; 3 of its 4 cases fail against the previous skill.
+- **`cortex-query` no longer reads `score` as a verdict on relevance.**
+  `fusion.search()` reports `score` as the vector cosine similarity and
+  nothing else — by design, so distill/broadcast's absolute-threshold dedup
+  keeps working. It is **not** overall hybrid confidence, and it is not what
+  orders the list; RRF fusion, plus rerank when enabled, does that. The skill
+  treated it as confidence in two ways:
+  - Its table read "< 0.60: Weak match — mention only if nothing better
+    found", turning a semantic-overlap number into a relevance verdict. Any
+    high-ranked BM25 or graph hit with a low or zero cosine was to be buried —
+    in the BM25-only mode this release advertises as real retrieval, that is
+    *every* result. Layer 2 was gated on `all scores < 0.60`, always true
+    there. A live run reproduced it: the search found the right page, saw
+    `score 0.00`, and hedged about whether it counted.
+  - `0.0` was explained as the page being "not in the vector index".
+    `_vector_stream` returns only its own top-n for the query, so an indexed
+    page that merely placed lower in that stream reports `0.0` too. The number
+    establishes neither index membership nor BM25-only mode.
+
+  The thresholds are now stated only as semantic-overlap bands; final
+  relevance follows the returned order plus the fields the CLI actually
+  returns (`title`, `category`, `tags`, `summary`) and exact lexical evidence
+  from the Layer 2 grep — Layer 1 returns no excerpt. `0.0` is described by
+  provenance ("no score from the current vector result stream"), and BM25-only
+  mode may be named only on independent evidence, such as an established
+  missing `OPENAI_API_KEY`. `tests/test_query_skill_contract.py` pins all of
+  it plus the config-only vault resolution; **7 of its 8 cases fail against
+  the previous skill**.
 - `cortex-takeoff` no longer illustrates the helper path with a hard-coded
   `<...>/cortex/<version>/skills/cortex-takeoff` cache layout — a pre-rename
   path that would now mislead. It documents only the stable relative fact

@@ -82,31 +82,51 @@ The user can override this by saying "search all" or "search across everything".
 - `--type note|project` — filter by content type
 - `--category Nginx|Linux|...` — filter by category
 
-**Interpreting scores:**
-- Score > 0.80: High confidence match — present prominently
-- Score 0.60-0.80: Possible match — present as suggestions
-- Score < 0.60: Weak match — mention only if nothing better found
+**Interpreting `score`:**
 
-**`score` is the vector cosine similarity, and only that.** A hit that came
-from the BM25 or graph stream and is not in the vector index reports **exactly
-`0.0`** — that is "no cosine available", *not* a weak match. Ranking order
-already reflects the full fusion, so when the scores are all `0.0`:
+`score` is the **vector cosine similarity only** — how close the query is to
+that page's embedding. It is **not overall hybrid confidence**: it says
+nothing about the BM25 or graph streams that also produced this result set,
+and it is not what ordered the list.
 
-- Trust the **order**, and judge relevance from the title, category and
-  matched text rather than from the number.
-- Do **not** demote those hits or bury them as "weak matches". A lexical hit
-  on an exact identifier is usually the strongest evidence there is.
-- Say which mode produced them. Without `OPENAI_API_KEY` every result scores
-  `0.0` because there is no vector stream at all; that is the documented BM25
-  fallback, and it is a real search. `cortex-vec status` shows `Entries: 0`
-  when nothing is embedded.
+So read the number only as a band of **semantic overlap**, never as a verdict
+on relevance:
+
+- `> 0.80` — strong semantic overlap with the embedding
+- `0.60–0.80` — moderate semantic overlap
+- `< 0.60` — little semantic overlap *on the embedding*, which is not by
+  itself a statement about whether the page answers the question
+- `0.0` — no score from the current vector result stream (see below)
+
+**Relevance follows the returned order, not the number.** The list comes back
+already fused across every active stream, and reranked when `--rerank` is on,
+so its order is the retrieval system's own verdict. Judge each hit from that
+position plus the fields the CLI actually returns — `title`, `category`,
+`tags`, `summary` — and from exact lexical evidence where you have it. Layer 1
+returns no excerpt; matched text comes from the Layer 2 grep supplement.
+
+**Never demote a high-ranked BM25 or graph result solely because its cosine is
+low or zero.** Fusion routinely places such a hit above a higher-cosine one on
+purpose, and an exact match on an identifier, command or error string is
+usually the strongest evidence available while carrying no cosine at all.
+
+**What `0.0` means, exactly.** The document received no score from the current
+vector result stream. That is the whole claim. It does **not** establish that
+the page is absent from the vector index — that stream returns only its own
+top results for this query, so an indexed page that merely placed lower in it
+also reports `0.0`.
+
+**Do not infer BM25-only mode from `0.0` alone.** Say retrieval ran without a
+vector stream only when you know that independently — the user has established
+that `OPENAI_API_KEY` is unset, or `cortex-vec status` reports no embedded
+entries. Otherwise present the results without asserting a mode.
 
 ### Layer 2: Exact Match (supplement)
 
 If Layer 1 returns no *relevant* results, if `cortex-vec` is unavailable, or
 if the user is searching for an exact string (command, config path, error
-message), search the text directly. Judge "no relevant results" by the hits
-themselves — an all-`0.0` scoreboard means BM25-only mode, not failure.
+message), search the text directly. Judge "no relevant results" from the
+returned hits and their order — never from the score column alone.
 
 ```bash
 grep -ri "<query>" <vault_path>/Notes/ <vault_path>/Projects/
