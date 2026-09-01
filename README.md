@@ -99,14 +99,16 @@ This sets the vault path and author info, and builds the semantic index.
 2.0.0 renames the **plugin** from `cortex` to `cortexes`. Your vault, config
 and indexes are untouched — there is no data migration.
 
-1. **Update the marketplace, then reload.** In Claude Code run
-   `/plugin marketplace update cortex` (or remove and re-add it). Restart the
-   session so the new manifest is loaded.
-2. **The rename is carried for you.** The marketplace manifest ships a
-   `renames` mapping (`cortex` → `cortexes`), so an existing install follows
-   the rename in place and shows up as `cortexes@cortex`. You do not need to
-   uninstall and reinstall. If you ever do reinstall, the id is
-   `/plugin install cortexes@cortex`.
+1. **Update the marketplace.** In Claude Code run
+   `/plugin marketplace update cortex` (or remove and re-add it).
+2. **Start a new session.** The marketplace manifest ships a `renames`
+   mapping (`cortex` → `cortexes`), so the rename is carried for you: the
+   update re-points your enabled plugin at `cortexes@cortex`, and the next
+   session start materializes it at 2.0.0. You do **not** need to uninstall
+   and reinstall. In between the two steps `/plugin` may still list the old
+   `cortex` row annotated `Renamed to "cortexes" in the "cortex"
+   marketplace` — that is the migration staged, not an error. If you ever do
+   reinstall from scratch, the id is `/plugin install cortexes@cortex`.
 3. **Use the new command prefix.** `/cortex:*` no longer resolves; every
    command moved to `/cortexes:*` (`/cortexes:genesis`, `/cortexes:evolve`,
    `/cortexes:distill`, `/cortexes:query`, `/cortexes:broadcast`,

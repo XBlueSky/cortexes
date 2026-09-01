@@ -90,12 +90,14 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 2.0.0 把 **plugin** 從 `cortex` 改名為 `cortexes`。你的 vault、設定與索引都
 不動 — 沒有任何資料需要遷移。
 
-1. **更新 marketplace 後重載。** 在 Claude Code 執行
-   `/plugin marketplace update cortex`（或移除後重新 add），然後重開 session
-   讓新的 manifest 生效。
-2. **改名會自動接續。** Marketplace manifest 帶了 `renames` 映射
-   （`cortex` → `cortexes`），既有安裝會就地跟著改名，顯示為
-   `cortexes@cortex`，不需要先解除安裝再裝一次。真的要重裝時，id 是
+1. **更新 marketplace。** 在 Claude Code 執行
+   `/plugin marketplace update cortex`（或移除後重新 add）。
+2. **開一個新 session。** Marketplace manifest 帶了 `renames` 映射
+   （`cortex` → `cortexes`），改名會自動接續：update 會把你已啟用的 plugin
+   重新指向 `cortexes@cortex`，下一次 session 啟動時就會實體化為 2.0.0，
+   **不需要**先解除安裝再裝一次。這兩步之間，`/plugin` 可能還會列出舊的
+   `cortex` 那一列並標註 `Renamed to "cortexes" in the "cortex" marketplace`
+   —— 那是 migration 已排定，不是錯誤。真的要從頭重裝時，id 是
    `/plugin install cortexes@cortex`。
 3. **改用新的指令前綴。** `/cortex:*` 已不再解析，全部移到 `/cortexes:*`
    （`/cortexes:genesis`、`/cortexes:evolve`、`/cortexes:distill`、
