@@ -374,10 +374,16 @@ cortex-vec eval run \
   "author_email": "you@example.com",
   "git": {
     "auto_commit": true,
-    "auto_push": false
+    "auto_push": false,
+    "commit_trailer": ""
   }
 }
 ```
+
+`git.commit_trailer`（選填，預設空字串）：非空時，distill 與 evolve 會把這段文字接在
+commit message 的最後一行，給 git hosting 要求 commit message 帶特定 trailer 的情況用。
+只有 distill 與 evolve 這兩種會新增 Notes / Projects 頁面的 commit 會加；SessionEnd 的
+raw commit 與 broadcast 不加。
 
 ### Environment Variables
 

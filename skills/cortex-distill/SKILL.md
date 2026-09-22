@@ -351,6 +351,10 @@ git add Raw/ Notes/ Projects/ _index.md log.md
 git commit -m "distill: extract N entries from Raw"
 ```
 
+If `git.commit_trailer` in config is a non-empty string, pass it as a second
+`-m` so it becomes the last line of the message body:
+`git commit -m "distill: extract N entries from Raw" -m "<commit_trailer>"`.
+
 If `auto_push` is true in config: `git push`.
 
 After the commit completes, close the plan (this verifies the only file

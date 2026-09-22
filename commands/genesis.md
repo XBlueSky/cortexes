@@ -64,10 +64,17 @@ Create `~/.cortex/` directory if needed, then write `~/.cortex/config.json`:
   "author_email": "<email>",
   "git": {
     "auto_commit": true,
-    "auto_push": false
+    "auto_push": false,
+    "commit_trailer": ""
   }
 }
 ```
+
+`git.commit_trailer` (string, optional, defaults to `""`): when non-empty, the
+distill and evolve skills append it as the last line of their commit messages,
+for git hosting setups that expect a specific trailer. Only those two commits,
+the ones that add new Notes / Projects pages, carry it; raw and broadcast
+commits do not.
 
 ### 6. Initialize vault structure
 
