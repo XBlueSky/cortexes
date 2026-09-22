@@ -13,6 +13,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -112,6 +113,126 @@ class RedactSecretsTest(unittest.TestCase):
         got, _ = redact_secrets(
             "https://gitlab-ci-token:[secure]@git.example.com/x/y.git")
         self.assertIsNone(host_rule.search(got))
+
+
+class RedactionAnchoringTest(unittest.TestCase):
+    """The generic KEY=VALUE rule is anchored to the start of a key run now.
+
+    That is a cost fix (see RedactionCostTest) and must not be a behaviour
+    fix: a key buried inside a longer word run, or sitting right after
+    punctuation, still has to be caught.
+    """
+
+    def _redacted(self, src):
+        got, n = redact_secrets(src)
+        return got, n
+
+    def test_a_key_inside_a_longer_word_run_is_still_caught(self):
+        for src, want in [
+            ("XXXXsecret=abcdef0123456789xyz", "XXXXsecret=REDACTED"),
+            ("a.b.c.my_api_key=abcdef0123456789xyz", "a.b.c.my_api_key=REDACTED"),
+            ("SOME-LONG-PREFIX-TOKEN=abcdef0123456789xyz",
+             "SOME-LONG-PREFIX-TOKEN=REDACTED"),
+        ]:
+            with self.subTest(src=src):
+                self.assertEqual(self._redacted(src)[0], want)
+
+    def test_a_key_after_punctuation_is_still_caught(self):
+        for prefix in ("", " ", "\n", "{", '"', "(", ",", ";", "|", "/", "=",
+                       "&", "?", "\t"):
+            src = f"{prefix}API_KEY=abcdef0123456789xyz"
+            with self.subTest(prefix=repr(prefix)):
+                self.assertEqual(self._redacted(src)[0],
+                                 f"{prefix}API_KEY=REDACTED")
+
+    def test_every_occurrence_on_a_line_is_replaced(self):
+        got, n = redact_secrets(
+            "A_TOKEN=abcdef0123456789xyz B_SECRET=zyxwvu9876543210abc")
+        self.assertEqual(got, "A_TOKEN=REDACTED B_SECRET=REDACTED")
+        self.assertEqual(n, 2)
+
+
+class RedactionCostTest(unittest.TestCase):
+    """The generic KEY=VALUE rule used to be quadratic in the length of one
+    contiguous [A-Za-z0-9_.-] run. Measured before the fix: 4 KB 1.2s,
+    8 KB 4.7s, 16 KB 19.1s, i.e. ~4x per doubling, crossing the recorder's
+    600s timeout somewhere near 90 KB. A timeout there is not a slow Raw, it
+    is no Raw — the SessionEnd hook writes the "(filter failed)" stub.
+
+    The shapes below are the ones that actually reach that run length: a bare
+    alphanumeric blob, and base64URL, whose "-" and "_" (unlike classic
+    base64's "+/=") stay inside the key character class and so never break the
+    run. JWT payloads, URL-safe tokens, hex digests and minified identifier
+    soup all land there. Classic base64 does not, which is why the vault's
+    longest run (47,344 chars, Raw/2026/07/12) was never on the slow path and
+    why this had stayed latent.
+
+    Each case runs in a child process so a regression fails in seconds instead
+    of hanging the suite for the several minutes the old rule would take.
+    """
+
+    BUDGET_S = 1.0
+    CHILD_TIMEOUT_S = 60
+
+    CHILD = textwrap.dedent("""
+        import importlib.util, sys, time
+        scripts_dir, shape, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
+        sys.path.insert(0, scripts_dir)
+        spec = importlib.util.spec_from_file_location(
+            "ft", scripts_dir + "/filter-transcript.py")
+        ft = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ft)
+        if shape == "word":
+            text = "A1b2" * (size // 4)
+        elif shape == "base64url":
+            text = "aB3-_x" * (size // 6)
+        elif shape == "repeated-key":
+            text = "key=" * (size // 8) + "A" * (size // 2)
+        else:
+            raise SystemExit("unknown shape " + shape)
+        t0 = time.perf_counter()
+        ft.redact_secrets(text)
+        print(time.perf_counter() - t0)
+    """)
+
+    def _elapsed(self, shape, size):
+        r = subprocess.run(
+            [sys.executable, "-c", self.CHILD, str(_SCRIPTS_DIR), shape,
+             str(size)],
+            capture_output=True, text=True, timeout=self.CHILD_TIMEOUT_S)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return float(r.stdout.strip())
+
+    def test_a_64k_word_run_redacts_in_well_under_a_second(self):
+        # the shape that actually exists in the vault: one long alnum run
+        elapsed = self._elapsed("word", 64 * 1024)
+        self.assertLess(elapsed, self.BUDGET_S,
+                        f"64 KB word run took {elapsed:.3f}s "
+                        f"(budget {self.BUDGET_S}s) — the KEY=VALUE rule has "
+                        f"gone quadratic again")
+
+    def test_a_64k_base64url_run_redacts_in_well_under_a_second(self):
+        # "-" and "_" keep base64url inside the key class, so a JWT payload or
+        # a URL-safe token is one unbroken run where classic base64 is not
+        elapsed = self._elapsed("base64url", 64 * 1024)
+        self.assertLess(elapsed, self.BUDGET_S,
+                        f"64 KB base64url run took {elapsed:.3f}s")
+
+    def test_many_key_separators_before_a_long_run_stay_linear(self):
+        # the second quadratic: each "key=" is a candidate whose "does the
+        # value mix letters and digits" lookahead used to scan to the end
+        elapsed = self._elapsed("repeated-key", 64 * 1024)
+        self.assertLess(elapsed, self.BUDGET_S,
+                        f"repeated-key 64 KB took {elapsed:.3f}s")
+
+    def test_cost_grows_linearly_not_quadratically(self):
+        """Quadruple the input; a quadratic rule would take ~16x longer."""
+        small = self._elapsed("word", 16 * 1024)
+        large = self._elapsed("word", 64 * 1024)
+        floor = 0.005  # keep the ratio meaningful when both are sub-ms
+        self.assertLess(large / max(small, floor), 8.0,
+                        f"16 KB {small:.4f}s -> 64 KB {large:.4f}s looks "
+                        f"super-linear")
 
 
 class FilterTranscriptEndToEndTest(unittest.TestCase):
