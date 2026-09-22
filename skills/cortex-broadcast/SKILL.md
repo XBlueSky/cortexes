@@ -110,6 +110,10 @@ cortex-vec search "<bullet text>" --n <target_top_n>
 If the Raw's frontmatter has `repo:`, also pass `--repo <name>` when the
 query topic looks repo-specific. Omit otherwise.
 
+`--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always
+appear in results regardless of the filter, and a page listing several repos
+passes a filter naming any of them.
+
 Filter results to those with `score >= target_min_score`. Every hit carries
 a comparable cosine regardless of which retrieval stream surfaced it.
 

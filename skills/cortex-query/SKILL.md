@@ -76,6 +76,12 @@ detect the repo name and add `--repo` filter as default scope:
 cortex-vec search "<query>" --repo <detected-repo> --n 5
 ```
 
+`--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always
+appear in results regardless of the filter, and a page listing several repos
+passes a filter naming any of them. Scoping therefore hides other repos'
+`Projects/` pages, never the shared notes. All three retrieval streams
+(vector, BM25, wikilink graph) honour the filter.
+
 The user can override this by saying "search all" or "search across everything".
 
 **Additional filters:** Apply when the user specifies:
