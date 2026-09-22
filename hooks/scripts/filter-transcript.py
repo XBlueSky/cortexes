@@ -384,6 +384,23 @@ def render_transcript(path: Path, filters: list[Filter]) -> tuple[str, dict]:
     return "\n".join(out), state
 
 
+# Every line boundary Python's str.splitlines() recognises other than "\n".
+# Tool results are full of terminal progress output ("...45%\r...50%\r"), and a
+# bare "\r" makes every text-mode reader (distill marker writer, git hosting
+# pre-receive hooks that parse the diff) count lines differently from git.
+_LINE_BREAKS = re.compile(r"\r\n?|[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
+
+
+def normalize_line_breaks(text: str) -> str:
+    """Rewrite every non-"\n" line boundary as "\n".
+
+    Applied once, at capture time, so the bytes that land in Raw/ are the
+    bytes every later reader will agree on. Progress-bar redraws become one
+    line per redraw, which is also the more readable rendering.
+    """
+    return _LINE_BREAKS.sub("\n", text)
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: filter-transcript.py <transcript.jsonl>", file=sys.stderr)
@@ -396,6 +413,7 @@ def main() -> int:
     filters = load_filters(filters_dir)
 
     body, state = render_transcript(path, filters)
+    body = normalize_line_breaks(body)
 
     raw = state["raw_bytes"]
     output = state["output_bytes"]
