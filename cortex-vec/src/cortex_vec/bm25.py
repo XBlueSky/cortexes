@@ -19,19 +19,65 @@ def _doc_record(doc):
     return rec
 
 
+# Fields this evaluator models, each paired with the predicate that evaluates it.
+# ChromaDB accepts any metadata key, so a clause on a key absent here would be
+# honoured by the vector stream and ignored by the two that run through
+# `_matches` -- one query language per stream again, which is exactly the defect
+# the spec below documents. Adding a filter field means adding it here;
+# `test_where_shape_lockstep` fails until you do.
+#
+# The name list and the comparisons are ONE table on purpose. Keeping them apart
+# let a field be whitelisted as "known" while no branch ever compared it, which
+# passes every record silently -- the same fail-open, one level further in.
+_FIELD_MATCHERS = {
+    "repo": lambda rec, want: want in rec.get("repos", []),
+    "type": lambda rec, want: rec.get("type") == want,
+    "category": lambda rec, want: rec.get("category") == want,
+}
+_KNOWN_FIELDS = frozenset(_FIELD_MATCHERS)
+
+
 def _matches(rec, where):
+    """Evaluate a Chroma-style `where` clause against a stored record.
+
+    Understands exactly the shapes `store._build_where` emits: flat field
+    equality plus `$and` / `$or` composition. All three retrieval streams
+    (BM25, wikilink graph, and -- via ChromaDB -- vector) must read the same
+    query language; a flat-only matcher silently ignored the nested payload
+    and dropped the filter entirely. See
+    docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
+
+    The Notes/-are-cross-repo exemption lives in the `$or` branch that
+    `_build_where` emits, not in a `type == "note"` special case here.
+
+    Raises ValueError on a clause this evaluator does not model, rather than
+    guessing. Silently returning True for an unknown key is how a filter goes
+    missing without anyone noticing; the callers wrap this in the same
+    degrade-to-empty-stream contract they use for every other failure, so a
+    drift fails closed in production and loudly in the tests.
+    """
     if not where:
         return True
-    # Notes/ are cross-repo by design and must always pass the repo filter.
-    # See docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
-    if ("repo" in where and rec.get("type") != "note"
-            and where["repo"] not in rec.get("repos", [])):
-        return False
-    if "type" in where and rec.get("type") != where["type"]:
-        return False
-    if "category" in where and rec.get("category") != where["category"]:
-        return False
-    return True
+    if "$and" in where:
+        return all(_matches(rec, clause) for clause in where["$and"])
+    if "$or" in where:
+        return any(_matches(rec, clause) for clause in where["$or"])
+
+    unknown = set(where) - _KNOWN_FIELDS
+    if unknown:
+        raise ValueError(
+            f"_matches cannot evaluate {sorted(unknown)}: the filter producer and "
+            f"this evaluator have drifted. Add the field to _KNOWN_FIELDS and "
+            f"handle it below."
+        )
+    for field, expected in where.items():
+        if isinstance(expected, dict):
+            raise ValueError(
+                f"_matches does not implement operator form for {field!r}: "
+                f"{expected!r}. ChromaDB would honour it and this stream would not."
+            )
+
+    return all(_FIELD_MATCHERS[field](rec, want) for field, want in where.items())
 
 
 class BM25Index:

@@ -1,4 +1,4 @@
-from cortex_vec import bm25
+from cortex_vec import bm25, store
 
 
 def _docs():
@@ -26,7 +26,8 @@ def test_build_and_search_finds_relevant(tmp_path):
 def test_search_with_repo_filter(tmp_path):
     idx = bm25.BM25Index(tmp_path / "bm25")
     idx.build_from_docs(_docs())
-    hits = idx.search("oauth token", n=5, where={"repo": "acme-core"})
+    hits = idx.search("oauth token", n=5,
+                      where=store._build_where(repo="acme-core"))
     assert all(h["id"].startswith("Projects/acme-core/") for h in hits)
     assert hits and hits[0]["id"] == "Projects/acme-core/oauth.md"
 
@@ -61,10 +62,11 @@ def test_search_with_repo_filter_includes_cross_repo_notes(tmp_path):
     """
     idx = bm25.BM25Index(tmp_path / "bm25")
     idx.build_from_docs(_docs())
-    # Query matches the Notes/Nginx page; --repo filter mentions a different
-    # repo (acme-core). The Notes/ entry must still appear.
+    # Query matches the Notes/Nginx page; the --repo filter names a different
+    # repo (acme-core). Built through _build_where so the test exercises the
+    # shape the CLI really emits. The Notes/ entry must still appear.
     hits = idx.search("nginx certificate renew", n=5,
-                      where={"repo": "acme-core"})
+                      where=store._build_where(repo="acme-core"))
     assert any(h["id"] == "Notes/Nginx/cert-renew.md" for h in hits), (
         f"Notes/Nginx note missing under --repo acme-core; got {[h['id'] for h in hits]}"
     )
@@ -90,7 +92,7 @@ def test_search_with_repo_filter_still_narrows_projects(tmp_path):
     }]
     idx.build_from_docs(docs)
     hits = idx.search("oauth token refresh", n=5,
-                      where={"repo": "acme-core"})
+                      where=store._build_where(repo="acme-core"))
     ids = [h["id"] for h in hits]
     assert "Projects/acme-web/oauth-token.md" not in ids, (
         f"Project page from wrong repo leaked through filter: got {ids}"

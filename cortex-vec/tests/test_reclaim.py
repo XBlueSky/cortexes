@@ -137,6 +137,95 @@ def test_trailing_meta_marker_on_keep_does_not_block_match(tmp_path):
     assert reclaim.find_superseded(tmp_path / "Raw", keep=big) == [small]
 
 
+# --- the repo guard: a prefix alone does not prove redundancy ----------------
+
+
+def test_same_repo_prefix_pair_is_still_reclaimed(tmp_path):
+    # The guard must not cost the case reclaim exists for: same conversation,
+    # same repo label, earlier snapshot is a prefix → it still goes.
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-core.md",
+                 turns=3, repo="acme-core")
+
+    result = reclaim.scan(tmp_path / "Raw", keep=big)
+
+    assert result.superseded == [small]
+    assert result.refused == []
+
+
+def test_cross_repo_prefix_pair_is_refused(tmp_path):
+    # The measured vault pair: ONE conversation whose cwd changed mid-session,
+    # so the same growing transcript was recorded under two different repo
+    # labels and the first is a strict prefix of the second. Break: matching on
+    # the body alone → `git rm -f` erases acme-core's only September record,
+    # and any per-repo view of that period loses the repo.
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-web.md",
+                 turns=3, repo="acme-web")
+
+    result = reclaim.scan(tmp_path / "Raw", keep=big)
+
+    assert result.superseded == []
+    assert [(p.candidate, p.candidate_repo, p.survivor, p.survivor_repo)
+            for p in result.refused] == [
+        (small, "acme-core", big, "acme-web")]
+    assert small.exists()
+
+
+def test_unlabelled_raw_is_refused_not_reclaimed(tmp_path):
+    # A Raw whose frontmatter carries no `repo:` at all cannot be shown to
+    # belong to the survivor's repo. Break: treating a missing label as "same"
+    # → the unprovable case silently takes the deleting branch.
+    small = tmp_path / "Raw/2026/09/04/172243_session_acme-core.md"
+    small.parent.mkdir(parents=True, exist_ok=True)
+    small.write_text(
+        "---\ndate: 2026-09-04\ntime: 17:22:43\ntype: session\n"
+        "tags: [session]\n---\n\n" + _turns(1, "work"),
+        encoding="utf-8")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-core.md",
+                 turns=3, repo="acme-core")
+
+    result = reclaim.scan(tmp_path / "Raw", keep=big)
+
+    assert result.superseded == []
+    assert [p.candidate_repo for p in result.refused] == [""]
+
+
+def test_cross_repo_pair_is_refused_in_backlog_mode(tmp_path):
+    # Same guard on the pairwise path the backlog cleanup uses.
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-web.md",
+                 turns=3, repo="acme-web")
+
+    result = reclaim.scan(tmp_path / "Raw")
+
+    assert result.superseded == []
+    assert [(p.candidate, p.survivor) for p in result.refused] == [(small, big)]
+
+
+def test_same_repo_survivor_wins_over_a_cross_repo_one(tmp_path):
+    # A candidate covered by BOTH a cross-repo Raw and a same-repo Raw is
+    # reclaimed, and the cross-repo near-miss is not reported: the file is
+    # going anyway, so the refusal would be noise. Break: reporting every pair
+    # → operators learn to ignore the refusal line.
+    small = _write(tmp_path, "Raw/2026/09/04/090000_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    # Shares the opening turn with `small` (so it covers it) but diverges after,
+    # so it is in no prefix relation with the same-repo survivor below.
+    _write(tmp_path, "Raw/2026/09/04/100000_session_other.md", repo="other",
+           body=_turns(1, "work") + "\n" + _turns(1, "diverge"))
+    _write(tmp_path, "Raw/2026/09/04/110000_session_acme-core.md",
+           turns=3, repo="acme-core")
+
+    result = reclaim.scan(tmp_path / "Raw")
+
+    assert result.superseded == [small]
+    assert result.refused == []
+
+
 # --- backlog mode: pairwise over the whole queue -----------------------------
 
 
@@ -240,3 +329,40 @@ def test_dispatch_prints_removed_paths_with_apply(tmp_path, capsys):
 
     assert capsys.readouterr().out.strip() == str(small)
     assert not small.exists()
+
+
+def test_dispatch_reports_cross_repo_refusal_without_apply(tmp_path, capsys):
+    # Break: swallowing the refusal → a cross-repo prefix pair (one session,
+    # two repo labels) exists in the vault and nobody ever learns of it.
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-web.md",
+                 turns=3, repo="acme-web")
+
+    reclaim.dispatch(SimpleNamespace(root=tmp_path / "Raw", keep=big,
+                                     apply=False, vault=None))
+
+    out, err = capsys.readouterr()
+    assert out.strip() == ""
+    assert str(small) in err and str(big) in err
+    assert "acme-core" in err and "acme-web" in err
+
+
+def test_dispatch_reports_cross_repo_refusal_with_apply(tmp_path, capsys):
+    # --apply is the mode the SessionEnd hook runs. Break: the guard only
+    # covering list-only mode → the automated path still runs `git rm -f`.
+    # The refusal must stay OFF stdout: session-end-record.sh counts stdout
+    # lines as "reclaimed N superseded" in the vault commit message.
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-web.md",
+                 turns=3, repo="acme-web")
+
+    reclaim.dispatch(SimpleNamespace(root=tmp_path / "Raw", keep=big,
+                                     apply=True, vault=tmp_path))
+
+    out, err = capsys.readouterr()
+    assert out.strip() == ""
+    assert str(small) in err
+    assert small.exists()
+    assert big.exists()

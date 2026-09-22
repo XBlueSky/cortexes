@@ -27,21 +27,52 @@ def test_identity_fields(tmp_path):
     assert (ident.schema_version, ident.parser_version) == (1, 1)
 
 
-def test_source_hash_ignores_eof_marker(tmp_path):
-    marked = BODY + "\n<!-- distilled: 2026-07-16 → (no insight) -->\n"
-    a, _ = rs.load(_write(tmp_path, BODY, "a.md"))
-    b, _ = rs.load(_write(tmp_path, marked, "b.md"))
-    assert a.file_sha256 != b.file_sha256
-    assert a.source_sha256 == b.source_sha256
+MARKER = "<!-- distilled: 2026-07-16 → (no insight) -->"
+
+# A turnless Raw: the degenerate shape distill keeps meeting -- a vacuum
+# session or a "(filter failed)" stub. It has no ### User anywhere, which is
+# exactly what used to send its EOF marker down the header branch.
+TURNLESS = ("---\ndate: 2026-09-17\ntype: session\n---\n\n"
+            "<!-- audit: skill_loads=0 raw_bytes=0 filters_loaded=59 -->\n")
+
+# One entry per marker layout the vault actually contains, verified against
+# the pre-marker git blob of every marked Raw. The contract is a round trip:
+# stripping the marker block must reproduce the file the writer appended to,
+# byte for byte, or distill-plan rejects an untouched Raw as RAW_CHANGED.
+MARKER_LAYOUTS = [
+    # marker appended after a blank separator line (the writers' convention)
+    ("eof_blank_separated", BODY, BODY + "\n" + MARKER + "\n"),
+    # appended flush against the last line, no separator
+    ("eof_flush", BODY, BODY + MARKER + "\n"),
+    # appended without a trailing newline (old broadcast finalize did this)
+    ("eof_no_trailing_newline", BODY, BODY + "\n" + MARKER),
+    # no turn header in the whole file, marker at EOF
+    ("turnless_eof", TURNLESS, TURNLESS + "\n" + MARKER + "\n"),
+    # header convention, marker written into the frontmatter block itself
+    ("frontmatter_embedded",
+     "---\ndate: 2026-05-04\ntype: session\n---\n\n### User\n\nhi\n",
+     "---\ndate: 2026-05-04\n" + MARKER + "\ntype: session\n---\n\n"
+     "### User\n\nhi\n"),
+    # header convention, marker flush between frontmatter and the first turn
+    ("header_flush_before_turn",
+     "---\ntype: session\n---\n### User\n\nhi\n\n### Claude\n\nok\n",
+     "---\ntype: session\n---\n" + MARKER + "\n"
+     "### User\n\nhi\n\n### Claude\n\nok\n"),
+    # header convention, blank line on BOTH sides, body is prose not turns
+    ("header_blank_separated_prose_body",
+     "---\nrepo: cortex\n---\n\n# Session — notes\n\nprose\n",
+     "---\nrepo: cortex\n---\n\n" + MARKER + "\n\n"
+     "# Session — notes\n\nprose\n"),
+]
 
 
-def test_source_hash_ignores_header_marker(tmp_path):
-    marked = ("---\ntype: session\n---\n"
-              "<!-- distilled: 2026-07-16 → Notes/X.md -->\n"
-              "### User\n\nhi\n\n### Claude\n\nok\n")
-    plain = "---\ntype: session\n---\n### User\n\nhi\n\n### Claude\n\nok\n"
-    a, _ = rs.load(_write(tmp_path, plain, "a.md"))
+@pytest.mark.parametrize("orig,marked", [m[1:] for m in MARKER_LAYOUTS],
+                         ids=[m[0] for m in MARKER_LAYOUTS])
+def test_marker_block_strip_round_trips(tmp_path, orig, marked):
+    assert rs.strip_state_marker(marked) == orig
+    a, _ = rs.load(_write(tmp_path, orig, "a.md"))
     b, _ = rs.load(_write(tmp_path, marked, "b.md"))
+    assert a.file_sha256 != b.file_sha256   # the marker did land on disk
     assert a.source_sha256 == b.source_sha256
 
 

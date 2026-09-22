@@ -89,6 +89,10 @@ def _dispatch(args) -> None:
         raise PageError("CURSOR_MISMATCH", reason="cursor beyond span count")
 
     find = getattr(args, "find", None)
+    find_only = bool(getattr(args, "find_only", False))
+    if find_only and not find:
+        raise PageError("FIND_ONLY_REQUIRES_FIND",
+                        reason="--find-only needs --find <literal>")
     find_matches = None
     if find:
         find_matches = []
@@ -122,7 +126,22 @@ def _dispatch(args) -> None:
         }
         if find_matches is not None:
             obj["find_matches"] = find_matches
+        if find_only:
+            # Locate only: no cards, no map progress, no continuation.
+            obj["find_only"] = True
+            obj["next_cursor"] = None
         return obj
+
+    if find_only:
+        obj, chars = finalize_page(
+            lambda pc, ua: envelope([], start, pc, ua), used_before)
+        if chars > max_chars:
+            raise PageError("PAGE_BUDGET_TOO_SMALL", max_chars=max_chars,
+                            reason="find-only envelope exceeds budget")
+        dp.charge_and_save(state, chars)
+        assert len(render_page(obj)) + 1 == chars
+        emit(obj)
+        return
 
     cards: list = []
     idx = start

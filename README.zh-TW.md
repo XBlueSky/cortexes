@@ -116,10 +116,11 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
    ```
 
-   Weekly 的移除要靠 `cortex-vec` 0.8.0 才會到 CLI 端 —— `search --help`
-   不再列出 `--type weekly`，`Weekly/` 也不再被歸類成 content type。plugin
-   搭 0.7.0 仍可運作，所以不急，但沒升級前 CLI 的說明還是會宣傳那個已退役的
-   過濾條件。
+   這個 plugin 版本對應的是 `cortex-vec` 0.9.0。Weekly 的移除要靠 0.8.0 才會
+   到 CLI 端 —— `search --help` 不再列出 `--type weekly`，`Weekly/` 也不再被
+   歸類成 content type —— 而 0.9.0 補上了 cosine backfill 與檢索過濾的修正，
+   2.1.0 的去重與帶範圍搜尋都靠它。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
+   漏出範圍外的頁面，只靠關鍵字命中的結果也還是回報 `0.00`。
 6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
    `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
    不用改設定。
@@ -234,7 +235,7 @@ Vault 的語意索引工具，用 ChromaDB + OpenAI `text-embedding-3-small`，�
 cortex-vec status                          # 查看索引狀態
 cortex-vec rebuild                         # 完整重建索引
 cortex-vec search "nginx certificate"      # 語意搜尋
-cortex-vec search "oauth" --repo acme-core # 按 repo 過濾
+cortex-vec search "oauth" --repo acme-core # 按 repo 過濾（只窄化 Projects/，Notes/ 恆通過）
 cortex-vec search "sharing" --type project # 按類型過濾
 cortex-vec upsert Notes/Nginx/new.md       # 新增/更新單一文件
 cortex-vec delete Notes/Nginx/old.md       # 刪除文件
@@ -374,10 +375,24 @@ cortex-vec eval run \
   "author_email": "you@example.com",
   "git": {
     "auto_commit": true,
-    "auto_push": false
+    "auto_push": false,
+    "commit_trailer": ""
   }
 }
 ```
+
+`git.commit_trailer`（選填，預設空字串）：非空時，distill 與 evolve 會把這段文字接在
+commit message 的最後一行，給 git hosting 要求 commit message 帶特定 trailer 的情況用。
+只有 distill 與 evolve 這兩種會新增 Notes / Projects 頁面的 commit 會加；SessionEnd 的
+raw commit 與 broadcast 不加。
+
+raw commit 不需要 trailer，因為 Raw 在擷取時就已經處理過兩件會讓 git hosting 拒收的事：
+換行字元統一成 `\n`，以及憑證形狀的字串（GitLab PAT、OpenAI / Anthropic key、AWS key、
+JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼、`*_TOKEN=` 類環境
+變數值）換成 `REDACTED` 佔位；Raw 開頭的 audit 註解會記 `redactions=N`。
+
+`auto_push` 失敗時不再靜默：遠端的錯誤訊息會附加到 `~/.cortex/push-failures.log`，
+下一個 session 的開場狀態列也會顯示「有 N 個 commit 尚未推送」。
 
 ### Environment Variables
 
@@ -387,6 +402,8 @@ cortex-vec eval run \
 | `CORTEX_VAULT_PATH` | No | 只有 `session-start-inject.sh` 與 `takeoff.sh` helper 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
 | `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
+| `CORTEX_FORCE_RECORD` | No | 設定時(例如 `=1`),即使 session 是 headless 啟動、會被 `sdk-cli` entrypoint 守門擋下,仍然錄製 — 供排程器那些「確實是工作」的 `claude -p` 執行使用 |
+| `CORTEX_FILTER_TIMEOUT` | No | SessionEnd hook 等待 transcript filter 的秒數(預設 `600`)。填入非數值時退回預設值,而不是讓每個 session 都變成殘缺記錄 |
 
 ## Dependencies
 

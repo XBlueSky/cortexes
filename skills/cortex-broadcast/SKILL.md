@@ -73,11 +73,11 @@ Format:
 ```
 Eligible queue (N Raws):
 
-  1. Raw/2026/04/17/141013_session_webapi-Notification.md
-     outcome: pending-merge → Projects/libsynosysnotify/synooauth flow chart.md (0.48)
+  1. Raw/2026/04/17/141013_session_acme-notify.md
+     outcome: pending-merge → Projects/acme-notify/oauth flow chart.md (0.48)
 
-  2. Raw/2026/04/17/163941_session_libsynosdk.md
-     outcome: new → Projects/libsynosdk/build-flag-semantics.md
+  2. Raw/2026/04/17/163941_session_acme-sdk.md
+     outcome: new → Projects/acme-sdk/build-flag-semantics.md
 
 Run /cortexes:broadcast to process the first, or /cortexes:broadcast <path> for a specific one.
 ```
@@ -110,7 +110,12 @@ cortex-vec search "<bullet text>" --n <target_top_n>
 If the Raw's frontmatter has `repo:`, also pass `--repo <name>` when the
 query topic looks repo-specific. Omit otherwise.
 
-Filter results to those with `score >= target_min_score`.
+`--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always
+appear in results regardless of the filter, and a page listing several repos
+passes a filter naming any of them.
+
+Filter results to those with `score >= target_min_score`. Every hit carries
+a comparable cosine regardless of which retrieval stream surfaced it.
 
 ### If no candidates pass the threshold
 
@@ -150,7 +155,7 @@ If the Raw's outcome is `pending-merge`:
 Example of the menu line in this case:
 
 ````
-[x] 1. Projects/libsynosysnotify/synooauth flow chart.md (0.48)  ← pending-merge target (below current threshold)
+[x] 1. Projects/acme-notify/oauth flow chart.md (0.48)  ← pending-merge target (below current threshold)
 ````
 
 All other candidates default to unchecked `[ ]`.

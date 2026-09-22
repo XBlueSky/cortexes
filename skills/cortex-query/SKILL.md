@@ -76,6 +76,12 @@ detect the repo name and add `--repo` filter as default scope:
 cortex-vec search "<query>" --repo <detected-repo> --n 5
 ```
 
+`--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always
+appear in results regardless of the filter, and a page listing several repos
+passes a filter naming any of them. Scoping therefore hides other repos'
+`Projects/` pages, never the shared notes. All three retrieval streams
+(vector, BM25, wikilink graph) honour the filter.
+
 The user can override this by saying "search all" or "search across everything".
 
 **Additional filters:** Apply when the user specifies:
@@ -95,7 +101,9 @@ on relevance:
 - `> 0.80` — strong semantic overlap with the embedding
 - `0.60–0.80` — moderate semantic overlap
 - non-zero `< 0.60` — little semantic overlap *on the embedding*, which is
-  not by itself a verdict on whether the page answers the question
+  not by itself a verdict on whether the page answers the question. This band
+  now means a measured low overlap even for a keyword or wikilink hit, not an
+  unmeasured one
 - `0.0` — ambiguous in the current CLI output; see below
 
 **Relevance follows the returned order, not the number.** The list comes back
@@ -109,13 +117,19 @@ returns no excerpt; matched text comes from the Layer 2 grep supplement.
 low or zero.** Fusion routinely places such a hit above a higher-cosine one on
 purpose, and an exact match on an identifier, command or error string is
 usually the strongest evidence available even when the embedding scores it
-low or gives it nothing at all.
+low. The number is comparable across hits — a hit that arrived through the
+keyword or wikilink stream is backfilled with its real cosine from the
+collection, so it is scored on the same scale as a vector hit — but a
+comparable number is still only the semantic band, not the verdict.
 
-**What `0.0` means.** The current CLI emits `0.0` both when a result received
-no score from the current vector result stream and when an actual cosine is
-zero or rounds to zero at four decimal places. The implication runs one way
-only: a result with no vector score always prints `0.0`, but a printed `0.0`
-does not tell you which of those produced it.
+**What `0.0` means.** The backfill needs a live vector stream, so it does not
+remove the ambiguity, it narrows it. The CLI emits `0.0` when the vector
+stream is unavailable (no `OPENAI_API_KEY`, or vector retrieval switched
+off — the score is then missing for every non-vector hit), when the backfill
+query itself failed, and when an actual cosine is zero or rounds to zero at
+four decimal places. The implication runs one way only: a result with no vector
+score always prints `0.0`, but a printed `0.0` does not tell you which of
+those produced it.
 
 So `0.0` establishes none of the following: whether the document took part in
 the vector result stream, whether it exists in the vector index at all, or

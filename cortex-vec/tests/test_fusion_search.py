@@ -79,9 +79,12 @@ def test_score_is_vector_cosine_not_rrf(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec_items())
     monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    # The bm25-only hit gets its cosine from the backfill lookup (covered in
+    # test_cosine_backfill.py); stubbed here so this test stays about the SCALE.
+    monkeypatch.setattr(store, "cosine_for", lambda q, ids: {"Notes/Linux/oom.md": 0.42})
     out = fusion.search("nginx 憑證", n=5)
     by_id = {o["id"]: o["score"] for o in out}
     # vector hit keeps its cosine similarity (0.9), not an RRF score
     assert by_id["Notes/Nginx/cert-renew.md"] == 0.9
-    # bm25-only hit has no cosine score -> 0.0
-    assert by_id["Notes/Linux/oom.md"] == 0.0
+    # bm25-only hit reports a real cosine on the same 0-1 scale, not an RRF score
+    assert by_id["Notes/Linux/oom.md"] == 0.42

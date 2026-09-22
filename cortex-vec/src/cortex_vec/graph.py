@@ -11,6 +11,7 @@ Graph participates in retrieval as a THIRD RRF stream (see fusion.py): a
 rank-based list of wikilink-neighbors of the top hits. Rank-based fusion avoids
 the scale conflict of adding a boost onto RRF's compressed score band.
 """
+import hashlib
 from pathlib import Path
 
 from .parser import classify_path, extract_summary, extract_wikilinks, parse_document
@@ -29,7 +30,11 @@ def _meta_for(rel, fm, body):
         "id": rel,
         "title": fm.get("title", rel.rsplit("/", 1)[-1].removesuffix(".md")),
         "type": doc_type,
+        # `repo` is the display field (first membership); `repos` is the full
+        # membership list the `where` evaluator reads. Keeping only the singular
+        # form let a multi-repo page fail a filter naming its second repo.
         "repo": (repos or [""])[0],
+        "repos": repos,
         "category": category,
         "tags": fm.get("tags", ""),
         "summary": extract_summary(body),
@@ -75,6 +80,15 @@ def build_graph(vault):
     return _cache[key]
 
 
+def _tiebreak(doc_id):
+    """Stable, path-insensitive ordering key for equidistant neighbours.
+
+    blake2b rather than `hash()`: the builtin is salted per process by
+    PYTHONHASHSEED, which is the non-determinism this exists to remove.
+    """
+    return hashlib.blake2b(doc_id.encode("utf-8"), digest_size=8).digest()
+
+
 def _bfs_neighbors(adjacency, seeds, hops):
     """Return {base_path: distance} reachable within `hops` from seeds (excluding seeds)."""
     frontier = set(seeds)
@@ -94,14 +108,41 @@ def _bfs_neighbors(adjacency, seeds, hops):
     return dist
 
 
-def graph_stream(adjacency, seeds, hops=1, max_n=15):
+def graph_stream(adjacency, seeds, hops=1, max_n=15, keep=None):
     """A rank-based stream of wikilink-neighbors of `seeds`, nearest first.
 
     Returns [(doc_id, rank)] (rank 0-based, capped at max_n), excluding seeds —
     shaped for rrf_fuse as a third retrieval stream. Empty if no neighbors.
+
+    `keep` is an optional predicate on doc_id applied BEFORE the max_n cut, so a
+    filtered query still gets a full window of admissible neighbours rather than
+    a window thinned by rejects. It carries the caller's `where` clause: without
+    it this stream was the one path into the fused set that no filter reached.
+
+    `keep` screens what is RETURNED, not what the walk may cross. With
+    `graph_hops > 1` a neighbour reachable only *through* a page the filter
+    rejects is still returned if it passes itself. That is deliberate — the
+    clause describes the answer set, not the path — but it means raising
+    `graph_hops` widens what a scoped query can reach. Moot at the current
+    `graph_hops = 1`, where there are no intermediate nodes.
     """
     dist = _bfs_neighbors(adjacency, seeds, hops)
     if not dist:
         return []
-    ordered = sorted(dist.items(), key=lambda kv: kv[1])  # nearest first
+    # Tie-break deterministically, but NOT on the doc id itself. `dist` is
+    # populated by iterating adjacency *sets*, so equidistant neighbours arrive
+    # in an order that varies with PYTHONHASHSEED, and sorting on distance alone
+    # is stable -- it preserved that variation, leaving the stream irreproducible
+    # across processes. Ordering by doc id fixes that but buys a worse problem:
+    # at graph_hops=1 every neighbour is distance 1, so the id becomes the sole
+    # key and the max_n cut degenerates into "keep the lexicographically smallest
+    # N". `Notes/` sorts before `Projects/`, so scoped queries -- the ones that
+    # exist to surface a repo's Projects/ pages -- were the worst affected.
+    # Measured over 300 realistic 5-seed calls: truncation fired on 70% of them
+    # and lifted Notes/ from 46% of the candidates to 68% of the survivors.
+    # A keyed digest is reproducible across processes like the id, without
+    # correlating to the path prefix.
+    ordered = sorted(dist.items(), key=lambda kv: (kv[1], _tiebreak(kv[0])))  # nearest first
+    if keep is not None:
+        ordered = [item for item in ordered if keep(item[0])]
     return [(doc_id, rank) for rank, (doc_id, _d) in enumerate(ordered[:max_n])]

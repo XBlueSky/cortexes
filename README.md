@@ -129,11 +129,13 @@ and indexes are untouched — there is no data migration.
    uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
    ```
 
-   `cortex-vec` 0.8.0 is what carries the Weekly removal into the CLI —
-   `--type weekly` is gone from `search --help` and `Weekly/` is no longer
-   classified as a content type. The plugin works with 0.7.0, so this is not
-   urgent, but until you upgrade the CLI's own help still advertises the
-   retired filter.
+   `cortex-vec` 0.9.0 is the version this plugin release ships against. 0.8.0
+   is what carried the Weekly removal into the CLI — `--type weekly` is gone
+   from `search --help` and `Weekly/` is no longer classified as a content
+   type — and 0.9.0 adds the cosine backfill and the retrieval-filter fixes
+   that 2.1.0's dedup and scoped search depend on. Older CLIs keep working,
+   but a scoped search on one still leaks out-of-scope pages and a
+   keyword-only hit still reports `0.00`.
 6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
    and caches, and the `CORTEX_*` environment variables all keep their names
    and paths. No rebuild, no re-index, no config edit.
@@ -263,7 +265,7 @@ Chinese/English queries.
 cortex-vec status                          # view index status
 cortex-vec rebuild                         # full index rebuild
 cortex-vec search "nginx certificate"      # semantic search
-cortex-vec search "oauth" --repo acme-core # filter by repo
+cortex-vec search "oauth" --repo acme-core # filter by repo (narrows Projects/ only; Notes/ always pass)
 cortex-vec search "sharing" --type project # filter by type
 cortex-vec upsert Notes/Nginx/new.md       # add/update a single document
 cortex-vec delete Notes/Nginx/old.md       # delete a document
@@ -433,10 +435,28 @@ cortex-vec eval run \
   "author_email": "you@example.com",
   "git": {
     "auto_commit": true,
-    "auto_push": false
+    "auto_push": false,
+    "commit_trailer": ""
   }
 }
 ```
+
+`git.commit_trailer` (optional, defaults to `""`): when non-empty, distill and
+evolve append it as the last line of their commit messages, for git hosting
+that requires a specific trailer. Only those two commit kinds — the ones that
+add new Notes / Projects pages — carry it; the SessionEnd raw commit and
+broadcast commits do not.
+
+Raw commits need no trailer, because a Raw is already cleaned at capture time
+of the two things a git host rejects: line breaks are normalized to `\n`, and
+credential-shaped strings (GitLab PATs, OpenAI / Anthropic keys, AWS keys, JWTs,
+session cookies, curl and Authorization header credentials, passwords in URLs,
+`*_TOKEN=` environment values) are replaced with `REDACTED` placeholders. The
+audit comment at the top of each Raw records `redactions=N`.
+
+A failing `auto_push` is no longer silent: the remote's error is appended to
+`~/.cortex/push-failures.log`, and the next session's opening status line
+reports how many commits are still unpushed.
 
 ### Environment Variables
 
@@ -446,6 +466,8 @@ cortex-vec eval run \
 | `CORTEX_VAULT_PATH` | No | Read only by `session-start-inject.sh` and the `takeoff.sh` helper. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
 | `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |
+| `CORTEX_FORCE_RECORD` | No | When set (e.g. `=1`), records a headless session that the `sdk-cli` entrypoint guard would otherwise drop — for schedulers whose `claude -p` runs are real work |
+| `CORTEX_FILTER_TIMEOUT` | No | Seconds the SessionEnd hook waits for the transcript filter before giving up (default `600`). A non-numeric value falls back to the default rather than stubbing every session |
 
 ## Dependencies
 

@@ -116,6 +116,10 @@ git add <file> _index.md log.md
 git commit -m "cortex: <type> <brief>"
 ```
 
+If `git.commit_trailer` in config is a non-empty string, pass it as a second
+`-m` so it becomes the last line of the message body:
+`git commit -m "cortex: <type> <brief>" -m "<commit_trailer>"`.
+
 If `auto_push` is true in config: `git push`
 
 Confirm to the user what was saved and where.

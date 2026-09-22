@@ -12,7 +12,7 @@ status=0
 
 echo "── ruff ──────────────────────────────────────────"
 if command -v ruff >/dev/null 2>&1; then
-  ruff check hooks/ tests/ cortex-vec/src cortex-vec/tests || status=1
+  ruff check hooks/ tests/ scripts/ cortex-vec/src cortex-vec/tests || status=1
 else
   echo "ruff not installed — skipping lint (pip install ruff to enable)"
 fi

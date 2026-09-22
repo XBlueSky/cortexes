@@ -1,7 +1,7 @@
 """Shared pytest fixtures."""
 import pytest
 
-from cortex_vec import config
+from cortex_vec import config, store
 
 
 @pytest.fixture(autouse=True)
@@ -14,6 +14,18 @@ def _isolate_retrieval_config(monkeypatch):
     override `config.load_config` themselves (their setattr wins over this).
     """
     monkeypatch.setattr(config, "load_config", lambda: {})
+
+
+@pytest.fixture(autouse=True)
+def _stub_cosine_backfill(monkeypatch):
+    """Keep the cosine backfill off the network by default.
+
+    `fusion.search` asks `store.cosine_for` for a cosine whenever a hit came
+    in through bm25 or the graph, which reaches ChromaDB and the embedding
+    API. Tests that care about the backfill override this with their own
+    stub; everything else gets the same result as an unavailable backend.
+    """
+    monkeypatch.setattr(store, "cosine_for", lambda query, ids: {})
 
 
 @pytest.fixture

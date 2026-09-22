@@ -88,7 +88,13 @@ def main():
     p_rm.add_argument("--cursor", help="Continuation cursor from a prior page")
     p_rm.add_argument("--max-chars", type=int, dest="max_chars",
                       help="Page stdout cap (default: config, 12000)")
-    p_rm.add_argument("--find", help="Exact literal to locate in the Raw")
+    p_rm.add_argument("--find",
+                      help="Exact literal to locate: reports the matching span "
+                           "ids in `find_matches`; does NOT move the page "
+                           "(cards still start at 0 / --cursor)")
+    p_rm.add_argument("--find-only", action="store_true", dest="find_only",
+                      help="With --find: emit only `find_matches` (no cards, "
+                           "no map progress); costs one envelope, not a page")
 
     p_rsp = sub.add_parser(
         "raw-span", help="Bounded original-source page of one span"
