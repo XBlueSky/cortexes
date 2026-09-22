@@ -1,10 +1,12 @@
 """Plan lifecycle: identity binding, coverage gates, budget ledger."""
+import hashlib
 import json
 
 import pytest
 
 from cortex_vec import distill_plan as dp
 from cortex_vec import raw_page as rp
+from cortex_vec import raw_source as rs
 
 
 RAW = ("---\nrepo: cortex\n---\n"
@@ -137,6 +139,48 @@ def test_complete_accepts_marker_on_turnless_raw(tmp_path, monkeypatch):
         f.write("\n<!-- distilled: 2026-09-18 → (no insight) -->\n")
     done = dp.complete_plan(st["plan_id"], str(raw))
     assert done["completed"] is True and done["outcome"] == "no-insight"
+
+
+def test_diagnosis_attributes_a_marker_normalization_mismatch():
+    """A stripping-rule disagreement must not read as an edited Raw.
+
+    The hash recorded here is the one 1.8.0's header branch produced -- the
+    marker line removed, its blank separator left behind. Nothing in the
+    conversation differs, and the error has to say so; "source content
+    changed" sent a reader looking for an editor that never touched the file.
+    """
+    text = TURNLESS_RAW + "\n<!-- distilled: 2026-09-18 → (no insight) -->\n"
+    kept_blank = "\n".join(ln for ln in text.split("\n")
+                           if not rs.is_marker_line(ln))
+    rec = {"source_sha256": hashlib.sha256(kept_blank.encode()).hexdigest(),
+           "char_count": len(text)}
+    out = dp._diagnose_source_mismatch(text, rec)
+    assert out["reason"] == "marker normalization mismatch"
+    assert out["normalization"] == "marker_line_only"
+
+
+def test_diagnosis_falls_back_to_a_content_change():
+    text = TURNLESS_RAW + "\nAN EXTRA PARAGRAPH\n"
+    rec = {"source_sha256": "0" * 64, "char_count": len(TURNLESS_RAW)}
+    out = dp._diagnose_source_mismatch(text, rec)
+    assert out["reason"] == "source content changed"
+    assert out["chars_now"] == len(text)
+    assert out["chars_at_plan_start"] == len(TURNLESS_RAW)
+    assert "normalization" not in out
+
+
+def test_complete_reports_the_size_delta_on_a_real_edit(env):
+    st = dp.start_plan(str(env), 12000, 100000)
+    dp.mark_map_progress(st, st["span_count"], auto_reviewed=[])
+    for lo, hi in list(st["semantic"]) + list(st["ambiguous"]):
+        dp.mark_reviewed(st, lo, hi)
+    dp.seal_plan(st, "no-insight")
+    env.write_text(RAW + "\nAN EXTRA PARAGRAPH\n", encoding="utf-8")
+    with pytest.raises(rp.PageError) as e:
+        dp.complete_plan(st["plan_id"], str(env))
+    assert e.value.code == "RAW_CHANGED"
+    assert e.value.detail["reason"] == "source content changed"
+    assert e.value.detail["chars_now"] > e.value.detail["chars_at_plan_start"]
 
 
 def test_corrupt_state_fails_closed(env):

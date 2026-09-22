@@ -8,6 +8,7 @@ fail-closed on corruption or identity drift.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -319,13 +320,78 @@ def seal_plan(state: dict, expected_outcome: str) -> None:
     _save(state)
 
 
+def _normalization_variants(text: str) -> list:
+    """Alternative marker strippings of ``text``, for attributing a mismatch.
+
+    Each entry is ``(variant_name, stripped_text)``. Only the error path calls
+    this, so a whole-file sha256 per variant is affordable; what costs
+    something is naming a rule that never existed, because that would
+    attribute a real edit to a phantom normalization. Every rule below either
+    shipped once or is something a writer could plausibly emit next:
+
+      * ``marker_line_only`` -- the marker line dropped, its blank separator
+        kept. This is exactly what the header branch did before 1.8.1, so a
+        regression of that wedge names itself instead of coming back
+        disguised as "source content changed".
+      * ``unstripped`` -- no marker removal at all, i.e. the plan recorded a
+        source that already carried a marker.
+      * ``final_newline_*`` -- the current strip with the trailing newline
+        added or dropped, for a writer that changes its mind about the last
+        byte (14 Raws were appended without one).
+
+    The marker scan here is deliberately position-blind: a quoted marker in
+    the conversation may be picked instead of the anchored one, which makes a
+    variant that simply fails to match -- never a wrong attribution.
+    """
+    stripped = rs.strip_state_marker(text)
+    lines = text.split("\n")
+    first = next((i for i, ln in enumerate(lines) if rs.is_marker_line(ln)), None)
+    candidates = []
+    if first is not None:
+        candidates.append(("marker_line_only",
+                           "\n".join(lines[:first] + lines[first + 1:])))
+    candidates.append(("unstripped", text))
+    candidates.append(("final_newline_added", stripped + "\n"))
+    candidates.append(("final_newline_dropped", stripped.rstrip("\n")))
+    seen = {stripped}          # the rule in force already failed to match
+    out = []
+    for name, variant in candidates:
+        if variant not in seen:
+            seen.add(variant)
+            out.append((name, variant))
+    return out
+
+
+def _diagnose_source_mismatch(text: str, rec: dict) -> dict:
+    """Name why ``text`` no longer hashes to the plan's recorded source.
+
+    A plan stores hashes, not the pre-marker text, so a mismatch cannot be
+    diffed -- but it can be attributed. If some other stripping rule
+    reproduces the recorded source hash, the conversation is untouched and
+    only the marker accounting differs; if none does, the file really was
+    edited and "source content changed" is the honest answer. Conflating the
+    two is what sent a whole afternoon looking for an editor that had never
+    touched the file.
+    """
+    for name, variant in _normalization_variants(text):
+        digest = hashlib.sha256(variant.encode("utf-8")).hexdigest()
+        if digest == rec["source_sha256"]:
+            return {"reason": "marker normalization mismatch",
+                    "normalization": name,
+                    "hint": "the marker block differs, not the conversation"}
+    return {"reason": "source content changed",
+            "chars_now": len(text),
+            "chars_at_plan_start": rec["char_count"]}
+
+
 def complete_plan(plan_id: str, raw_path: str) -> dict:
     state = _load_by_plan_id(plan_id)
     if state["status"] != "sealed":
         raise PageError("PLAN_NOT_ACTIVE", reason="seal before complete")
-    ident, _ = rs.load(raw_path)
+    ident, text = rs.load(raw_path)
     if ident.source_sha256 != state["identity"]["source_sha256"]:
-        raise PageError("RAW_CHANGED", reason="source content changed")
+        raise PageError("RAW_CHANGED",
+                        **_diagnose_source_mismatch(text, state["identity"]))
     from .distill_queue import classify
     outcome = classify(raw_path).outcome
     if outcome != state["expected_outcome"]:

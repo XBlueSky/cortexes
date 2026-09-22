@@ -76,6 +76,15 @@ class SourceSpan:
     tool_name: str | None = None
 
 
+def is_marker_line(line: str) -> bool:
+    """True if ``line`` is a whole-line distilled marker, indent ignored.
+
+    Public so callers outside this module can recognise a marker without
+    reaching for the private pattern -- position anchoring stays here.
+    """
+    return bool(_MARKER_RE.match(line.strip()))
+
+
 def _drop_marker_block(lines: list[str], i: int) -> str:
     """Rejoin ``lines`` without the marker block anchored at index ``i``.
 
