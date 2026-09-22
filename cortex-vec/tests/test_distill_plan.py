@@ -110,6 +110,35 @@ def test_complete_rejects_wrong_marker(env):
     assert e.value.code == "RAW_CHANGED"
 
 
+# A vacuum session / "(filter failed)" stub: frontmatter plus an audit line,
+# no ### User anywhere. The header scan never breaks on such a file, so its
+# EOF marker gets anchored by the header rule.
+TURNLESS_RAW = ("---\nrepo: cortex\ndate: 2026-09-17\n---\n\n"
+                "<!-- audit: skill_loads=0 raw_bytes=0 filters_loaded=59 -->\n")
+
+
+def test_complete_accepts_marker_on_turnless_raw(tmp_path, monkeypatch):
+    """A turnless Raw must be completable, not wedged in RAW_CHANGED.
+
+    Regression: the marker was the only delta on disk, yet complete rejected
+    it because the header branch left the marker's blank separator line in the
+    stripped source. The Raw could never leave the distill queue -- and
+    `raw-state` disagreed with `complete` on the very same file.
+    """
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    raw = tmp_path / "vacuum.md"
+    raw.write_text(TURNLESS_RAW, encoding="utf-8")
+    st = dp.start_plan(str(raw), 12000, 100000)
+    dp.mark_map_progress(st, st["span_count"], auto_reviewed=[])
+    for lo, hi in list(st["semantic"]) + list(st["ambiguous"]):
+        dp.mark_reviewed(st, lo, hi)
+    dp.seal_plan(st, "no-insight")
+    with open(raw, "a", encoding="utf-8") as f:
+        f.write("\n<!-- distilled: 2026-09-18 → (no insight) -->\n")
+    done = dp.complete_plan(st["plan_id"], str(raw))
+    assert done["completed"] is True and done["outcome"] == "no-insight"
+
+
 def test_corrupt_state_fails_closed(env):
     st = dp.start_plan(str(env), 12000, 100000)
     sf = dp.plans_dir() / (st["identity"]["source_sha256"] + ".json")

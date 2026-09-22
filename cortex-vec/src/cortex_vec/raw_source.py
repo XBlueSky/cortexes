@@ -76,8 +76,28 @@ class SourceSpan:
     tool_name: str | None = None
 
 
+def _drop_marker_block(lines: list[str], i: int) -> str:
+    """Rejoin ``lines`` without the marker block anchored at index ``i``.
+
+    A marker is written as a BLOCK, not a line: the writers emit
+    ``"\\n<!-- distilled: ... -->\\n"``, so the marker arrives together with a
+    blank separator line. Removing only the marker leaves that blank behind and
+    the stripped text no longer hashes to the pre-marker source. Both anchoring
+    conventions share this helper precisely because they once drifted: the
+    header branch kept the blank, so a turnless Raw (no ``### User`` at all,
+    e.g. a vacuum session) fell through the header loop, got the header
+    treatment for its EOF marker, and stayed wedged in RAW_CHANGED forever.
+    """
+    head = lines[:i - 1] if i > 0 and not lines[i - 1].strip() else lines[:i]
+    tail = lines[i + 1:]
+    # An empty tail means the marker was appended without a trailing newline,
+    # so the split() carries no final empty element. Re-emit one, or the line
+    # above would silently lose its own newline.
+    return "\n".join(head + (tail or [""]))
+
+
 def strip_state_marker(text: str) -> str:
-    """Remove the ONE position-anchored distilled marker line, if present.
+    """Remove the ONE position-anchored distilled marker block, if present.
 
     Same anchoring rules as distill_queue: the first whole-line marker BEFORE
     the first turn/tool header (header convention), else the last non-empty
@@ -92,17 +112,13 @@ def strip_state_marker(text: str) -> str:
         if s in TURN_HEADERS:
             break
         if _MARKER_RE.match(s):
-            return "\n".join(lines[:i] + lines[i + 1:])
+            return _drop_marker_block(lines, i)
     for i in range(len(lines) - 1, -1, -1):
         s = lines[i].strip()
         if not s:
             continue
         if _MARKER_RE.match(s):
-            # Remove marker and preceding blank line if present
-            if i > 0 and not lines[i - 1].strip():
-                return "\n".join(lines[:i - 1] + lines[i + 1:])
-            else:
-                return "\n".join(lines[:i] + lines[i + 1:])
+            return _drop_marker_block(lines, i)
         break
     return text
 
