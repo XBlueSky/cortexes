@@ -143,10 +143,10 @@ def test_trailing_meta_marker_on_keep_does_not_block_match(tmp_path):
 def test_same_repo_prefix_pair_is_still_reclaimed(tmp_path):
     # The guard must not cost the case reclaim exists for: same conversation,
     # same repo label, earlier snapshot is a prefix → it still goes.
-    small = _write(tmp_path, "Raw/2026/09/04/172243_session_synopkg.md",
-                   turns=1, repo="synopkg")
-    big = _write(tmp_path, "Raw/2026/09/04/183528_session_synopkg.md",
-                 turns=3, repo="synopkg")
+    small = _write(tmp_path, "Raw/2026/09/04/172243_session_acme-core.md",
+                   turns=1, repo="acme-core")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-core.md",
+                 turns=3, repo="acme-core")
 
     result = reclaim.scan(tmp_path / "Raw", keep=big)
 
@@ -178,14 +178,14 @@ def test_unlabelled_raw_is_refused_not_reclaimed(tmp_path):
     # A Raw whose frontmatter carries no `repo:` at all cannot be shown to
     # belong to the survivor's repo. Break: treating a missing label as "same"
     # → the unprovable case silently takes the deleting branch.
-    small = tmp_path / "Raw/2026/09/04/172243_session_synopkg.md"
+    small = tmp_path / "Raw/2026/09/04/172243_session_acme-core.md"
     small.parent.mkdir(parents=True, exist_ok=True)
     small.write_text(
         "---\ndate: 2026-09-04\ntime: 17:22:43\ntype: session\n"
         "tags: [session]\n---\n\n" + _turns(1, "work"),
         encoding="utf-8")
-    big = _write(tmp_path, "Raw/2026/09/04/183528_session_synopkg.md",
-                 turns=3, repo="synopkg")
+    big = _write(tmp_path, "Raw/2026/09/04/183528_session_acme-core.md",
+                 turns=3, repo="acme-core")
 
     result = reclaim.scan(tmp_path / "Raw", keep=big)
 
@@ -211,14 +211,14 @@ def test_same_repo_survivor_wins_over_a_cross_repo_one(tmp_path):
     # reclaimed, and the cross-repo near-miss is not reported: the file is
     # going anyway, so the refusal would be noise. Break: reporting every pair
     # → operators learn to ignore the refusal line.
-    small = _write(tmp_path, "Raw/2026/09/04/090000_session_synopkg.md",
-                   turns=1, repo="synopkg")
+    small = _write(tmp_path, "Raw/2026/09/04/090000_session_acme-core.md",
+                   turns=1, repo="acme-core")
     # Shares the opening turn with `small` (so it covers it) but diverges after,
     # so it is in no prefix relation with the same-repo survivor below.
     _write(tmp_path, "Raw/2026/09/04/100000_session_other.md", repo="other",
            body=_turns(1, "work") + "\n" + _turns(1, "diverge"))
-    _write(tmp_path, "Raw/2026/09/04/110000_session_synopkg.md",
-           turns=3, repo="synopkg")
+    _write(tmp_path, "Raw/2026/09/04/110000_session_acme-core.md",
+           turns=3, repo="acme-core")
 
     result = reclaim.scan(tmp_path / "Raw")
 

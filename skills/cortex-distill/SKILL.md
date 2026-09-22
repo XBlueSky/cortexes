@@ -190,7 +190,7 @@ Then apply `has_insight()` (below) to what you actually read.
 
 Answer **Yes** iff at least one passage anywhere in the Raw contains one of:
 
-- A specific symbol / file path / line number (e.g. `src/main.rs:226`, `checkDockerImage()`, `SynoBuildConf/unit-test`).
+- A specific symbol / file path / line number (e.g. `src/main.rs:226`, `checkDockerImage()`, `buildconf/unit-test`).
 - A specific bug mechanism or root-cause statement (e.g. "filter must fully match repository, substring not supported").
 - A specific decision rationale in the form "X over Y because Z" — not bare "use X".
 

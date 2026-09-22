@@ -73,11 +73,11 @@ Format:
 ```
 Eligible queue (N Raws):
 
-  1. Raw/2026/04/17/141013_session_webapi-Notification.md
-     outcome: pending-merge → Projects/libsynosysnotify/synooauth flow chart.md (0.48)
+  1. Raw/2026/04/17/141013_session_acme-notify.md
+     outcome: pending-merge → Projects/acme-notify/oauth flow chart.md (0.48)
 
-  2. Raw/2026/04/17/163941_session_libsynosdk.md
-     outcome: new → Projects/libsynosdk/build-flag-semantics.md
+  2. Raw/2026/04/17/163941_session_acme-sdk.md
+     outcome: new → Projects/acme-sdk/build-flag-semantics.md
 
 Run /cortexes:broadcast to process the first, or /cortexes:broadcast <path> for a specific one.
 ```
@@ -155,7 +155,7 @@ If the Raw's outcome is `pending-merge`:
 Example of the menu line in this case:
 
 ````
-[x] 1. Projects/libsynosysnotify/synooauth flow chart.md (0.48)  ← pending-merge target (below current threshold)
+[x] 1. Projects/acme-notify/oauth flow chart.md (0.48)  ← pending-merge target (below current threshold)
 ````
 
 All other candidates default to unchecked `[ ]`.
