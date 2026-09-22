@@ -445,6 +445,17 @@ that requires a specific trailer. Only those two commit kinds — the ones that
 add new Notes / Projects pages — carry it; the SessionEnd raw commit and
 broadcast commits do not.
 
+Raw commits need no trailer, because a Raw is already cleaned at capture time
+of the two things a git host rejects: line breaks are normalized to `\n`, and
+credential-shaped strings (GitLab PATs, OpenAI / Anthropic keys, AWS keys, JWTs,
+session cookies, curl and Authorization header credentials, passwords in URLs,
+`*_TOKEN=` environment values) are replaced with `REDACTED` placeholders. The
+audit comment at the top of each Raw records `redactions=N`.
+
+A failing `auto_push` is no longer silent: the remote's error is appended to
+`~/.cortex/push-failures.log`, and the next session's opening status line
+reports how many commits are still unpushed.
+
 ### Environment Variables
 
 | Variable | Required | Description |

@@ -155,7 +155,18 @@ FRONTMATTER
     git -C "$vault_path" add "$target_file" 2>/dev/null || true
     git -C "$vault_path" commit -m "$commit_msg" 2>/dev/null || true
     if [[ "$auto_push" == "true" ]]; then
-      git -C "$vault_path" push 2>/dev/null || true
+      # A rejected push (pre-receive hook, auth, network) used to vanish into
+      # /dev/null and every later push failed the same way until someone
+      # noticed. Keep the hook silent on success, but leave the message from
+      # the remote next to the config so the next SessionStart can point at it.
+      # (This block lives inside a single-quoted bash -c string: no apostrophes.)
+      if ! push_out=$(git -C "$vault_path" push 2>&1); then
+        push_log="$(dirname "$CORTEX_CONFIG")/push-failures.log"
+        {
+          printf "[%s] repo=%s vault=%s\n" "$(date +%Y-%m-%dT%H:%M:%S)" "$repo_name" "$vault_path"
+          printf "%s\n\n" "$push_out"
+        } >> "$push_log" 2>/dev/null || true
+      fi
     fi
   fi
 ' _ "$target_file" "$transcript_path" "$repo_name" "$vault_path" "$CORTEX_CONFIG" "$FILTER" "$META" >/dev/null 2>&1 &

@@ -28,6 +28,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/repo-slug.sh"
 repo_name="$(cortex_repo_slug "$cwd" || true)"
 [[ -z "$repo_name" ]] && exit 0
 
+# --- Unpushed commits: the one signal auto-push failures leave behind ---
+# session-end-record.sh logs a rejected push to push-failures.log but stays
+# silent otherwise; without this line the vault could trail its remote for
+# weeks. Only counted when the vault branch has an upstream at all.
+unpushed_status=""
+unpushed=$(git -C "$CORTEX_DIR" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+if [[ "${unpushed:-0}" -gt 0 ]]; then
+  unpushed_status="先顯示 vault 狀態："$'\n'"  - 有 ${unpushed} 個 commit 尚未推送到 origin（失敗原因見 $(dirname "$CORTEX_CONFIG")/push-failures.log）"$'\n\n'
+fi
+
 # --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
 # This is metadata, not content: it lists the topic names that exist so the
 # model can tell whether a later request actually matches one (using-cortex
@@ -98,7 +108,7 @@ Vault 目前涵蓋的主題（僅為主題名稱清單，不是內容；用來�
 
 在你第一次回覆使用者時，呈現以下格式：
 
-列出選項：
+__UNPUSHED_STATUS__列出選項：
 1. 載入此 repo 的記憶筆記（執行 cortex-vec search --repo __REPO__）
 2. 查看最近的 session 紀錄（列出 __VAULT__/Raw/ 中最近幾筆）
 3. 處理待辦事項（提煉未處理的紀錄）
@@ -115,6 +125,7 @@ PROMPT_TEMPLATE
 # Substitute placeholders
 context="${context//__REPO__/$repo_name}"
 context="${context//__VAULT__/$CORTEX_DIR}"
+context="${context//__UNPUSHED_STATUS__/$unpushed_status}"
 context="${context//__NOTES_TOPICS__/$notes_topics}"
 context="${context//__PROJECTS_TOPICS__/$projects_topics}"
 context="${context//__TAKEOFF_OPTION__/$takeoff_option}"
