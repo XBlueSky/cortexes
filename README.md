@@ -129,11 +129,13 @@ and indexes are untouched — there is no data migration.
    uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
    ```
 
-   `cortex-vec` 0.8.0 is what carries the Weekly removal into the CLI —
-   `--type weekly` is gone from `search --help` and `Weekly/` is no longer
-   classified as a content type. The plugin works with 0.7.0, so this is not
-   urgent, but until you upgrade the CLI's own help still advertises the
-   retired filter.
+   `cortex-vec` 0.9.0 is the version this plugin release ships against. 0.8.0
+   is what carried the Weekly removal into the CLI — `--type weekly` is gone
+   from `search --help` and `Weekly/` is no longer classified as a content
+   type — and 0.9.0 adds the cosine backfill and the retrieval-filter fixes
+   that 2.1.0's dedup and scoped search depend on. Older CLIs keep working,
+   but a scoped search on one still leaks out-of-scope pages and a
+   keyword-only hit still reports `0.00`.
 6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
    and caches, and the `CORTEX_*` environment variables all keep their names
    and paths. No rebuild, no re-index, no config edit.

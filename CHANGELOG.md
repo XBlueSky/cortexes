@@ -5,6 +5,96 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-09-22
+
+Ported from the upstream `cortex` line (1.4.0 – 1.8.1), minus everything
+coupled to internal-only tooling. Fixture and comment references to internal
+hosts, repos and issue keys were replaced with public placeholders before
+anything landed here.
+
+### Added
+- **Credential-shaped strings are redacted at capture time.** The transcript
+  filter now replaces GitLab personal-access and OAuth tokens, AWS access-key
+  ids, OpenAI and Anthropic API keys, GitLab session cookies, JWTs, `curl -u`
+  credentials, `Authorization` / `PRIVATE-TOKEN` header values, passwords
+  embedded in URLs and `*_TOKEN=` environment values with `REDACTED`
+  placeholders before a Raw is written, and counts them as `redactions=N` in
+  the audit comment. Placeholders are chosen so they match neither the rule
+  that produced them nor a git host's equivalent secret-check rule. This is
+  shape matching, not a secrets scanner — `PRIVACY.md` §1 says so in both
+  directions.
+- **`cortex-vec raw-map --find-only`.** With `--find`, emits only
+  `find_matches` — no cards, no map progress, `next_cursor` null — so locating
+  a span costs one ~600-char envelope instead of a ~12K page. Without `--find`
+  it fails with `FIND_ONLY_REQUIRES_FIND`. `cortex-distill` Step 2 documents
+  the find-first play this enables on Raws too large to page.
+- **Auto-push failures are visible.** A rejected push appends the remote's
+  message to `~/.cortex/push-failures.log`, and the next session's opening
+  menu reports how many commits are still unpushed. Previously
+  `git push 2>/dev/null || true` hid it until someone ran `git status`.
+- **Filter crashes are diagnosable.** Filter stderr lands in
+  `~/.cortex/filter-failures.log` (mode `0600`, passed through the same
+  redaction pass as the Raw body), the Raw is assembled in a temp file and
+  moved into place only after the filter's exit status is known, and a
+  `CORTEX_FILTER_TIMEOUT` bound guards against a hang. Raw frontmatter gains
+  a `transcript:` field.
+- **`git.commit_trailer` config key.** When non-empty, the distill and evolve
+  skills append it as the last line of their commit messages, for git hosting
+  that requires a specific trailer. Raw and broadcast commits never carry it.
+- **`CORTEX_FORCE_RECORD`.** Records a headless session that the new
+  `sdk-cli` entrypoint guard would otherwise drop.
+
+### Fixed
+- **Every hit now carries a real cosine.** A page that entered through the
+  BM25 or wikilink stream used to report `0.00`, indistinguishable from "no
+  overlap" to the absolute-threshold consumers (distill and broadcast dedup) —
+  which is how a near-duplicate could be waved through as `new`.
+  `store.cosine_for` backfills it in one scoped query, budgeted by the entry
+  count the collection reports rather than a per-document guess.
+  `cortex-query`'s score bands were rewritten to match: a sub-0.60 score is
+  now a measured low overlap, while `0.0` stays documented as ambiguous
+  because the backfill needs a live vector stream.
+- **Filters are honoured by all three retrieval streams.** `_build_where`
+  emits a nested `$or`, which the BM25 matcher never evaluated, so
+  `--repo` / `--type` / `--category` stopped filtering that stream entirely;
+  the wikilink graph stream was never handed the clause at all. Both now read
+  the same query language, a clause the matcher cannot evaluate raises instead
+  of passing everything, and graph neighbours order deterministically.
+- **`reclaim-superseded` keeps cross-repo prefix Raws.** A session whose cwd
+  changes produces two Raws with different `repo:` labels from one transcript;
+  deleting the prefix erased that repo's only record. Such a pair is now
+  refused and reported.
+- **The distilled marker strips as a block.** Two anchoring branches
+  disagreed about the blank separator line, so a turnless Raw was left with
+  stray whitespace, its `source_sha256` changed, and `complete_plan` rejected
+  it as `RAW_CHANGED` forever. A rejection now also attributes itself to the
+  stripping rule that reproduces the recorded hash, instead of blaming an
+  edit that never happened.
+- **The recording pipeline fails open.** A filter that raises costs one tool
+  result, not the conversation: unreadable bytes, torn reads, unparseable
+  lines, unrenderable records, whole-body transforms and lone surrogates each
+  degrade and are counted in the audit comment. `redact_secrets` was made
+  linear (128 KB: 17s → 0.04s) with a 300k-case differential confirming
+  unchanged semantics. Adds `--until <ISO8601>` for rendering a transcript as
+  of a past instant.
+- **Headless sessions are no longer recorded by default.** A `claude -p`
+  probe clears the 4 KB size gate on system prompt alone; one batch harness
+  filed 155 junk Raws. Gated on the `sdk-cli` entrypoint, fail-open on an
+  absent or unreadable one.
+- **Line breaks in a captured Raw are normalized to `\n`,** so text-mode
+  readers and git agree on line counts.
+
+### Changed
+- `--repo` semantics are stated identically in `cortex-query`,
+  `cortex-distill`, `cortex-broadcast` and both READMEs: it narrows the
+  `Projects/` partition only, cross-repo `Notes/` always appear, and a page
+  listing several repos passes a filter naming any of them.
+- `cortex-distill` Step 1 documents backlog hygiene — run the pairwise
+  `reclaim-superseded` first, then treat `raw_bytes` collisions as a triage
+  hint, never a deletion list.
+- `scripts/` is under the ruff gate.
+- `cortex-vec` 0.8.0 → 0.9.0.
+
 ## [2.0.0] - 2026-09-01
 
 ### Added

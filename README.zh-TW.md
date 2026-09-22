@@ -116,10 +116,11 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
    ```
 
-   Weekly 的移除要靠 `cortex-vec` 0.8.0 才會到 CLI 端 —— `search --help`
-   不再列出 `--type weekly`，`Weekly/` 也不再被歸類成 content type。plugin
-   搭 0.7.0 仍可運作，所以不急，但沒升級前 CLI 的說明還是會宣傳那個已退役的
-   過濾條件。
+   這個 plugin 版本對應的是 `cortex-vec` 0.9.0。Weekly 的移除要靠 0.8.0 才會
+   到 CLI 端 —— `search --help` 不再列出 `--type weekly`，`Weekly/` 也不再被
+   歸類成 content type —— 而 0.9.0 補上了 cosine backfill 與檢索過濾的修正，
+   2.1.0 的去重與帶範圍搜尋都靠它。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
+   漏出範圍外的頁面，只靠關鍵字命中的結果也還是回報 `0.00`。
 6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
    `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
    不用改設定。
