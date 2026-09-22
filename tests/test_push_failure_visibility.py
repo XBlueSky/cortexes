@@ -15,8 +15,6 @@ import subprocess
 import time
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RECORD = REPO_ROOT / "hooks" / "scripts" / "session-end-record.sh"
 INJECT = REPO_ROOT / "hooks" / "scripts" / "session-start-inject.sh"
