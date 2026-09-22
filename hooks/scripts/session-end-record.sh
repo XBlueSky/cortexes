@@ -97,26 +97,176 @@ nohup bash -c '
   FILTER="$6"
   META="$7"
 
-  {
+  # The filter used to run as `2>/dev/null || echo "(filter failed)"`: the
+  # traceback naming the offending filter and line was discarded, and the
+  # 100-byte stub left behind did not even record which transcript produced
+  # it. A 2026-09-02 payload shape change crashed one filter and destroyed 21
+  # session records that way before anyone noticed. Now stderr is captured,
+  # redacted, and appended to filter-failures.log next to push-failures.log.
+  # (This block lives inside a single-quoted bash -c string: no apostrophes.)
+  filter_err="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/cortex-filter-err.$$")"
+  filter_rc=0
+
+  # The Raw is assembled in a sibling temp file and renamed into place, so the
+  # target path only ever holds a COMPLETE record. Writing the filter straight
+  # into "$target_file" meant a SIGTERM (see the timeout below) landing mid
+  # flush left frontmatter + a truncated body + "(filter failed)" at the real
+  # path -- a file that is neither under the 300-byte ceiling nor has a body
+  # that strips to exactly "(filter failed)", so the structural discriminator
+  # in scripts/backfill-failed-raws.py can never find it. A silently corrupted
+  # record with no marker is worse than a stub that says what happened.
+  # The temp file sits in the target directory so the mv is a rename and
+  # therefore atomic, and it is created by redirection rather than mktemp so
+  # the Raw keeps the umask-derived mode it has always been written with.
+  tmp_raw="${target_file}.partial.$$"
+  cleanup_tmp() {
+    rm -f "$filter_err" "$tmp_raw" 2>/dev/null || true
+  }
+  on_signal() {
+    # Killed before the rename: leave nothing behind rather than an orphan
+    # temp file in the vault. The target path is still untouched, which is the
+    # property that matters -- there is no half-written record to find.
+    cleanup_tmp
+    exit 143
+  }
+  trap cleanup_tmp EXIT
+  trap on_signal HUP INT TERM
+
+  # A HANG is worse than a crash: a filter that never returns leaves no record
+  # at all. Bound it, but only when timeout(1) is actually available -- a
+  # missing binary here would fail every session.
+  #
+  # The bound is a backstop for a wedged process, NOT a budget for slow work:
+  # everything it kills is a destroyed session record, so it has to sit far
+  # above the worst legitimate run. The slowest real filter measured (a 128 KB
+  # single-line blob through the redaction pass, before that pass was made
+  # linear) spent ~1131s and still produced a COMPLETE Raw; 3600s keeps ~3x
+  # headroom over that while still turning an infinite loop into one logged
+  # failure instead of a process that outlives the session forever.
+  #
+  # CORTEX_FILTER_TIMEOUT overrides it, but only as a plain count of seconds.
+  # timeout(1) exits 125 on a value it cannot parse -- a human-friendly
+  # "10 minutes" stubs every session in every repo, and does it BEFORE python
+  # runs, so the Raw never even sees the filter. Anything non-numeric or out
+  # of range (including 0, which would mean no bound at all) falls back to the
+  # default rather than taking the whole pipeline down.
+  filter_timeout="${CORTEX_FILTER_TIMEOUT:-}"
+  case "$filter_timeout" in
+    ""|*[!0-9]*) filter_timeout="" ;;
+  esac
+  if [[ -n "$filter_timeout" ]]; then
+    filter_timeout=$((10#$filter_timeout))
+    if [[ "$filter_timeout" -lt 1 || "$filter_timeout" -gt 86400 ]]; then
+      filter_timeout=""
+    fi
+  fi
+  filter_timeout="${filter_timeout:-3600}"
+
+  filter_cmd=(python3 "$FILTER" "$transcript_path")
+  if command -v timeout >/dev/null 2>&1; then
+    filter_cmd=(timeout "$filter_timeout" "${filter_cmd[@]}")
+  fi
+
+  raw_date="$(date +%Y-%m-%d)"
+  raw_time="$(date +%H:%M:%S)"
+  write_frontmatter() {
     cat <<FRONTMATTER
 ---
-date: $(date +%Y-%m-%d)
-time: $(date +%H:%M:%S)
+date: ${raw_date}
+time: ${raw_time}
 type: session
 repo: ${repo_name}
+transcript: ${transcript_path}
 tags: [session]
 ---
 
 FRONTMATTER
-    python3 "$FILTER" "$transcript_path" 2>/dev/null || echo "(filter failed)"
-  } > "$target_file"
+  }
+
+  # filter_rc is the status of the filter itself (or the 124 timeout(1) reports
+  # when it kills the filter) -- the filter is run on its own, never as a
+  # pipeline stage, so no other command can mask it.
+  write_frontmatter > "$tmp_raw"
+  "${filter_cmd[@]}" >> "$tmp_raw" 2>"$filter_err" || filter_rc=$?
+
+  if [[ "$filter_rc" -ne 0 ]]; then
+    # Discard whatever partial body the filter managed to flush: the stub has
+    # to be the WHOLE body for the backfill to recognise the record.
+    { write_frontmatter; echo "(filter failed)"; } > "$tmp_raw"
+  fi
+  mv -f "$tmp_raw" "$target_file" 2>/dev/null \
+    || cat "$tmp_raw" > "$target_file" 2>/dev/null \
+    || true
+
+  # The detail goes to the log, never into the Raw body. Anything written to
+  # the Raw is committed and pushed, and an exception message can quote the
+  # payload that broke the filter -- which is exactly where a credential would
+  # be. But the log is not a safe sink for raw stderr either: "not committed"
+  # is a weaker control than "not recorded", and a token that reaches disk in
+  # cleartext has already leaked. So the captured stderr goes through the SAME
+  # redact_secrets() the Raw body gets, and the log is created 0600.
+  # Fail-open in the safe direction: if the redaction pass cannot run (no
+  # python3, an unimportable filter, a wedged regex) the stderr is DROPPED for
+  # a fixed placeholder. Losing a traceback is recoverable; logging a
+  # credential is not.
+  if [[ "$filter_rc" -ne 0 ]]; then
+    filter_log="$(dirname "$CORTEX_CONFIG")/filter-failures.log"
+    redact_py=$(cat <<"PYEOF"
+import importlib.util
+import os
+import sys
+
+MAX_INPUT = 1 << 20
+MAX_OUTPUT = 8192
+
+filter_path, err_path = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.dirname(os.path.abspath(filter_path)))
+spec = importlib.util.spec_from_file_location("cortex_filter_transcript", filter_path)
+if spec is None or spec.loader is None:
+    raise SystemExit(1)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+redact = module.redact_secrets
+
+with open(err_path, "rb") as handle:
+    handle.seek(0, os.SEEK_END)
+    size = handle.tell()
+    # Redact BEFORE truncating: cutting first can bisect a credential and
+    # leave a fragment no rule matches. The 1 MiB read bound keeps a runaway
+    # stderr from being redacted in full.
+    handle.seek(max(0, size - MAX_INPUT))
+    text, _ = redact(handle.read(MAX_INPUT).decode("utf-8", "replace"))
+sys.stdout.write(text[-MAX_OUTPUT:])
+PYEOF
+)
+    redact_cmd=(python3 -c "$redact_py" "$FILTER" "$filter_err")
+    if command -v timeout >/dev/null 2>&1; then
+      redact_cmd=(timeout 60 "${redact_cmd[@]}")
+    fi
+    if ! filter_err_text="$("${redact_cmd[@]}" 2>/dev/null)"; then
+      filter_err_text="(stderr dropped: redaction unavailable)"
+    fi
+    ( umask 077; : >> "$filter_log" ) 2>/dev/null || true
+    chmod 600 "$filter_log" 2>/dev/null || true
+    {
+      printf "[%s] repo=%s vault=%s\n" "$(date +%Y-%m-%dT%H:%M:%S)" "$repo_name" "$vault_path"
+      printf "transcript=%s\n" "$transcript_path"
+      printf "raw=%s\n" "$target_file"
+      printf "exit=%s\n" "$filter_rc"
+      printf "%s\n" "$filter_err_text"
+      printf "\n"
+    } >> "$filter_log" 2>/dev/null || true
+  fi
+  rm -f "$filter_err" 2>/dev/null || true
 
   # Cortex maintenance-pipeline sessions (distill/broadcast/genesis) only
   # process the vault; recording them would re-feed Raw/ into its own distill
   # queue, so the queue could never reach empty. Keep the record as an audit
   # trail but pre-stamp a distilled marker so the grep -rL "<!-- distilled:"
   # queue scan never picks it up again. Fail-open: any error → no marker.
-  if python3 "$META" "$transcript_path" >/dev/null 2>&1; then
+  # Guarded on the Raw existing so a failed rename cannot conjure a
+  # marker-only file at the target path.
+  if [[ -s "$target_file" ]] && python3 "$META" "$transcript_path" >/dev/null 2>&1; then
     printf "\n<!-- distilled: %s → (skip: meta-session) -->\n" "$(date +%Y-%m-%d)" >> "$target_file"
   fi
 
@@ -138,9 +288,31 @@ FRONTMATTER
     cvec="cortex-vec"
   fi
   if [[ -n "$cvec" ]]; then
+    # reclaim keeps stdout as the machine-readable list of reclaimed paths (it
+    # is counted just below and named in the commit message), so everything a
+    # human needs to SEE goes to stderr -- in particular a cross-repo prefix
+    # pair, which reclaim refuses rather than deleting because the two Raws
+    # carry different `repo:` labels and each repo keeps its own record.
+    # Discarding that stderr would make the refusal invisible and defeat the
+    # guard, so it lands in the same log as a filter failure. It carries vault
+    # paths and repo names only -- no transcript payload -- so unlike the
+    # stderr of the filter it needs no redaction pass.
+    reclaim_err="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/cortex-reclaim-err.$$")"
     reclaimed_out=$($cvec reclaim-superseded --root "${vault_path}/Raw" \
-      --keep "$target_file" --apply --vault "$vault_path" 2>/dev/null || true)
+      --keep "$target_file" --apply --vault "$vault_path" 2>"$reclaim_err" || true)
     reclaimed=$(printf "%s" "$reclaimed_out" | grep -c . || true)
+    if [[ -s "$reclaim_err" ]]; then
+      reclaim_log="$(dirname "$CORTEX_CONFIG")/filter-failures.log"
+      ( umask 077; : >> "$reclaim_log" ) 2>/dev/null || true
+      chmod 600 "$reclaim_log" 2>/dev/null || true
+      {
+        printf "[%s] reclaim repo=%s vault=%s\n" \
+          "$(date +%Y-%m-%dT%H:%M:%S)" "$repo_name" "$vault_path"
+        tail -c 8192 "$reclaim_err"
+        printf "\n"
+      } >> "$reclaim_log" 2>/dev/null || true
+    fi
+    rm -f "$reclaim_err" 2>/dev/null || true
   fi
 
   auto_commit=$(jq -r ".git.auto_commit // false" "$CORTEX_CONFIG" 2>/dev/null)
