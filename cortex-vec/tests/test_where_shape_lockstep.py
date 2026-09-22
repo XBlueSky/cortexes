@@ -7,6 +7,8 @@ fed `_matches` a flat `{"repo": X}` dict that `_build_where` never produces,
 so the real payload sailed through unfiltered. Every test here therefore
 builds its `where` through `_build_where` instead of hand-writing one.
 """
+import pytest
+
 from cortex_vec import bm25, store
 
 
@@ -90,3 +92,89 @@ def test_matches_evaluates_nested_and(tmp_path):
     where = {"$and": [{"$or": [{"repo": "acme-core"}, {"type": "note"}]},
                       {"category": "Nginx"}]}
     assert bm25._matches(mine, where) is False
+
+
+def _clause_keys(where):
+    """Every field name reachable in a `where` payload, through $and/$or."""
+    if not where:
+        return set()
+    keys = set()
+    for k, v in where.items():
+        if k in ("$and", "$or"):
+            for clause in v:
+                keys |= _clause_keys(clause)
+        else:
+            keys.add(k)
+    return keys
+
+
+def test_build_where_emits_only_fields_matches_models():
+    """Lock the producer's field set to the evaluator's.
+
+    The vector stream hands its clause to ChromaDB, which honours *any*
+    metadata key. The BM25 and wikilink-graph streams hand it to `_matches`,
+    which models three. A filter field added to `_build_where` and not to
+    `_matches` is therefore obeyed by one stream and silently ignored by two —
+    the same drift as the original defect, one field later. This test fails the
+    moment the two sides diverge, instead of a dedup run failing months later.
+    """
+    emitted = set()
+    for kwargs in ({"repo": "r"}, {"type": "note"}, {"category": "c"},
+                   {"repo": "r", "type": "note"}, {"repo": "r", "category": "c"},
+                   {"repo": "r", "type": "note", "category": "c"}):
+        emitted |= _clause_keys(store._build_where(**kwargs))
+    assert emitted, "producer emitted nothing — the sweep above stopped working"
+    assert emitted <= set(bm25._KNOWN_FIELDS), (
+        f"_build_where emits {sorted(emitted - set(bm25._KNOWN_FIELDS))}, which "
+        f"_matches does not model: ChromaDB would filter on it and the BM25 and "
+        f"graph streams would not."
+    )
+
+
+def test_matches_refuses_a_field_it_does_not_model():
+    """Silence on an unknown key is how a filter goes missing unnoticed."""
+    rec = {"id": "x", "type": "project", "category": "c", "repos": ["A"]}
+    with pytest.raises(ValueError, match="status"):
+        bm25._matches(rec, {"status": "active"})
+
+
+def test_matches_refuses_operator_form():
+    """ChromaDB implements `$in`/`$ne`; this evaluator does not, so it says so.
+
+    Before, an operator clause fell through to `where["repo"] not in rec["repos"]`
+    — a dict compared against a list, always False — so the stream quietly
+    dropped everything instead of admitting it could not evaluate the clause.
+    """
+    rec = {"id": "x", "type": "project", "category": "c", "repos": ["A"]}
+    with pytest.raises(ValueError, match="operator form"):
+        bm25._matches(rec, {"repo": {"$in": ["A"]}})
+
+
+def test_unknown_clause_degrades_the_stream_rather_than_the_query(tmp_path):
+    """Fail-closed in production, fail-loud in tests: both halves of the contract.
+
+    `_matches` raising must not take a user's search down; the stream wrappers
+    already degrade to empty on any exception, so an undecidable clause returns
+    no keyword hits rather than a traceback.
+    """
+    from cortex_vec import fusion
+    assert fusion._bm25_stream("oauth", 5, {"status": "active"}) == []
+
+
+def test_known_fields_and_matchers_cannot_drift_apart():
+    """A field cannot be declared known without a comparison behind it.
+
+    The first version of this guard kept the name set and the comparisons in
+    two places, so a field added to the set but not to the `if` chain was
+    declared "modelled" and then matched everything -- the same fail-open the
+    guard exists to prevent, one level in. They are one table now; this pins
+    that.
+    """
+    assert set(bm25._KNOWN_FIELDS) == set(bm25._FIELD_MATCHERS)
+    rec = {"id": "x", "type": "project", "category": "c", "repos": ["A"]}
+    for field in bm25._KNOWN_FIELDS:
+        # Every modelled field must be able to REJECT something; a matcher that
+        # always returns True is the failure mode being guarded against.
+        assert bm25._matches(rec, {field: "\x00definitely-not-a-real-value"}) is False, (
+            f"field {field!r} is declared known but its matcher accepts anything"
+        )
