@@ -23,24 +23,44 @@ def _use_real_cosine_for(monkeypatch):
 
 
 class _RecordingCol:
-    """Fake Chroma collection that records the kwargs it was queried with."""
+    """Fake Chroma collection over a fixed entry list.
 
-    def __init__(self, payload):
-        self.payload = payload
+    `query` honours `n_results` the way Chroma does -- nearest first, truncated
+    to the budget. The previous fake returned a canned payload and ignored the
+    budget entirely, so a budget too small to cover multi-repo pages could not
+    fail any test here; see test_cosine_for_covers_multi_repo_pages.
+    """
+
+    def __init__(self, entries):
+        self.entries = list(entries)  # [(source_path, distance)]
         self.calls = []
+        self.get_calls = []
+
+    def _scoped(self, where):
+        if not where:
+            return list(self.entries)
+        wanted = set(where["source_path"]["$in"])
+        return [e for e in self.entries if e[0] in wanted]
+
+    def get(self, where=None, include=None):
+        self.get_calls.append({"where": where, "include": include})
+        rows = self._scoped(where)
+        return {"ids": [f"{sp}::{i}" for i, (sp, _d) in enumerate(rows)]}
 
     def query(self, **kwargs):
         self.calls.append(kwargs)
-        return self.payload
+        rows = sorted(self._scoped(kwargs.get("where")), key=lambda e: e[1])
+        rows = rows[: kwargs.get("n_results", len(rows))]
+        return {
+            "documents": [["body" for _ in rows]],
+            "metadatas": [[{"source_path": sp} for sp, _d in rows]],
+            "distances": [[d for _sp, d in rows]],
+        }
 
 
 def _col_with(chunks):
     """chunks: list of (source_path, distance)."""
-    return _RecordingCol({
-        "documents": [["body" for _ in chunks]],
-        "metadatas": [[{"source_path": sp} for sp, _ in chunks]],
-        "distances": [[d for _, d in chunks]],
-    })
+    return _RecordingCol(chunks)
 
 
 def _install(monkeypatch, col):
@@ -71,11 +91,44 @@ def test_cosine_for_scopes_the_query_to_the_requested_paths(monkeypatch):
     assert where == {"source_path": {"$in": ["/vault/Notes/Linux/oom.md"]}}
 
 
+def test_cosine_for_covers_multi_repo_pages(monkeypatch):
+    """The budget must count entries, not documents.
+
+    One Chroma entry per (repo membership x body/summary), so a page in four
+    repos occupies eight entries. The old `len(sources) * 3` budget bought ten
+    slots for these three pages while they need twelve -- the page sorted last
+    fell out of the result and reported 0.0, which is precisely the symptom
+    this backfill exists to remove, reintroduced for multi-repo pages only.
+    """
+    entries = [("/vault/Projects/wide/p.md", 0.10 + i / 100) for i in range(8)]
+    entries += [("/vault/Projects/a/x.md", 0.20), ("/vault/Projects/a/x.md", 0.21)]
+    entries += [("/vault/Projects/b/y.md", 0.30), ("/vault/Projects/b/y.md", 0.31)]
+    col = _RecordingCol(entries)
+    _install(monkeypatch, col)
+
+    docs = ["Projects/wide/p.md", "Projects/a/x.md", "Projects/b/y.md"]
+    got = store.cosine_for("q", docs)
+
+    assert set(got) == set(docs), f"a page fell out of the budget: {sorted(got)}"
+    assert col.calls[0]["n_results"] >= 12, (
+        f"budget {col.calls[0]['n_results']} is below the 12 entries these pages occupy"
+    )
+    assert col.get_calls, "entry count must be measured, not assumed"
+    # The counting call must carry the same scope as the query. Dropping it
+    # counts the WHOLE collection instead of these sources -- on the real index
+    # that turns n_results from 10 into 628, a full-collection HNSW scan on
+    # every backfill. Mutation-verified: without this assertion that change
+    # passes the suite.
+    assert col.get_calls[0]["where"] == {"source_path": {"$in": [
+        "/vault/Projects/wide/p.md", "/vault/Projects/a/x.md", "/vault/Projects/b/y.md"]}}
+
+
 def test_cosine_for_no_ids_issues_no_query(monkeypatch):
     col = _col_with([])
     _install(monkeypatch, col)
     assert store.cosine_for("anything", []) == {}
     assert col.calls == []
+    assert col.get_calls == []
 
 
 def _vec_items():

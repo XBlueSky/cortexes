@@ -378,10 +378,18 @@ def cosine_for(query, doc_ids):
     vault = get_vault_path()
     sources = [str(Path(vault) / doc_id) for doc_id in doc_ids]
     col = get_collection(get_client())
+    # One entry per (repo membership x body/summary), so a page belonging to N
+    # repos occupies 2N entries -- the vault currently tops out at 8. Budgeting
+    # `len(sources) * 3` therefore truncated multi-repo pages out of the result,
+    # and a page that never came back reports 0.0: the precise symptom this
+    # backfill exists to remove. Ask the collection how many entries these
+    # sources actually have instead of assuming.
+    scope = {"source_path": {"$in": sources}}
+    n_entries = len(col.get(where=scope, include=[])["ids"])
     results = col.query(
         query_texts=[query],
-        n_results=max(len(sources) * 3, 10),
-        where={"source_path": {"$in": sources}},
+        n_results=max(n_entries, 10),
+        where=scope,
         include=["metadatas", "distances"],
     )
     best = {}
