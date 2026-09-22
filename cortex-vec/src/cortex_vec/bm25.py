@@ -20,12 +20,24 @@ def _doc_record(doc):
 
 
 def _matches(rec, where):
+    """Evaluate a Chroma-style `where` clause against a stored record.
+
+    Understands exactly the shapes `store._build_where` emits: flat field
+    equality plus `$and` / `$or` composition. Both retrieval streams must
+    read the same query language -- a flat-only matcher silently ignored the
+    nested payload and dropped the filter entirely. See
+    docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
+
+    The Notes/-are-cross-repo exemption lives in the `$or` branch that
+    `_build_where` emits, not in a `type == "note"` special case here.
+    """
     if not where:
         return True
-    # Notes/ are cross-repo by design and must always pass the repo filter.
-    # See docs/specs/2026-05-27-distill-dedup-repo-filter-blindspot.md.
-    if ("repo" in where and rec.get("type") != "note"
-            and where["repo"] not in rec.get("repos", [])):
+    if "$and" in where:
+        return all(_matches(rec, clause) for clause in where["$and"])
+    if "$or" in where:
+        return any(_matches(rec, clause) for clause in where["$or"])
+    if "repo" in where and where["repo"] not in rec.get("repos", []):
         return False
     if "type" in where and rec.get("type") != where["type"]:
         return False
