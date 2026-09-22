@@ -292,7 +292,10 @@ cortex-vec search "<bullet text>" --n 3
 If the repo is known from Raw frontmatter, add `--repo <name>` when searching Projects-bound content.
 `--repo` narrows the `Projects/` partition only; cross-repo `Notes/` always appear in results regardless of the filter. Safe to add when the Raw is repo-specific.
 
-Extract top-1 `score` from the JSON output.
+Extract top-1 `score` from the JSON output. Every returned hit carries a
+real cosine on the same 0-1 scale, including hits that entered through the
+keyword or wikilink streams, so a low score means low overlap rather than
+an unmeasured one.
 
 If `cortex-vec` is unavailable (command errors, ECONNREFUSED, etc.): treat as `score = 0.0`, log `dedup_top1: unavailable`, prefer false-positive `new` over losing the insight.
 

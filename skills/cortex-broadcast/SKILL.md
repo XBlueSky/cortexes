@@ -110,7 +110,8 @@ cortex-vec search "<bullet text>" --n <target_top_n>
 If the Raw's frontmatter has `repo:`, also pass `--repo <name>` when the
 query topic looks repo-specific. Omit otherwise.
 
-Filter results to those with `score >= target_min_score`.
+Filter results to those with `score >= target_min_score`. Every hit carries
+a comparable cosine regardless of which retrieval stream surfaced it.
 
 ### If no candidates pass the threshold
 

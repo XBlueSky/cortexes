@@ -359,6 +359,45 @@ def cmd_delete(args):
     print(f"Deleted: {len(stale)} entries for {rel_path}")
 
 
+def cosine_for(query, doc_ids):
+    """Cosine similarity for documents the vector top-n window did not return.
+
+    Retrieval fuses three streams but only the vector one carries a cosine, so
+    a hit that entered through BM25 or the wikilink graph used to report 0.0 --
+    indistinguishable from "no overlap" to the absolute-threshold consumers
+    (distill / broadcast dedup). Re-asking the collection for just those
+    documents puts every returned hit back on one scale.
+
+    Returns {base_path: cosine}, best chunk per document. Documents with no
+    indexed chunk are simply absent from the mapping.
+    """
+    if not doc_ids:
+        return {}
+    from pathlib import Path
+
+    vault = get_vault_path()
+    sources = [str(Path(vault) / doc_id) for doc_id in doc_ids]
+    col = get_collection(get_client())
+    results = col.query(
+        query_texts=[query],
+        n_results=max(len(sources) * 3, 10),
+        where={"source_path": {"$in": sources}},
+        include=["metadatas", "distances"],
+    )
+    best = {}
+    for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
+        source = meta.get("source_path", "")
+        try:
+            rel_id = str(Path(source).relative_to(vault))
+        except (ValueError, TypeError):
+            rel_id = source
+        base = _base_path(rel_id)
+        score = round(1 - dist, 4)
+        if base not in best or score > best[base]:
+            best[base] = score
+    return best
+
+
 def _build_where(repo=None, type=None, category=None):
     clauses = []
     if repo:

@@ -150,14 +150,24 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
     use_rerank = rc["rerank"] if rerank is None else rerank
     take = max(n, rc["rerank_window"]) if use_rerank else n
 
+    head = fused[:take]
+    # Hits that arrived via bm25 or graph never passed through the vector
+    # top-n window, so they carry no cosine. Ask the collection for theirs
+    # rather than reporting 0.0, which reads as "no overlap" downstream.
+    missing = [doc_id for doc_id, _ in head if doc_id not in vec_score]
+    if missing and use_vector and os.environ.get("OPENAI_API_KEY"):
+        try:
+            vec_score.update(store.cosine_for(query, missing))
+        except (Exception, SystemExit):
+            pass  # same degradation contract as the streams: score falls to 0.0
+
     out = []
-    for doc_id, _rrf in fused[:take]:
+    for doc_id, _rrf in head:
         entry = dict(display.get(doc_id, {}))
         entry["id"] = doc_id
         # `score` reports the vector cosine similarity (0-1, interpretable) so
         # absolute-threshold consumers (distill/broadcast dedup) keep working.
-        # RRF only determines ORDER (already baked into `fused`). bm25-only hits
-        # have no cosine score -> 0.0.
+        # RRF only determines ORDER (already baked into `fused`).
         entry["score"] = round(vec_score.get(doc_id, 0.0), 4)
         out.append(entry)
 
