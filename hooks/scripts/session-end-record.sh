@@ -31,6 +31,24 @@ if [[ -z "$transcript_path" || ! -f "$transcript_path" ]]; then
   exit 0
 fi
 
+# Headless guard: `claude -p` stamps entrypoint "sdk-cli" into its transcript,
+# interactive sessions stamp "cli". Programmatic invocations are eval harnesses,
+# probes and helper calls whose transcripts are not work sessions, and the
+# size gate below does not catch them: a one-turn probe body is a few hundred
+# bytes, but the jsonl carries the whole system prompt and clears 4 KB easily.
+# This is a net for launchers that never learned about CORTEX_SKIP_RECORD --
+# one such batch driver filed 122 junk Raws before this guard existed.
+# CORTEX_FORCE_RECORD=1 overrides it, for headless runs that ARE real work --
+# cc-loadout sets it on scheduled tasks, which are meant to stay recorded.
+# Absent/unreadable entrypoint falls through to recording (fail-open).
+if [[ -z "${CORTEX_FORCE_RECORD:-}" ]]; then
+  entrypoint=$(head -50 "$transcript_path" \
+    | grep -o -m1 '"entrypoint":"[^"]*"' | cut -d'"' -f4 || true)
+  if [[ "$entrypoint" == "sdk-cli" ]]; then
+    exit 0
+  fi
+fi
+
 file_size=$(stat -c%s "$transcript_path" 2>/dev/null || stat -f%z "$transcript_path" 2>/dev/null || echo 0)
 if [[ "$file_size" -lt 4096 ]]; then
   exit 0
