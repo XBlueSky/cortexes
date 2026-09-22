@@ -30,9 +30,10 @@ def env(tmp_path, monkeypatch):
     return raw, st
 
 
-def _page(capsys, raw, st, cursor=None, max_chars=12000, find=None):
+def _page(capsys, raw, st, cursor=None, max_chars=12000, find=None,
+          find_only=False):
     rm.dispatch(Args(path=str(raw), plan_id=st["plan_id"], cursor=cursor,
-                     max_chars=max_chars, find=find))
+                     max_chars=max_chars, find=find, find_only=find_only))
     out = capsys.readouterr().out
     assert out.endswith("\n")
     assert len(out) <= max_chars
@@ -127,3 +128,28 @@ def test_first_card_too_small_budget_errors(env, capsys):
                          cursor=None, max_chars=50, find=None))
     out = capsys.readouterr().out
     assert json.loads(out)["error"] == "PAGE_BUDGET_TOO_SMALL"
+
+
+def test_find_only_returns_matches_without_a_page(env, capsys):
+    """--find-only answers "where is it?" without charging a page of cards."""
+    raw, st = env
+    before = dp._load_by_plan_id(st["plan_id"])["session_used_chars"]
+    page = _page(capsys, raw, st, find="PROJ-4521", find_only=True)
+    assert page["find_matches"], "issue id should locate its span"
+    assert page["cards"] == []
+    assert page["find_only"] is True
+    assert page["next_cursor"] is None
+    assert page["page_chars"] < 1000
+    st2 = dp._load_by_plan_id(st["plan_id"])
+    assert st2["session_used_chars"] - before == page["page_chars"]
+    assert st2["map_next_index"] == 0, "find-only must not advance the map"
+    assert st2["reviewed"] == [], "find-only must not auto-review anything"
+
+
+def test_find_only_without_find_errors(env, capsys):
+    raw, st = env
+    with pytest.raises(SystemExit):
+        rm.dispatch(Args(path=str(raw), plan_id=st["plan_id"], cursor=None,
+                         max_chars=12000, find=None, find_only=True))
+    out = capsys.readouterr().out
+    assert json.loads(out)["error"] == "FIND_ONLY_REQUIRES_FIND"
