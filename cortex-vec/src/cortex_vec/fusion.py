@@ -53,7 +53,7 @@ def _vector_stream(query, n, where):
 _STREAM_ORDER = ("vector", "bm25")
 
 
-def _graph_ranked(ranked, weights, rc, n):
+def _graph_ranked(ranked, weights, rc, n, where=None):
     """Build the graph RRF stream: wikilink-neighbors of the top vector/bm25 hits.
 
     Returns (ranked_list, display_map) where ranked_list is [(doc_id, rank)] for
@@ -61,7 +61,14 @@ def _graph_ranked(ranked, weights, rc, n):
     ([], {}) on failure (e.g. vault unconfigured) or when graph yields nothing.
     Rank-based (not additive), so it composes with the other streams via RRF
     without the score-scale conflict that the old additive boost had.
+
+    `where` is evaluated with the same `bm25._matches` the keyword stream uses:
+    three streams, one filter language. This stream used to receive no `where`
+    at all, so wikilink neighbours entered the fused set past `--repo`/`--type`/
+    `--category`. A doc with no metadata is rejected rather than admitted — we
+    cannot show it passed the filter.
     """
+    from . import bm25 as bm25_mod
     from . import graph as graph_mod
     try:
         pre = rrf_fuse(ranked, weights, k=rc["rrf_k"])
@@ -69,10 +76,20 @@ def _graph_ranked(ranked, weights, rc, n):
         if not seeds:
             return [], {}
         adjacency, meta = graph_mod.build_graph(get_vault_path())
+        keep = None
+        if where:
+            def keep(doc_id):
+                rec = meta.get(doc_id)
+                return rec is not None and bm25_mod._matches(rec, where)
         stream = graph_mod.graph_stream(
-            adjacency, seeds, hops=rc["graph_hops"], max_n=max(n * 2, 10)
+            adjacency, seeds, hops=rc["graph_hops"], max_n=max(n * 2, 10), keep=keep
         )
-        gdisplay = {doc_id: meta[doc_id] for doc_id, _ in stream if doc_id in meta}
+        # `repos` is a filter field, not a display field: the other streams do
+        # not emit it, so it must not reach the result dicts from this one.
+        gdisplay = {
+            doc_id: {k: v for k, v in meta[doc_id].items() if k != "repos"}
+            for doc_id, _ in stream if doc_id in meta
+        }
         return stream, gdisplay
     except (Exception, SystemExit):
         return [], {}
@@ -133,7 +150,7 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
 
     use_graph = rc["graph"] if graph is None else graph
     if use_graph:
-        g_ranked, g_display = _graph_ranked(ranked, weights, rc, n)
+        g_ranked, g_display = _graph_ranked(ranked, weights, rc, n, where)
         if g_ranked:
             ranked["graph"] = g_ranked
             for doc_id, disp in g_display.items():
