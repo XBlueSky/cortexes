@@ -401,6 +401,53 @@ def normalize_line_breaks(text: str) -> str:
     return _LINE_BREAKS.sub("\n", text)
 
 
+# Credential shapes that must never reach Raw/. Each pair is (pattern,
+# replacement); replacements are chosen so the result matches neither this
+# rule again nor the equivalent rule in git hosting secret-check hooks (a
+# password-in-URL placeholder therefore starts with "$", the one character
+# those hooks exclude). The last, generic rule catches KEY=VALUE environment
+# dumps: a key ending in token/key/secret/password/credential followed by a
+# 16+ character value that mixes letters and digits.
+_SECRET_RULES = [
+    (re.compile(r"glpat-[0-9a-zA-Z_\-]{20}"), "glpat-REDACTED"),
+    (re.compile(r"gloas-[0-9a-zA-Z_\-]{64}"), "gloas-REDACTED"),
+    (re.compile(r"(?i)(A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}"), r"\1-REDACTED"),
+    (re.compile(r"sk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{20,}"), "sk-REDACTED"),
+    (re.compile(r"sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}"), "sk-REDACTED"),
+    (re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}"), "sk-ant-REDACTED"),
+    (re.compile(r"_gitlab_session=[0-9a-z]{32}"), "_gitlab_session=REDACTED"),
+    (re.compile(r"\bey[a-zA-Z0-9]{17,}\.ey[a-zA-Z0-9/\\_\-]{17,}\.[a-zA-Z0-9/\\_\-]{10,}={0,2}"),
+     "eyJ.REDACTED.JWT"),
+    (re.compile(r"(\bcurl\b[^\n]*?(?:-u|--user)(?:=|[ \t]{1,5})[\"']?[^\s\"':@]+:)[^\s\"']{3,}"),
+     r"\1REDACTED"),
+    # header rules run after the token-shape rules; a value already turned into
+    # "<type>-REDACTED" keeps its type marker instead of being flattened
+    (re.compile(r"((?i:authorization)[\"']?\s*[:=]\s*[\"']?(?:Bearer|Basic|Token|token|Negotiate)\s+)"
+                r"(?![A-Za-z0-9._~+/=\-]*REDACTED)[A-Za-z0-9._~+/=\-]{8,}"), r"\1REDACTED"),
+    (re.compile(r"((?i:private-token)[\"']?\s*[:=]\s*[\"']?)(?![A-Za-z0-9_\-]*REDACTED)[A-Za-z0-9_\-]{8,}"),
+     r"\1REDACTED"),
+    (re.compile(r"([a-zA-Z]{3,10}://[^$\s][^:@/\s]{3,20}:)[^$\s][^:@\s/]{3,40}@"), r"\1${REDACTED}@"),
+    (re.compile(r"(?i)((?:[A-Za-z0-9_.\-]*(?:token|key|secret|password|passwd|pwd|credential)s?)"
+                r"[\"']?\s*[:=]\s*[\"']?)"
+                r"(?=[A-Za-z0-9_\-+/=.]*\d)(?=[A-Za-z0-9_\-+/=.]*[A-Za-z])[A-Za-z0-9_\-+/=.]{16,}"),
+     r"\1REDACTED"),
+]
+
+
+def redact_secrets(text: str) -> tuple[str, int]:
+    """Replace credential-shaped strings with REDACTED placeholders.
+
+    Returns the redacted text and how many replacements were made. Runs at
+    capture time so a token printed by a tool never lands in Raw/, whatever
+    git hosting the vault is pushed to.
+    """
+    total = 0
+    for pattern, replacement in _SECRET_RULES:
+        text, n = pattern.subn(replacement, text)
+        total += n
+    return text, total
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: filter-transcript.py <transcript.jsonl>", file=sys.stderr)
@@ -414,6 +461,7 @@ def main() -> int:
 
     body, state = render_transcript(path, filters)
     body = normalize_line_breaks(body)
+    body, redactions = redact_secrets(body)
 
     raw = state["raw_bytes"]
     output = state["output_bytes"]
@@ -428,6 +476,7 @@ def main() -> int:
         f"classifier_failures={state['classifier_failures']} "
         f"classifier_skipped={state['classifier_skipped']} "
         f"dedup_used={state['dedup_used']} "
+        f"redactions={redactions} "
         f"raw_bytes={raw} output_bytes={output} saved_pct={saved_pct} "
         f"filters_loaded={len(filters)} -->\n"
     )
