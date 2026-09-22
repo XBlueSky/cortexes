@@ -30,6 +30,45 @@ marker string — a pipeline meta-session's body quotes it dozens of times
 silently drops genuine work from the queue. To check one file, use
 `cortex-vec raw-state <file>`.
 
+### Backlog hygiene (only when queue > 1 file)
+
+SessionEnd reclaims the *prefix* snapshots of the Raw it has just written
+(`reclaim-superseded --keep <that-file>`), but it never looks at an
+existing backlog. Before sizing the batch, run the pairwise form once —
+no `--keep` — so strict-prefix duplicates leave the queue:
+
+```bash
+cortex-vec reclaim-superseded --root <vault_path>/Raw                       # list only
+cortex-vec reclaim-superseded --root <vault_path>/Raw --apply --vault <vault_path>
+```
+
+Applying is safe: a candidate is removed only when it is a line-for-line
+prefix of a longer queued recording, so no content is lost.
+
+That tool does NOT catch a second class of duplicate: the same transcript
+captured twice whose filter output *diverged* (the residue classifier is
+not deterministic — one copy kept a `/context` table, the other a
+`Log Summary`). Neither copy is a prefix of the other, and the two files
+may carry different `repo:` labels or even different dates. What they
+share is `raw_bytes` in the audit line — the size of the source
+transcript — so scan for collisions and treat each group as a **triage
+hint**, never as a deletion list:
+
+```bash
+grep -rao -m1 --include='*.md' 'raw_bytes=[0-9]*' <vault_path>/Raw \
+  | awk -F'[:=]' '$3 >= 4096 {print $3, $1}' | sort -n \
+  | awk '{n[$1]++; f[$1]=f[$1] "\n  " $2} END {for (k in n) if (n[k]>1) print k f[k]}'
+```
+
+(`raw_bytes` under a few KB is degenerate — dozens of empty captures share
+tiny values — hence the 4096 floor.) For each group, compare the copies'
+first user turn (`raw-map --find-only` + `raw-span`, Step 2) and decide
+by hand: distill the fuller copy, give the other `skip-routine`. Two
+copies with equal `raw_bytes` can each hold lines the other lacks, so a
+collision alone never justifies deleting either. Do not substitute a
+hand-rolled fingerprint (first-turn text, `### User` counts): that is
+exactly what let a pair through on 2026-09-09.
+
 Show the pending list count and ask to proceed.
 
 ## Step 1.5: Schedule the Batch (only when queue > 1 file)
@@ -47,8 +86,13 @@ approval** (do not auto-run):
   budget (default 100K chars of raw-derived output). Process a batch this
   session, strictly one Raw at a time.
 - **Monster lane** — Raws whose complete review clearly exceeds one
-  session budget. One Raw per dedicated session; expect
-  `BUDGET_EXHAUSTED` + `distill-plan resume --new-session` continuations.
+  session budget (a full map traversal alone can run ~5x the budget on a
+  1M-char Raw). One Raw per dedicated session, and do NOT page the map
+  from the top: play it find-first (Step 2, "Monster play") — locate an
+  anchor with `raw-map --find-only`, read the hit with `raw-span`,
+  record evidence, stop early. `BUDGET_EXHAUSTED` +
+  `distill-plan resume --new-session` is the fallback when no anchor
+  hits, not the plan.
 
 Carry remaining lanes forward with a `cortex-takeoff` baton. When a plan
 is mid-flight, record its `plan_id` in the baton — machine state lives in
@@ -79,6 +123,29 @@ L3/L3* projection. All original text arrives through bounded pages.
    Cards show kind / size / source range / preview / lexical anchors.
    The map never says "valuable" or "skip" — choosing what to expand is
    the main session's judgment.
+
+   `--find "<literal>"` reports the ids of the spans containing an exact
+   literal under `find_matches`. It does **not** move the page: `cards`
+   still start at 0 (or at the cursor) and the whole page is charged.
+   Read `find_matches`, not `cards`, to see where the hit is. When the
+   span id is all you need, add `--find-only`: no cards, no map
+   progress, one ~600-char envelope instead of a ~12K page.
+
+   **Monster play (find-first).** For a Raw whose map traversal cannot
+   fit the budget, skip paging entirely:
+
+   ```bash
+   cortex-vec raw-map <raw-file> --plan-id <id> --find "★ Insight" --find-only
+   cortex-vec raw-span <raw-file> --plan-id <id> --span-id <N>    # read the hit
+   ```
+
+   Good anchors: `★ Insight`, an issue key, an error string, a file path
+   the session must have touched. Read the hit and its neighbours, then
+   take the early positive stop (item 4) — a positive candidate never
+   needs full coverage, so this is the only affordable path on a Monster
+   Raw. `no-insight` stays gated on full traversal (item 5) and is
+   therefore usually out of reach there; say so rather than burn the
+   budget paging.
 
 3. Expand what needs reading. `prose`, `output_body`, `ambiguous`,
    `opaque` spans (and any card with `preview_complete: false` you need)
