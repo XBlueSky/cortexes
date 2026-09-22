@@ -110,6 +110,47 @@ class PrivacyClaims(unittest.TestCase):
             self.assertIn(marker, row.lower() if marker == "only" else row, row)
             self.assertIn("classifier", row.lower(), row)
 
+    def test_redaction_claim_is_scoped_not_absolute(self):
+        """§1 must neither deny redaction nor oversell it.
+
+        The recorder redacts credential *shapes* at capture time. Before that
+        landed, §1 said sensitive content is "not detected or redacted" — now
+        false, and a reader who believes it treats the vault more carefully
+        than needed. The opposite drift is worse: calling it a secrets scanner
+        would have someone trust it with a credential format the table does
+        not cover, or with personal data it never looks at. Both halves are
+        pinned here.
+        """
+        for name, marker, scope in (
+            ("PRIVACY.md", "not detected or redacted",
+             ("shape-matching pass, not a secrets scanner",
+              "no personal data of any kind")),
+            ("PRIVACY.zh-TW.md", "不會偵測或遮蔽敏感內容",
+             ("這是形狀比對，不是 secrets scanner",
+              "任何個人資料")),
+        ):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertNotIn(
+                marker, text,
+                f"{name} still denies a redaction the recorder performs",
+            )
+            self.assertIn(
+                "redactions=N", text,
+                f"{name} must name the audit counter the redaction reports",
+            )
+            for phrase in scope:
+                self.assertIn(
+                    phrase, text,
+                    f"{name} must bound the redaction claim with {phrase!r}",
+                )
+
+    def test_failure_logs_are_disclosed_as_stored_data(self):
+        """A log the plugin writes is stored data, so §4 has to list it."""
+        for name in ("PRIVACY.md", "PRIVACY.zh-TW.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for path in ("~/.cortex/push-failures.log",
+                         "~/.cortex/filter-failures.log"):
+                self.assertIn(path, text, f"{name} omits {path}")
 
 if __name__ == "__main__":
     unittest.main()

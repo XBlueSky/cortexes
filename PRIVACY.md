@@ -55,12 +55,25 @@ the contents of `<local-command-stdout>`, `<local-command-stderr>`,
 
 **When recording is skipped.** Nothing is written if any of these hold: the
 transcript is smaller than 4096 bytes; `~/.cortex/config.json` does not
-exist or its `vault_path` is missing; `CORTEX_SKIP_RECORD=1` is set; or the
+exist or its `vault_path` is missing; `CORTEX_SKIP_RECORD=1` is set; the
+session was launched headlessly (`claude -p`, which stamps entrypoint
+`sdk-cli` in its transcript) and `CORTEX_FORCE_RECORD=1` is not set; or the
 session is itself a nested `claude -p` call made by the filter.
 
-**Sensitive content is not detected or redacted.** If a secret, credential,
-or personal detail appears in a session, it will appear in the record. Treat
-your vault with the same care as the sessions that produced it.
+**Credential-shaped strings are redacted; nothing else is.** Before the
+record is written, the filter replaces strings matching a fixed table of
+credential shapes with `REDACTED` placeholders: GitLab personal-access and
+OAuth tokens, AWS access-key ids, OpenAI and Anthropic API keys, GitLab
+session cookies, JWTs, `curl -u` credentials, `Authorization` and
+`PRIVATE-TOKEN` header values, passwords embedded in URLs, and
+`SOMETHING_TOKEN=`-style environment values. The audit comment at the top of
+each record reports how many replacements were made as `redactions=N`.
+
+**This is a shape-matching pass, not a secrets scanner, and it is the only
+redaction there is.** A credential in a format the table does not cover is
+written verbatim, and no personal data of any kind — names, addresses,
+customer content, file paths — is detected or removed. Treat your vault with
+the same care as the sessions that produced it.
 
 ## 2. Data sent to Anthropic
 
@@ -182,6 +195,8 @@ Everything is on your own machine:
 | `~/.cortex/vectorstore/` | ChromaDB vector index |
 | `~/.cortex/bm25/` | BM25 lexical index |
 | `${XDG_CACHE_HOME:-~/.cache}/cortex/distill-plans/` | Distillation working state |
+| `~/.cortex/push-failures.log` | Written only when `auto_push` is on and a push is rejected: timestamp, repo name, vault path, and the remote's error message |
+| `~/.cortex/filter-failures.log` | Written only when the transcript filter crashes: its stderr, passed through the same redaction pass as the record, created mode `0600` |
 
 **Retention is indefinite and entirely under your control.** Cortexes never
 expires, rotates, or deletes your data on its own. The one exception is
@@ -199,6 +214,10 @@ what the plugin does with it:
 - **`git.auto_push`** — default **`false`**. If you turn it on, the plugin
   runs `git push` after committing, sending your vault to whatever remote
   you configured.
+
+A rejected push is recorded rather than swallowed: the remote's error message
+is appended to `~/.cortex/push-failures.log`, and the next session's opening
+menu says how many commits are still unpushed.
 
 **If you enable `auto_push`, your session records leave your machine.**
 Where they go is entirely determined by your git remote — make sure it is a

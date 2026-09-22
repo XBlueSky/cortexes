@@ -52,11 +52,20 @@ repository 名稱，僅用於標記與分組該筆記錄。
 
 **何時會跳過錄製。** 符合下列任一條件就不會寫入：transcript 小於 4096
 bytes、`~/.cortex/config.json` 不存在或其中的 `vault_path` 無效、設有
-`CORTEX_SKIP_RECORD=1`、或該 session 本身就是過濾器發出的巢狀
-`claude -p` 呼叫。
+`CORTEX_SKIP_RECORD=1`、該 session 是以 headless 方式啟動（`claude -p`，
+其 transcript 會標記 entrypoint 為 `sdk-cli`）而又未設 `CORTEX_FORCE_RECORD=1`、
+或該 session 本身就是過濾器發出的巢狀 `claude -p` 呼叫。
 
-**不會偵測或遮蔽敏感內容。** 如果 session 裡出現了密鑰、憑證或個人資料，
-它就會出現在記錄裡。請以看待原始 session 的同等謹慎來看待你的 vault。
+**憑證形狀的字串會被遮蔽，其餘一概不會。** 寫入記錄之前，過濾器會依一張
+固定的憑證形狀表，把符合的字串換成 `REDACTED` 佔位：GitLab personal-access
+與 OAuth token、AWS access key id、OpenAI 與 Anthropic API key、GitLab
+session cookie、JWT、`curl -u` 帳密、`Authorization` 與 `PRIVATE-TOKEN`
+標頭值、URL 內嵌的密碼，以及 `SOMETHING_TOKEN=` 形式的環境變數值。每筆記錄
+開頭的 audit 註解會以 `redactions=N` 記下替換了幾處。
+
+**這是形狀比對，不是 secrets scanner，而且它是唯一的遮蔽機制。** 格式不在
+表上的憑證會原樣寫入；任何個人資料——姓名、地址、客戶內容、檔案路徑——
+一律不偵測、不移除。請以看待原始 session 的同等謹慎來看待你的 vault。
 
 ## 2. 送往 Anthropic 的資料
 
@@ -165,6 +174,8 @@ OpenAI 進行重新排序。
 | `~/.cortex/vectorstore/` | ChromaDB 向量索引 |
 | `~/.cortex/bm25/` | BM25 詞彙索引 |
 | `${XDG_CACHE_HOME:-~/.cache}/cortex/distill-plans/` | 提煉流程的工作狀態 |
+| `~/.cortex/push-failures.log` | 只在啟用 `auto_push` 且 push 被拒時寫入：時間戳、repo 名稱、vault 路徑，以及遠端回傳的錯誤訊息 |
+| `~/.cortex/filter-failures.log` | 只在 transcript 過濾器崩潰時寫入：它的 stderr，且會先經過與記錄本文相同的遮蔽流程；檔案以 `0600` 建立 |
 
 **保存期限無限，且完全由你控制。** Cortexes 不會自行讓資料過期、輪替或
 刪除。唯一的例外是 `reclaim-superseded`，它會移除那些「內容是同一段對話
@@ -180,6 +191,10 @@ OpenAI 進行重新排序。
   會把它 commit 進你的本機 repository。
 - **`git.auto_push`**——預設 **`false`**。若你開啟它，plugin 會在 commit
   之後執行 `git push`，把你的 vault 送往你設定的那個 remote。
+
+Push 被拒不會被默默吞掉：遠端的錯誤訊息會附加到
+`~/.cortex/push-failures.log`，下一個 session 的開場選單也會說明還有幾個
+commit 尚未推送。
 
 **一旦啟用 `auto_push`，你的 session 記錄就會離開你的機器。** 去到哪裡
 完全取決於你的 git remote——請確認那是一個你控制、且可見性符合你預期的
