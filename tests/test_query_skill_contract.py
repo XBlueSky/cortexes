@@ -86,6 +86,11 @@ class QuerySkillContract(unittest.TestCase):
         zero, or a cosine that rounds to zero — indistinguishable in the
         output. The implication runs one way only, and an earlier draft stated
         the converse as fact ("That is the whole claim").
+
+        `store.cosine_for` backfills the cosine of a hit that arrived through
+        the keyword or wikilink stream, which narrows the missing-score case
+        to a vector stream that is off or a backfill that raised — it does
+        not remove it, so the ambiguity still has to be stated.
         """
         self.assertRegex(
             self.text,
