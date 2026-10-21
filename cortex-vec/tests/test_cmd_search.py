@@ -7,7 +7,7 @@ def test_cmd_search_uses_fusion(monkeypatch, capsys):
     captured = {}
 
     def fake_search(query, n=5, where=None, use_bm25=True, use_vector=True,
-                    rerank=None, graph=None):
+                    rerank=None, graph=None, notes=None):
         captured["query"] = query
         captured["where"] = where
         captured["use_bm25"] = use_bm25
@@ -30,9 +30,40 @@ def test_cmd_search_no_bm25_flag(monkeypatch, capsys):
     seen = {}
     monkeypatch.setattr(fusion, "search",
                         lambda query, n=5, where=None, use_bm25=True, use_vector=True,
-                               rerank=None, graph=None:
+                               rerank=None, graph=None, notes=None:
                         seen.update(use_bm25=use_bm25) or [])
     args = SimpleNamespace(query="x", repo=None, type=None, category=None,
                            n=5, no_bm25=True, no_vector=False)
     store.cmd_search(args)
     assert seen["use_bm25"] is False
+
+
+def _args(**kw):
+    base = dict(query="x", repo=None, type=None, category=None, n=5,
+                no_bm25=False, no_vector=False)
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def test_cmd_search_empty_result_is_named_on_stderr(monkeypatch, capsys):
+    monkeypatch.setattr(fusion, "search", lambda query, notes=None, **kw: [])
+    store.cmd_search(_args(repo="cortex"))
+    cap = capsys.readouterr()
+    assert cap.out == ""  # stdout stays pure JSONL: line count == hit count
+    assert "0 results" in cap.err
+    assert "repo=cortex" in cap.err
+
+
+def test_cmd_search_relays_degradation_notes_to_stderr(monkeypatch, capsys):
+    hit = {"id": "Notes/a.md", "score": 0.3, "title": "a", "type": "note",
+           "repo": "", "category": "", "tags": "", "summary": ""}
+
+    def fake(query, notes=None, **kw):
+        notes.append("vector stream skipped: test reason; results are BM25-only")
+        return [hit]
+
+    monkeypatch.setattr(fusion, "search", fake)
+    store.cmd_search(_args())
+    cap = capsys.readouterr()
+    assert json.loads(cap.out)["id"] == "Notes/a.md"
+    assert "vector stream skipped: test reason" in cap.err

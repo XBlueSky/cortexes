@@ -207,3 +207,25 @@ def test_dispatch_distill_queue_stat_json(tmp_path, capsys):
     rows = json.loads(capsys.readouterr().out)
     assert rows[0]["file"].endswith("a.md")
     assert rows[0]["raw"] > 0 and "chosen" in rows[0]
+
+
+def test_empty_distill_queue_is_named_on_stderr(tmp_path, capsys):
+    _write(tmp_path, "Raw/bb.md", "x\n<!-- distilled: 2026-06-10 → (skip: routine) -->\n")
+    dq.dispatch_distill_queue(str(tmp_path / "Raw"))
+    cap = capsys.readouterr()
+    assert cap.out == ""
+    assert "distill queue is empty" in cap.err
+
+
+def test_empty_broadcast_queue_is_named_on_stderr(tmp_path, capsys):
+    _write(tmp_path, "Raw/05.md", "body only, undistilled\n")
+    dq.dispatch_broadcast_queue(str(tmp_path / "Raw"))
+    cap = capsys.readouterr()
+    assert cap.out == ""
+    assert "broadcast queue is empty" in cap.err
+
+
+def test_non_empty_queue_writes_nothing_to_stderr(tmp_path, capsys):
+    _write(tmp_path, "Raw/aa.md", "undistilled body\n")
+    dq.dispatch_distill_queue(str(tmp_path / "Raw"))
+    assert capsys.readouterr().err == ""

@@ -129,13 +129,14 @@ and indexes are untouched — there is no data migration.
    uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
    ```
 
-   `cortex-vec` 0.9.0 is the version this plugin release ships against. 0.8.0
+   `cortex-vec` 0.10.0 is the version this plugin release ships against. 0.8.0
    is what carried the Weekly removal into the CLI — `--type weekly` is gone
    from `search --help` and `Weekly/` is no longer classified as a content
-   type — and 0.9.0 adds the cosine backfill and the retrieval-filter fixes
-   that 2.1.0's dedup and scoped search depend on. Older CLIs keep working,
-   but a scoped search on one still leaks out-of-scope pages and a
-   keyword-only hit still reports `0.00`.
+   type — 0.9.0 adds the cosine backfill and the retrieval-filter fixes
+   that 2.1.0's dedup and scoped search depend on, and 0.10.0 adds the quiet
+   stderr and classified exit codes the 2.2.0 query skill reads. Older CLIs
+   keep working, but a scoped search on one still leaks out-of-scope pages
+   and a keyword-only hit still reports `0.00`.
 6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
    and caches, and the `CORTEX_*` environment variables all keep their names
    and paths. No rebuild, no re-index, no config edit.
@@ -175,6 +176,7 @@ See [`site/README.md`](site/README.md) for local builds.
 |------|-------|----------|
 | Session Report | SessionEnd | On session end, filters the transcript through a TOML pipeline before writing to Raw/ |
 | Memory Injection | SessionStart | Interactive menu — checks vault backlog status and asks what to do next |
+| Deck | hooks module (`hooks/deck.tsx`) | Draws the SessionStart menu as a band above the prompt (digits 1–9 press its buttons) and offers a takeoff hand-off once per context window at 70% use. Without the module the model shows the text menu as before |
 
 > **Recording is automatic.** Every session over 4 KB is written to your
 > vault when it ends — there is no per-session prompt. Set

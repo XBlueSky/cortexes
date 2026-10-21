@@ -5,6 +5,72 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-10-21
+
+### Added
+- **The SessionStart menu is a band above the prompt** (`hooks/deck.tsx`, a
+  hooks module beside the command hooks). `session-start-inject.sh` fences
+  its menu in `<!-- cortex:menu -->` sentinels and writes a JSON deck on the
+  block's first line: the unpushed-commit warning, if any, and every
+  button's whole prompt. The module cuts the block from the `hook-context`
+  row on `session.append`, so the first reply is no longer the menu, and
+  draws the deck; a button sends its prompt as the user and the band folds
+  on any submitted prompt. Its buttons carry digits 1-9, so a bare digit in
+  the empty prompt presses one, and each baton's button shows the baton's
+  summary. Once per context window, at 70% use, a toast and a [建立交接]
+  button offer a takeoff hand-off; that band outlives prompts, so it
+  carries no digit. On a Team or Enterprise account, where Claude Code
+  seats a policy plugin and `session.append` passes over the plugins a
+  person installs, the script also writes each session's deck to
+  `$CLAUDE_PLUGIN_ROOT/.deck/<session_id>.json`, which the module polls once
+  a second; `session-end-record.sh` removes it when the session ends, and
+  files a crashed session left go after a day. Each deck carries a stamp,
+  so one seen through both channels is taken once. Without the module, or
+  when it fails or cannot read the deck, the model shows the text menu as
+  before. `scripts/run-checks.sh` now also runs `claude plugin validate`
+  and `claude plugin test` (a SKIP line without `claude` on PATH).
+
+### Changed
+- **`cortex-vec` 0.10.0 speaks a contract agents can act on.** It is quiet
+  by default: jieba's `pkg_resources` warning and dictionary-loading log no
+  longer reach stderr. stdout carries only data; stderr names what the data
+  cannot show — an empty search (`0 results (repo=…)`) or queue, and a
+  degraded stream (`results are BM25-only` when `OPENAI_API_KEY` is unset
+  or the vector stream fails, `vector-only` when BM25 fails). Exit codes
+  are classified, each failure one stderr line with its fix: 2 for a caller
+  error, 3 for an environment that is not set up (missing config, invalid
+  `vault_path`, missing API key, no index). `search` without a BM25 index
+  now exits 3 instead of printing nothing, and `delete` of an unindexed
+  path succeeds. `status`, `upsert`, `delete` and `rebuild` take `--json`;
+  `distill-queue --json` no longer needs `--stat`. The raw-map / raw-span
+  JSON envelope is unchanged. The query skill tells the user when recall is
+  degraded and stops on exit 3.
+
+### Fixed
+- **The SessionEnd raw commit committed whatever the shared vault index
+  held**, not just the Raw it had staged. A distill that had staged a new
+  page and paused for the user's ok lost it to the next session's `raw:`
+  commit — and since raw commits carry no `git.commit_trailer`, a hosting
+  secrets hook could then reject that push (and every push behind it) over
+  a page it should never have seen. The commit is now `git commit --
+  <paths>`: the Raw just written plus the snapshots reclaim `git rm`ed;
+  another session's staged files stay staged for that session. Two
+  end-to-end tests drive the hook against a vault holding a foreign staged
+  page, and against a second SessionEnd on a grown transcript whose reclaim
+  deletion must ride along.
+- **Standalone broadcast read the whole Raw** — a full session transcript —
+  to pick one search passage: about 171K characters on a 3,805-line Raw.
+  Step 4 now reads only the marker, the frontmatter (for `repo:`) and the
+  insight passages, paged through a distill plan the way cortex-distill
+  Step 2 does, and Step 8 finds more with `raw-map --find` when a page
+  needs them; the same run reads about 9.9K. Broadcast never seals or
+  completes that plan and clears it on finish, `quit` and `abort`.
+- **For outcome `new`, broadcast offered the Raw's own distill targets as
+  candidates** — they rank first, so the menu proposed merging the insight
+  back into the pages it came from. Step 5 drops every hit whose id equals
+  a marker target (split after each `.md`, not at commas) and asks for that
+  many extra results so the menu still fills to `target_top_n`.
+
 ## [2.1.0] - 2026-09-22
 
 Ported from the upstream `cortex` line (1.4.0 – 1.8.1), minus everything

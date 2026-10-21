@@ -87,24 +87,65 @@ Exit after listing.
 ## Step 4: Select Raw and Read Content
 
 If no args: pick the first entry from the queue.
-If `<raw-path>` arg: verify it's eligible; abort with a clear error if not.
+If `<raw-path>` arg: `cortex-vec raw-state <raw-path>` must print exactly
+`new` or `pending-merge` (a `(broadcast-resolved)` suffix or any other
+state is ineligible); abort with a clear error if not.
 
-Read:
+NEVER Read the full Raw file. Its original text arrives through bounded
+pages, as in cortex-distill Step 2. Read, in order:
 
-1. The Raw's full content (frontmatter + all sections).
-2. The Raw's distilled marker; parse the outcome and (for pending-merge)
-   the original target path and score.
+1. **The marker.** A bounded `Read` of the marker's lines only: the last
+   few lines (`offset` near `wc -l <raw>`), or the region before the
+   first `### User` for a header marker. Parse the outcome and (for
+   pending-merge) the original target path and score. Step 9.1 edits
+   this line; the Edit tool needs the file Read first.
+2. **The frontmatter.** A bounded `Read` of the Raw's frontmatter only
+   (`limit` at its closing `---`), for the `repo:` Steps 5 and 9 need.
+3. **Insight passages.**
+   - **Inline mode** (dispatched by cortex-distill Step 9): the passages
+     distill paged in this session are already in context. Work from
+     them. Distill has completed its plan, so a passage you still need
+     comes from a plan opened as below.
+   - **Standalone mode**, or inline needing more: open a plan and play
+     find-first.
+
+     ```bash
+     cortex-vec distill-plan start <raw>          # note plan_id
+     cortex-vec raw-map <raw> --plan-id <id> --find "★ Insight" --find-only
+     cortex-vec raw-span <raw> --plan-id <id> --span-id <N>
+     ```
+
+     A `★ Insight` hit lands on the callout's first span only: read the
+     following span ids (N+1, …) until the callout's closing rule.
+     Other anchors: a symbol, path or error string from the distilled
+     target page (outcome `new`) or the pending-merge target's title.
+     Page the map from the top (`raw-map --cursor`) only when no anchor
+     hits. `ANOTHER_PLAN_ACTIVE` means an in-flight distill owns the
+     ledger: ask the user, never `clear` it. On `BUDGET_EXHAUSTED`, stop
+     reading and work from what you have.
+
+This plan is opened only for its bounded pages and budget ledger: never
+`seal` or `complete` it (those verify a distill outcome). Clear it when
+broadcast ends — Step 9.3, `quit` at Step 7, or `abort` in Step 8:
+
+```bash
+cortex-vec distill-plan clear --plan-id <id>
+```
 
 ## Step 5: Find Candidate Pages
 
-Pick the **most content-ful Discovery or Decision bullet** — the longest bullet
-with concrete referents (symbols, file paths, bug mechanisms). This is the same
-heuristic as cortex-distill Stage 2 uses.
+Pick the **most content-ful insight passage** read in Step 4 — the
+densest `★ Insight` callout, the clearest analysis paragraph naming
+specific referents (symbols, file paths, bug mechanisms), or (legacy
+Raws) the longest Discovery/Decision bullet — trimmed to roughly one
+paragraph. This is the same heuristic as cortex-distill Step 3.2.
 
-Run:
+Run, with the passage single-quoted (inside double quotes the backticks
+Raw text carries run as command substitution; write an apostrophe as
+`'\''`):
 
 ```bash
-cortex-vec search "<bullet text>" --n <target_top_n>
+cortex-vec search '<passage text>' --n <target_top_n>
 ```
 
 If the Raw's frontmatter has `repo:`, also pass `--repo <name>` when the
@@ -114,12 +155,22 @@ query topic looks repo-specific. Omit otherwise.
 appear in results regardless of the filter, and a page listing several repos
 passes a filter naming any of them.
 
-Filter results to those with `score >= target_min_score`. Every hit carries
-a comparable cosine regardless of which retrieval stream surfaced it.
+**Outcome `new`: drop the Raw's own targets.** The marker names the pages
+this Raw was distilled into: the text after `→`, one or more vault-relative
+paths joined by `, ` (split after each `.md`, not at every comma — a title
+may contain one). Those pages already hold the insight, so the search ranks
+them first. Pass `--n <target_top_n + number of targets>` and drop every hit
+whose `id` equals a target, so the menu still offers up to `target_top_n`
+other pages. (The pending-merge target is not dropped: Step 6 pre-selects
+it.)
+
+Filter the remaining results to those with `score >= target_min_score`.
+Every hit carries a comparable cosine regardless of which retrieval stream
+surfaced it.
 
 ### If no candidates pass the threshold
 
-If `cortex-vec` ran successfully but zero results meet `score >= target_min_score`:
+If `cortex-vec` ran successfully but zero results (after dropping the Raw's own targets) meet `score >= target_min_score`:
 
 - For outcome `new`: skip Steps 6–8 entirely. Jump to Step 9 with `pages_touched = []` and tag the terminal state as `no-candidates` (distinct from `no-changes`). Step 9.1 will produce the marker `broadcast: <today> → (no candidates)`.
 - For outcome `pending-merge`: the original pending-merge target is still pre-selected in Step 6 regardless of threshold (per Step 6's "absent" clause). Proceed to Step 7 as normal with a single-entry menu.
@@ -137,7 +188,8 @@ If the command errors (not found, ECONNREFUSED, etc.):
 
 1. Read `<vault>/_index.md`.
 2. Use your own semantic judgment to pick up to `target_top_n` candidate
-   pages that look related to the Raw.
+   pages that look related to the Raw, never one of its own targets
+   (outcome `new`).
 3. Note `candidates_source: llm-fallback` for the log entry later.
 
 ## Step 6: Pre-select Pending-Merge Target
@@ -177,6 +229,7 @@ Cancel: type 'quit' to abort the menu without marking the Raw (no commits have b
 ```
 
 Read the user's toggles until they confirm. Build the final selected list.
+On `quit`, clear the Step 4 plan (if one was opened) and exit.
 If the list is empty after confirmation, jump directly to Step 9 with
 `pages_touched = []` — this will write a `broadcast: <date> → (no changes)`
 marker.
@@ -190,7 +243,11 @@ For each selected page, in menu order:
    ```
    === [1/3] Editing Notes/Nginx/Web benchmark.md ===
    ```
-3. Identify candidate change types from the Raw vs the page:
+3. If the passages read so far do not cover this page's topic, find
+   the ones that do through the Step 4 plan (opening it if needed):
+   `raw-map --find "<a symbol or term from the page>" --find-only`,
+   then `raw-span` the hits. Identify candidate change types from those
+   Raw passages vs the page:
    - Prose rewrite of a section that overlaps topically
    - Wikilink insertion (add `[[raw-filename]]` or `[[new-page-from-raw]]`)
    - Contradiction flag (see Contradiction Handling below)
@@ -252,6 +309,7 @@ If the user types `abort` / `cancel` during page conversation:
 - Do **not** apply any uncommitted in-memory changes from this page.
 - Already-committed prior pages from this session stand.
 - Do **not** update the Raw marker or append log entry.
+- Clear the Step 4 plan, if one was opened.
 - Exit the skill cleanly with a message:
   ```
   Aborted. <N> pages committed, Raw marker unchanged.
@@ -264,9 +322,10 @@ After all selected pages are committed (or the selected list was empty):
 
 ### 9.1 Update Raw marker
 
-Read the current marker line — the authoritative `<!-- distilled: ... -->`
+Use the marker line Step 4 read — the authoritative `<!-- distilled: ... -->`
 line, which is either the header marker (before the first `### User` turn) or
 the last non-empty line. (`cortex-vec raw-state <raw>` confirms its outcome.)
+If the Read is no longer current, re-read those lines only.
 Determine the terminal segment to append based on outcome and result:
 
 | Case | New segment |
@@ -331,6 +390,8 @@ cd <vault>
 git add <raw-relative-path> log.md
 git commit -m "broadcast: finalize <raw-filename>"
 ```
+
+Then clear the Step 4 plan, if one was opened.
 
 ## Step 10: Offer Next Raw
 

@@ -116,10 +116,11 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
    ```
 
-   這個 plugin 版本對應的是 `cortex-vec` 0.9.0。Weekly 的移除要靠 0.8.0 才會
+   這個 plugin 版本對應的是 `cortex-vec` 0.10.0。Weekly 的移除要靠 0.8.0 才會
    到 CLI 端 —— `search --help` 不再列出 `--type weekly`，`Weekly/` 也不再被
-   歸類成 content type —— 而 0.9.0 補上了 cosine backfill 與檢索過濾的修正，
-   2.1.0 的去重與帶範圍搜尋都靠它。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
+   歸類成 content type —— 0.9.0 補上了 cosine backfill 與檢索過濾的修正，
+   2.1.0 的去重與帶範圍搜尋都靠它；0.10.0 則讓 stderr 安靜下來並為 exit code
+   分類，2.2.0 的 query skill 會讀這些訊號。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
    漏出範圍外的頁面，只靠關鍵字命中的結果也還是回報 `0.00`。
 6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
    `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
@@ -159,6 +160,7 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
 |------|-------|----------|
 | Session Report | SessionEnd | session 結束時先經 TOML transcript filter 過濾，再寫到 Raw/ |
 | Memory Injection | SessionStart | 互動式選單：偵測 vault backlog 狀態後詢問下一步 |
+| Deck | hooks module（`hooks/deck.tsx`） | 把 SessionStart 選單畫成 prompt 上方的一條 band（數字 1–9 直接按鈕），並在每個 context window 用量達 70% 時提示一次 takeoff 交接。沒有這個 module 時，model 照舊顯示文字選單 |
 
 > **錄製是自動的。** 每個超過 4 KB 的 session 在結束時都會寫進你的
 > vault，不會逐次詢問。設定 `CORTEX_SKIP_RECORD=1` 可跳過某次 session；

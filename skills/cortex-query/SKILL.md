@@ -88,6 +88,12 @@ The user can override this by saying "search all" or "search across everything".
 - `--type note|project` — filter by content type
 - `--category Nginx|Linux|...` — filter by category
 
+**Reading the output:** stdout holds only hits, one JSON line each; stderr
+lines prefixed `cortex-vec:` explain them. A line ending `results are
+BM25-only` (or `vector-only`) means recall is degraded: tell the user
+alongside the results. Exit 3 means the vault or index is not set up: relay
+the error's parenthesised fix to the user and stop searching.
+
 **Interpreting `score`:**
 
 `score` is the **vector cosine similarity only** — how close the query is to
@@ -138,9 +144,10 @@ unavailable or indeterminate, and rely on the returned order and the result
 fields instead.
 
 **Do not infer BM25-only mode from `0.0` alone.** Say retrieval ran without a
-vector stream only when you know that independently — the user has established
-that `OPENAI_API_KEY` is unset, or `cortex-vec status` reports no embedded
-entries. Otherwise present the results without asserting a mode.
+vector stream only when you know that independently — stderr carried the
+`results are BM25-only` line, the user has established that `OPENAI_API_KEY`
+is unset, or `cortex-vec status` reports no embedded entries. Otherwise
+present the results without asserting a mode.
 
 ### Layer 2: Exact Match (supplement)
 

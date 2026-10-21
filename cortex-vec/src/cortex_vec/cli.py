@@ -3,26 +3,40 @@
 import argparse
 import sys
 
+from .errors import EXIT_CALLER, CliError
+
 
 def main():
+    try:
+        _main()
+    except CliError as e:
+        print(e.render(), file=sys.stderr)
+        sys.exit(e.code)
+
+
+def _main():
     parser = argparse.ArgumentParser(
         description="cortex-vec — Vector store CLI for cortex vault"
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("status", help="Show index health")
+    p_status = sub.add_parser("status", help="Show index health")
+    p_status.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
     p_rebuild = sub.add_parser("rebuild", help="Full rebuild from vault")
     p_rebuild.add_argument(
         "--bm25-only",
         action="store_true",
         help="Rebuild only the BM25 index from the vault (no re-embedding, free)",
     )
+    p_rebuild.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_upsert = sub.add_parser("upsert", help="Add/update a document")
     p_upsert.add_argument("path", help="Relative path from vault root")
+    p_upsert.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_delete = sub.add_parser("delete", help="Remove a document")
     p_delete.add_argument("path", help="Relative path from vault root")
+    p_delete.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_search = sub.add_parser("search", help="Semantic search")
     p_search.add_argument("query", help="Search query text")
@@ -51,7 +65,7 @@ def main():
     p_dq.add_argument("--stat", action="store_true",
                       help="Show per-level projected sizes instead of paths")
     p_dq.add_argument("--json", action="store_true",
-                      help="With --stat: emit JSON rows")
+                      help="Emit a JSON array (of paths, or of --stat rows)")
     p_bq = sub.add_parser(
         "broadcast-queue", help="List distilled Raw eligible for broadcast"
     )
@@ -127,8 +141,8 @@ def main():
     args = parser.parse_args()
 
     if not args.command:
-        parser.print_help()
-        sys.exit(1)
+        parser.print_help(sys.stderr)
+        sys.exit(EXIT_CALLER)
 
     # Fast path: trailer-anchored queue scans skip the heavy store import
     # (chromadb ~2.7s). They read only each Raw's last non-empty line.

@@ -1,8 +1,9 @@
 """Configuration loading and constants."""
 
 import json
-import sys
 from pathlib import Path
+
+from .errors import EXIT_SETUP, CliError
 
 CORTEX_CONFIG = Path.home() / ".cortex" / "config.json"
 VECTORSTORE_DIR = Path.home() / ".cortex" / "vectorstore"
@@ -29,24 +30,22 @@ _RETRIEVAL_DEFAULTS = {
 
 
 def load_config():
-    """Load ~/.cortex/config.json. Exit with error if not found."""
+    """Load ~/.cortex/config.json; raise CliError if it is missing."""
     if not CORTEX_CONFIG.exists():
-        print(
-            "Error: ~/.cortex/config.json not found. Run /cortexes:genesis first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        raise CliError(f"{CORTEX_CONFIG} not found", "run /cortexes:genesis first",
+                       code=EXIT_SETUP)
     with open(CORTEX_CONFIG) as f:
         return json.load(f)
 
 
 def get_vault_path():
-    """Return the vault path from config. Exit with error if invalid."""
+    """Return the vault path from config; raise CliError if it is invalid."""
     cfg = load_config()
     vault = cfg.get("vault_path", "")
     if not vault or not Path(vault).is_dir():
-        print(f"Error: vault_path '{vault}' not found.", file=sys.stderr)
-        sys.exit(1)
+        raise CliError(f"vault_path '{vault}' is not a directory",
+                       f"fix vault_path in {CORTEX_CONFIG} or rerun /cortexes:genesis",
+                       code=EXIT_SETUP)
     return Path(vault)
 
 

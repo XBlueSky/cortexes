@@ -121,6 +121,9 @@ class BM25Index:
         with open(self._file, "wb") as f:
             pickle.dump(self.docs, f)
 
+    def exists(self):
+        return self._file.exists()
+
     def load(self):
         if not self._file.exists():
             raise FileNotFoundError(f"BM25 index not found at {self._file}; run rebuild")

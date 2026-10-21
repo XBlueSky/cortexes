@@ -18,6 +18,7 @@ inside the conversation are quotes and ignored.
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -142,7 +143,14 @@ def dispatch_raw_state(path) -> None:
 
 def dispatch_distill_queue(root, stat=False, as_json=False) -> None:
     files = distill_queue(root)
+    if not stat and as_json:
+        import json
+
+        print(json.dumps([str(p) for p in files], ensure_ascii=False))
+        return
     if not stat:
+        if not files:
+            print("cortex-vec: distill queue is empty", file=sys.stderr)
         for p in files:
             print(p)
         return
@@ -167,5 +175,8 @@ def dispatch_distill_queue(root, stat=False, as_json=False) -> None:
 
 
 def dispatch_broadcast_queue(root) -> None:
-    for p in broadcast_queue(root):
+    files = broadcast_queue(root)
+    if not files:
+        print("cortex-vec: broadcast queue is empty", file=sys.stderr)
+    for p in files:
         print(p)

@@ -10,6 +10,16 @@ set -euo pipefail
 # nohup+disown: Claude Code kills SessionEnd hooks early, so heavy work is
 # detached to survive parent exit.
 
+input=$(cat)
+
+# The deck file session-start-inject.sh wrote for this session goes with it,
+# recorded or not, so a later resume of the same id never draws a stale deck.
+# shellcheck source=lib/deck-file.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/deck-file.sh"
+if deck_file=$(cortex_deck_file "$(echo "$input" | jq -r '.session_id // ""' 2>/dev/null)"); then
+  rm -f "$deck_file"
+fi
+
 if [[ -n "${CORTEX_SESSION_RECORDING:-}" ]]; then
   exit 0
 fi
@@ -23,7 +33,6 @@ if [[ -n "${CORTEX_SKIP_RECORD:-}" ]]; then
   exit 0
 fi
 
-input=$(cat)
 transcript_path=$(echo "$input" | jq -r '.transcript_path // ""')
 cwd=$(echo "$input" | jq -r '.cwd // ""')
 
@@ -281,6 +290,7 @@ PYEOF
   # this hook already requires a python3 that can import the pipeline; the
   # console script also needs PATH.
   reclaimed=0
+  reclaimed_out=""
   cvec=""
   if python3 -c "import cortex_vec" 2>/dev/null; then
     cvec="python3 -m cortex_vec.cli"
@@ -325,7 +335,19 @@ PYEOF
       commit_msg="${commit_msg} (reclaimed ${reclaimed} superseded)"
     fi
     git -C "$vault_path" add "$target_file" 2>/dev/null || true
-    git -C "$vault_path" commit -m "$commit_msg" 2>/dev/null || true
+    # Commit by pathspec, never "whatever is staged": the vault index is shared
+    # by every concurrent session. A distill that had staged a new page and
+    # paused for approval lost it to this commit; a raw
+    # commit carries no allow trailer, so the remote secrets hook went on to
+    # parse that quoted non-ASCII path, crashed, and refused every push until
+    # history was rewritten. The Raw just written plus what reclaim removed is
+    # the whole business of this hook; anything else stays staged for the
+    # session that staged it.
+    raw_paths=("$target_file")
+    while IFS= read -r reclaimed_path; do
+      if [[ -n "$reclaimed_path" ]]; then raw_paths+=("$reclaimed_path"); fi
+    done <<<"$reclaimed_out"
+    git -C "$vault_path" commit -m "$commit_msg" -- "${raw_paths[@]}" 2>/dev/null || true
     if [[ "$auto_push" == "true" ]]; then
       # A rejected push (pre-receive hook, auth, network) used to vanish into
       # /dev/null and every later push failed the same way until someone

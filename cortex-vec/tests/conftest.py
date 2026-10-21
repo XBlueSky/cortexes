@@ -28,6 +28,23 @@ def _stub_cosine_backfill(monkeypatch):
     monkeypatch.setattr(store, "cosine_for", lambda query, ids: {})
 
 
+@pytest.fixture(autouse=True)
+def _isolate_bm25_index(tmp_path, monkeypatch):
+    """Point store.BM25_DIR at an empty saved index under tmp_path.
+
+    `cmd_search` refuses to run without a BM25 index (exit 3), so without this
+    the search tests would pass or fail depending on whether the developer's
+    real ~/.cortex/bm25 exists. Tests about a missing index override it.
+    """
+    from cortex_vec.bm25 import BM25Index
+
+    bm25_dir = tmp_path / "isolated-bm25"
+    idx = BM25Index(bm25_dir)
+    idx.build_from_docs([])
+    idx.save()
+    monkeypatch.setattr(store, "BM25_DIR", bm25_dir)
+
+
 @pytest.fixture
 def fixture_docs():
     """A tiny in-memory corpus: list of (base_path, title, body, repo, type, category)."""

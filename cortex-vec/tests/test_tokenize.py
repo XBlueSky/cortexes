@@ -29,3 +29,19 @@ def test_punctuation_stripped_but_path_chars_kept():
 
 def test_short_query_nonempty():
     assert tokenize.tokenize("PROJ-123456")  # issue id should survive as tokens
+
+
+def test_first_cjk_tokenize_writes_nothing_to_stderr():
+    # jieba's import warns about pkg_resources and its first segmentation logs
+    # "Building prefix dict ..." to stderr; agents read stderr, so both are noise.
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONWARNINGS"}
+    proc = subprocess.run(
+        [sys.executable, "-c",
+         "from cortex_vec.tokenize import tokenize; tokenize('憑證自動更新')"],
+        capture_output=True, text=True, env=env, check=True,
+    )
+    assert proc.stderr == ""

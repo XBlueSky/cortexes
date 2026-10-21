@@ -23,6 +23,14 @@ python3 -m pytest tests/ -q || status=1
 echo "── pytest: cortex-vec ────────────────────────────"
 ( cd cortex-vec && python3 -m pytest -q ) || status=1
 
+echo "── claude plugin: validate + test (hooks module) ─"
+if command -v claude >/dev/null 2>&1; then
+  claude plugin validate . || status=1
+  claude plugin test . || status=1
+else
+  echo "SKIP: claude not on PATH — hooks module validate/test not run"
+fi
+
 echo "──────────────────────────────────────────────────"
 if [[ $status -eq 0 ]]; then
   echo "✓ all checks passed"

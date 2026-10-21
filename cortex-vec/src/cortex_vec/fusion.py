@@ -26,26 +26,37 @@ def rrf_fuse(ranked, weights, k=60):
     return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
 
 
-def _bm25_stream(query, n, where, synonym_weight=0.0):
+def _note(notes, message):
+    """Record a degradation for the caller to surface (None = nobody asked)."""
+    if notes is not None:
+        notes.append(message)
+
+
+def _bm25_stream(query, n, where, synonym_weight=0.0, notes=None):
     """Load the persisted BM25 index and search; return [] on any failure."""
     from . import bm25
     try:
         idx = bm25.BM25Index(BM25_DIR)
         idx.load()
         return idx.search(query, n, where, synonym_weight=synonym_weight)
-    except Exception:
+    except Exception as e:
+        _note(notes, f"bm25 stream failed ({type(e).__name__}: {e}); "
+                     "results are vector-only")
         return []
 
 
-def _vector_stream(query, n, where):
+def _vector_stream(query, n, where, notes=None):
     # No API key -> embeddings unavailable; skip vector so the query degrades to
-    # BM25-only. (The embedding fn hard-exits via sys.exit on a missing key, and
-    # SystemExit is not caught by `except Exception`, so we must check up front.)
+    # BM25-only without building the embedding fn (which raises CliError).
     if not os.environ.get("OPENAI_API_KEY"):
+        _note(notes, "vector stream skipped (OPENAI_API_KEY not set); "
+                     "results are BM25-only")
         return []
     try:
         return store.vector_stream(query, n, where)
-    except Exception:
+    except Exception as e:
+        _note(notes, f"vector stream failed ({type(e).__name__}: {e}); "
+                     "results are BM25-only")
         return []
 
 
@@ -117,20 +128,23 @@ def _diversify(fused, display, max_per_repo):
     return primary + overflow
 
 
-def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, rerank=None):
+def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, rerank=None,
+           notes=None):
     """Hybrid search entry point. Returns up to n display dicts (best-first).
 
     Gracefully degrades: if a stream errors or is disabled, the other carries
-    the query (RRF weight is redistributed in rrf_fuse).
+    the query (RRF weight is redistributed in rrf_fuse). Pass a list as
+    `notes` to receive one message per enabled stream that degraded.
     """
     rc = get_retrieval_config()
     weights = {"vector": rc["w_vec"], "bm25": rc["w_bm25"], "graph": rc["w_graph"]}
 
     streams = {}
     if use_vector:
-        streams["vector"] = _vector_stream(query, n, where)
+        streams["vector"] = _vector_stream(query, n, where, notes=notes)
     if use_bm25:
-        streams["bm25"] = _bm25_stream(query, n, where, synonym_weight=rc["synonym_weight"])
+        streams["bm25"] = _bm25_stream(query, n, where,
+                                       synonym_weight=rc["synonym_weight"], notes=notes)
 
     ranked = {}
     display = {}
