@@ -88,3 +88,49 @@ def test_score_is_vector_cosine_not_rrf(monkeypatch):
     assert by_id["Notes/Nginx/cert-renew.md"] == 0.9
     # bm25-only hit reports a real cosine on the same 0-1 scale, not an RRF score
     assert by_id["Notes/Linux/oom.md"] == 0.42
+
+
+# --- degradation is reported, not silent --------------------------------------
+
+
+def test_missing_api_key_is_reported_as_bm25_only(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    notes = []
+    out = fusion.search("oom", n=5, notes=notes)
+    assert out
+    assert len(notes) == 1
+    assert "OPENAI_API_KEY" in notes[0] and "BM25-only" in notes[0]
+
+
+def test_vector_failure_is_reported_with_its_cause(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    def _boom(*a, **k):
+        raise RuntimeError("chroma exploded")
+    monkeypatch.setattr(store, "vector_stream", _boom)
+    monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    notes = []
+    fusion.search("oom", n=5, notes=notes)
+    assert len(notes) == 1
+    assert "chroma exploded" in notes[0] and "BM25-only" in notes[0]
+
+
+def test_bm25_failure_is_reported_with_its_cause(monkeypatch):
+    class _BrokenBM25(_FakeBM25):
+        def load(self):
+            raise ValueError("pickle truncated")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec_items())
+    monkeypatch.setattr(bm25, "BM25Index", _BrokenBM25)
+    notes = []
+    fusion.search("nginx", n=5, notes=notes)
+    assert len(notes) == 1
+    assert "pickle truncated" in notes[0] and "vector-only" in notes[0]
+
+
+def test_disabled_vector_stream_is_not_reported(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(bm25, "BM25Index", _FakeBM25)
+    notes = []
+    fusion.search("oom", n=5, use_vector=False, notes=notes)
+    assert notes == []

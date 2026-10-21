@@ -4,8 +4,10 @@ Splits Han runs with jieba (soft-falls to whole-run if jieba missing),
 stems Latin words with a Porter stemmer, and preserves Latin word
 boundaries embedded inside CJK text (e.g. "機器學習ML技術").
 """
+import logging
 import re
 import sys
+import warnings
 
 # Han, Hiragana/Katakana, Hangul ranges. cortex content is zh+en; non-Han CJK
 # runs are kept whole (jieba targets Han).
@@ -30,7 +32,15 @@ def _seg_han(run):
     global _jieba_ok
     if _jieba_ok is None:
         try:
-            import jieba  # noqa: F401
+            # jieba's import trips setuptools' pkg_resources deprecation and its
+            # first lcut logs dictionary loading, both to stderr; callers are
+            # mostly agents that read stderr, so keep it for real warnings.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="pkg_resources is deprecated",
+                    category=UserWarning)
+                import jieba
+            jieba.setLogLevel(logging.WARNING)
             _jieba_ok = True
         except Exception:
             _jieba_ok = False

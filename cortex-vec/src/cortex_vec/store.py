@@ -11,6 +11,7 @@ try:
 except ModuleNotFoundError:
     pass
 
+import json
 import os
 
 import chromadb
@@ -18,6 +19,7 @@ from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 from .bm25 import BM25Index
 from .config import BM25_DIR, COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
+from .errors import EXIT_SETUP, CliError
 from .parser import classify_path, extract_summary, parse_document
 
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -27,8 +29,11 @@ def _get_embedding_function():
     """Return OpenAI embedding function."""
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
-        print("Error: OPENAI_API_KEY not set.", file=sys.stderr)
-        sys.exit(1)
+        raise CliError(
+            "OPENAI_API_KEY not set",
+            "export it for embeddings; `cortex-vec rebuild --bm25-only` "
+            "works without it",
+            code=EXIT_SETUP)
     return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
 
 
@@ -132,7 +137,16 @@ def _base_path(doc_id):
     return doc_id.split("::")[0]
 
 
-def cmd_status(_args):
+def _emit(args, lines, doc):
+    """Print `doc` as one JSON line under --json, else the human `lines`."""
+    if getattr(args, "json", False):
+        print(json.dumps(doc, ensure_ascii=False))
+    else:
+        for line in lines:
+            print(line)
+
+
+def cmd_status(args):
     """Show index health."""
     vault = get_vault_path()
     client = get_client()
@@ -153,15 +167,32 @@ def cmd_status(_args):
         bm25_count = bm25_index.count()
     except Exception:
         bm25_count = 0
-    print(f"BM25:       {bm25_count} notes")
+    warnings = []
     if total and not bm25_count:
-        print("  WARNING: BM25 index empty — run rebuild", file=sys.stderr)
-    print(f"Collection: {COLLECTION_NAME}")
-    print(f"Entries:    {total} ({bodies} body + {summaries} summary)")
-    print(f"Embedding:  {EMBEDDING_MODEL} (OpenAI)")
-    print(f"Summary:    {SUMMARY_MODEL} (OpenAI)")
-    print(f"DB path:    {VECTORSTORE_DIR}")
-    print(f"Vault:      {vault}")
+        warnings.append("BM25 index empty — run `cortex-vec rebuild --bm25-only`")
+    if not getattr(args, "json", False):
+        for w in warnings:
+            print(f"  WARNING: {w}", file=sys.stderr)
+    _emit(args, [
+        f"BM25:       {bm25_count} notes",
+        f"Collection: {COLLECTION_NAME}",
+        f"Entries:    {total} ({bodies} body + {summaries} summary)",
+        f"Embedding:  {EMBEDDING_MODEL} (OpenAI)",
+        f"Summary:    {SUMMARY_MODEL} (OpenAI)",
+        f"DB path:    {VECTORSTORE_DIR}",
+        f"Vault:      {vault}",
+    ], {
+        "bm25_notes": bm25_count,
+        "collection": COLLECTION_NAME,
+        "entries": total,
+        "body_entries": bodies,
+        "summary_entries": summaries,
+        "embedding_model": EMBEDDING_MODEL,
+        "summary_model": SUMMARY_MODEL,
+        "db_path": str(VECTORSTORE_DIR),
+        "vault": str(vault),
+        "warnings": warnings,
+    })
 
 
 def _build_bm25_from_vault(vault):
@@ -194,7 +225,8 @@ def cmd_rebuild(args):
 
     if getattr(args, "bm25_only", False):
         count = _build_bm25_from_vault(vault)
-        print(f"BM25: {count} notes indexed (vector store untouched)")
+        _emit(args, [f"BM25: {count} notes indexed (vector store untouched)"],
+              {"bm25_notes": count, "vector_entries": None})
         return
 
     client = get_client()
@@ -265,8 +297,9 @@ def cmd_rebuild(args):
                 doc_count += 1
 
     bm25_count = _build_bm25_from_vault(vault)
-    print(f"BM25: {bm25_count} notes indexed")
-    print(f"Rebuilt: {doc_count} documents indexed")
+    _emit(args, [f"BM25: {bm25_count} notes indexed",
+                 f"Rebuilt: {doc_count} documents indexed"],
+          {"bm25_notes": bm25_count, "vector_entries": doc_count})
 
 
 def cmd_upsert(args):
@@ -276,8 +309,8 @@ def cmd_upsert(args):
     full_path = vault / rel_path
 
     if not full_path.exists():
-        print(f"Error: {full_path} not found.", file=sys.stderr)
-        sys.exit(1)
+        raise CliError(f"{rel_path} not found",
+                       f"paths are relative to the vault root {vault}")
 
     client = get_client()
     col = get_collection(client)
@@ -334,7 +367,7 @@ def cmd_upsert(args):
         bm25_index.build_from_docs([])
     bm25_index.upsert(bm25_doc_from_fields(rel_path, fm, body))
     bm25_index.save()
-    print(f"Upserted: {rel_path}")
+    _emit(args, [f"Upserted: {rel_path}"], {"upserted": rel_path})
 
 
 def cmd_delete(args):
@@ -345,8 +378,11 @@ def cmd_delete(args):
 
     stale = _delete_stale_entries(col, rel_path)
     if not stale:
-        print(f"Not found: {rel_path}", file=sys.stderr)
-        sys.exit(1)
+        # Idempotent: the goal state (not indexed) already holds.
+        print(f"cortex-vec: {rel_path} not indexed; nothing to delete",
+              file=sys.stderr)
+        _emit(args, [], {"deleted": 0, "path": rel_path})
+        return
 
     bm25_index = BM25Index(BM25_DIR)
     try:
@@ -356,7 +392,8 @@ def cmd_delete(args):
     except FileNotFoundError:
         pass
 
-    print(f"Deleted: {len(stale)} entries for {rel_path}")
+    _emit(args, [f"Deleted: {len(stale)} entries for {rel_path}"],
+          {"deleted": len(stale), "path": rel_path})
 
 
 def cosine_for(query, doc_ids):
@@ -489,12 +526,23 @@ def vector_stream(query, n, where=None):
     return sorted(seen.values(), key=lambda x: -x["score"])
 
 
+def _describe_filters(args):
+    active = [f"{k}={getattr(args, k)}" for k in ("repo", "type", "category")
+              if getattr(args, k, None)]
+    return f" ({', '.join(active)})" if active else ""
+
+
 def cmd_search(args):
     """Hybrid search across the vault (vector + BM25, RRF-fused)."""
-    import json
-
     from . import fusion
 
+    if not getattr(args, "no_bm25", False) and not BM25Index(BM25_DIR).exists():
+        raise CliError("no search index found",
+                       "run `cortex-vec rebuild`, or `cortex-vec rebuild "
+                       "--bm25-only` without OPENAI_API_KEY",
+                       code=EXIT_SETUP)
+
+    notes = []
     where = _build_where(
         repo=getattr(args, "repo", None),
         type=getattr(args, "type", None),
@@ -508,6 +556,13 @@ def cmd_search(args):
         use_vector=not getattr(args, "no_vector", False),
         rerank=getattr(args, "rerank", False) or None,
         graph=getattr(args, "graph", False) or None,
+        notes=notes,
     )
+    # stdout carries only hits (one JSON line each); anything an agent needs
+    # to interpret them -- a degraded stream, an empty result -- goes to stderr.
+    for note in notes:
+        print(f"cortex-vec: {note}", file=sys.stderr)
+    if not results:
+        print(f"cortex-vec: 0 results{_describe_filters(args)}", file=sys.stderr)
     for entry in results:
         print(json.dumps(entry, ensure_ascii=False))
