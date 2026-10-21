@@ -378,3 +378,40 @@ def test_successful_filter_writes_no_log(tmp_path):
     body = _raw_files(vault)[0].read_text()
     assert "(filter failed)" not in body
     assert not _log_path(home).exists()
+
+
+# --- The deck file session-start-inject.sh wrote for this session goes with
+# it, so a later resume of the same id never draws a stale deck.
+
+def _end_with_deck(tmp_path, extra_env=None, session_id="sess-1"):
+    home, vault, tx, cwd = _setup(tmp_path)
+    plug = tmp_path / "plug"
+    deck = plug / ".deck" / "sess-1.json"
+    other = plug / ".deck" / "sess-2.json"
+    deck.parent.mkdir(parents=True)
+    deck.write_text("{}")
+    other.write_text("{}")
+    env = {**os.environ, "HOME": str(home), "CLAUDE_PLUGIN_ROOT": str(plug)}
+    env.pop("CORTEX_SESSION_RECORDING", None)
+    env.pop("CORTEX_SKIP_RECORD", None)
+    env.update(extra_env or {})
+    stdin = json.dumps({"transcript_path": str(tx), "cwd": str(cwd), "session_id": session_id})
+    r = subprocess.run(["bash", str(RECORD)], input=stdin, text=True, capture_output=True, env=env)
+    assert r.returncode == 0, r.stderr
+    return deck, other
+
+
+def test_session_end_removes_its_deck_file(tmp_path):
+    deck, other = _end_with_deck(tmp_path)
+    assert not deck.exists()
+    assert other.exists()
+
+
+def test_session_end_removes_its_deck_file_when_not_recording(tmp_path):
+    deck, _ = _end_with_deck(tmp_path, {"CORTEX_SKIP_RECORD": "1"})
+    assert not deck.exists()
+
+
+def test_session_end_ignores_an_unsafe_session_id(tmp_path):
+    deck, other = _end_with_deck(tmp_path, session_id="../.deck/sess-2")
+    assert deck.exists() and other.exists()

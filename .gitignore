@@ -33,3 +33,9 @@ site/dist/
 
 # Editor swap files
 *.swp
+
+# Type roots the engine writes beside a loaded hooks module (regenerated)
+.claude-plugin/types/
+
+# Per-session deck files session-start-inject.sh writes for the mod (hooks/deck.tsx)
+.deck/

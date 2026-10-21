@@ -76,6 +76,12 @@ for git hosting setups that expect a specific trailer. Only those two commits,
 the ones that add new Notes / Projects pages, carry it; raw and broadcast
 commits do not.
 
+The raw commit is also path-scoped (`git commit -- <paths>`: the Raw just
+written plus any snapshot reclaim removed), so it never carries what another
+session has staged in the shared vault index — a new page with a non-ASCII
+name, committed without the trailer, is exactly what a hosting secrets hook
+chokes on.
+
 ### 6. Initialize vault structure
 
 Ensure these directories exist in the vault:

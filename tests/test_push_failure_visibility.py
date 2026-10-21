@@ -151,3 +151,23 @@ def test_session_start_is_quiet_when_everything_is_pushed(tmp_path):
     cwd = _work_repo(tmp_path)
     ctx = _inject(home, cwd)
     assert "尚未推送" not in ctx
+
+
+def _deck(ctx):
+    start = ctx.index("<!-- cortex:menu -->\n") + len("<!-- cortex:menu -->\n")
+    line = ctx[start:].split("\n", 1)[0]
+    return json.loads(line[len("<!-- cortex:deck "):-len(" -->")])
+
+
+def test_session_start_deck_warns_on_unpushed_commits(tmp_path):
+    vault = _vault_with_remote(tmp_path)
+    for i in range(2):
+        (vault / f"n{i}.md").write_text("x\n")
+        _git(vault, "add", f"n{i}.md")
+        _git(vault, "commit", "-q", "-m", f"raw: session x {i}")
+    home = _home(tmp_path, vault, auto_push=True)
+    deck = _deck(_inject(home, _work_repo(tmp_path)))
+    assert deck["status"][0] == {
+        "text": f"有 2 個 commit 尚未推送到 origin（失敗原因見 {home}/.cortex/push-failures.log）",
+        "warn": True,
+    }
