@@ -67,11 +67,32 @@ if [[ "${unpushed:-0}" -gt 0 && -f "$push_log" ]]; then
   fi
 fi
 
+# --- cortex-vec sync: the CLI follows the copy this plugin ships ---
+# /plugin update leaves the pip-installed CLI behind. cvec_sync.py compares it
+# with the plugin's copy, reinstalls in the background when they differ, and
+# prints one status line as JSON (updating / updated / failed) or nothing.
+# Only at startup: a process started before /plugin update keeps the old
+# plugin root, and a /clear or compaction there would reinstall the old copy.
+# The check runs under a 5 s cap so it can never eat the hook's own budget;
+# macOS ships no `timeout`, so Homebrew's `gtimeout` stands in, and with
+# neither the check is skipped rather than run unbounded.
+cvec_status=""
+cvec_timeout=$(command -v timeout || command -v gtimeout || true)
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && "$start_source" == "startup" && -n "$cvec_timeout" ]]; then
+  cvec_status=$("$cvec_timeout" 5 python3 "$(dirname "${BASH_SOURCE[0]}")/cvec_sync.py" check \
+    --plugin-root "$CLAUDE_PLUGIN_ROOT" 2>/dev/null || true)
+fi
+
+status_json=$(jq -cn --arg unpushed "$unpushed_text" --arg cvec "$cvec_status" '
+  (if $unpushed == "" then [] else [{text: $unpushed, warn: true}] end)
+  + [$cvec | fromjson? // empty | select(type == "object" and (.text | type) == "string")]')
+
 # The menu opens with the vault status only when there is something to report;
 # a fixed line in every session reads like an alarm and trains people to skip it.
 menu_intro="列出以下選項："
-if [[ -n "$unpushed_text" ]]; then
-  menu_intro="呈現以下格式："$'\n\n'"先顯示 vault 狀態："$'\n'"  - ${unpushed_text}"$'\n\n'"然後列出選項："
+status_lines=$(printf '%s' "$status_json" | jq -r '.[] | "  - " + .text')
+if [[ -n "$status_lines" ]]; then
+  menu_intro="呈現以下格式："$'\n\n'"先顯示狀態："$'\n'"${status_lines}"$'\n\n'"然後列出選項："
 fi
 
 # --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
@@ -139,8 +160,7 @@ fi
 # a bare number. `<` and `>` become \u003c / \u003e: JSON syntax uses neither,
 # so each sits inside a string, and no path or label holding `-->` can close
 # the HTML comment early.
-deck_status=$(jq -cn --arg unpushed "$unpushed_text" \
-  'if $unpushed == "" then [] else [{text: $unpushed, warn: true}] end')
+deck_status="$status_json"
 deck_batons=$(printf '%s' "$baton_json" | jq -cs '.')
 # The stamp marks this run, so the mod takes a deck that reaches it through
 # both the context and the deck file once.

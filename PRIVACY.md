@@ -196,11 +196,14 @@ Everything is on your own machine:
 | `~/.cortex/bm25/` | BM25 lexical index |
 | `${XDG_CACHE_HOME:-~/.cache}/cortex/distill-plans/` | Distillation working state |
 | `~/.cortex/push-failures.log` | Written only when `auto_push` is on and a push is rejected: timestamp, repo name, vault path, and the remote's error message |
+| `$CLAUDE_PLUGIN_ROOT/.deck/<session_id>.json` | The SessionStart menu as data for the band: repo name, vault path, the unpushed-commit line if any, and each pending baton's topic, summary and origin path. Removed when the session ends; leftovers older than a day are swept at the next session start |
+| `~/.cortex/cvec-sync/` | Written only for a `pip`-installed `cortex-vec`: the content hash of the copy being installed, the plugin version, the outcome, and the last reinstall's pip output (`install.log`) |
 | `~/.cortex/filter-failures.log` | Written only when the transcript filter crashes: its stderr, passed through the same redaction pass as the record, created mode `0600` |
 
 **Retention is indefinite and entirely under your control.** Cortexes never
-expires, rotates, or deletes your data on its own. The one exception is
-`reclaim-superseded`, which removes redundant `Raw/` records that are strict
+expires, rotates, or deletes your data on its own. The exceptions are the
+per-session deck files above, which only copy what is already in the vault
+and config, and `reclaim-superseded`, which removes redundant `Raw/` records that are strict
 prefixes of a longer record of the same conversation — this deletes
 duplicates, never unique content.
 

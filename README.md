@@ -73,6 +73,16 @@ instead, install from the repo:
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
+A `pip` install is also kept in step automatically. When the installed
+`cortex-vec` differs from the copy the plugin ships, the next session
+reinstalls that copy in the background (no network) and says so at the top
+of the menu ("updating", then "updated" once). If the reinstall fails, every
+session warns with the log path and the command to run until it is fixed.
+A `uv tool` install lives outside the session's `python3` and an editable
+install (`pip install -e`) is yours to manage, so the sync leaves both
+alone. The check needs `timeout` (or Homebrew's `gtimeout` on macOS) and is
+skipped without it.
+
 `OPENAI_API_KEY` is **optional**. Setting it enables embeddings, and with
 them semantic (vector) search. Without it nothing breaks: `search` runs on
 the local BM25 index, entirely on your machine and with nothing sent to

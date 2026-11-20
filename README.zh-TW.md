@@ -65,6 +65,13 @@ cortex-vec`）升級。`/cortexes:genesis` 會檢查 CLI 是否已安裝，缺�
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
 
+用 `pip` 安裝的 CLI 也會自動跟上：已安裝的 `cortex-vec` 與 plugin 附帶的版本
+不同時，下一個 session 會在背景重裝 plugin 附帶的那份（不需網路），並在選單
+最上方顯示（「正在更新」，完成後顯示一次「已更新」）。重裝失敗時，每個 session
+都會提示 log 路徑與手動指令，直到修好為止。`uv tool` 安裝在 session 的 `python3`
+之外，editable 安裝（`pip install -e`）由你自己管理，這兩種都不會被同步。檢查需要
+`timeout`（macOS 可用 Homebrew 的 `gtimeout`），沒有時會略過。
+
 `OPENAI_API_KEY` 是**選用的**。設定它會啟用 embedding，也就啟用語意
 （向量）搜尋。不設定也不會壞掉：`search` 會走本機 BM25 索引，完全在你的
 機器上跑，不會有任何資料送往 OpenAI。

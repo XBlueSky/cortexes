@@ -166,7 +166,7 @@ def test_unpushed_commits_without_a_failure_are_quiet(tmp_path):
     home = _home(tmp_path, vault, auto_push=True)
     ctx = _inject(home, _work_repo(tmp_path))
     assert "尚未推送" not in ctx
-    assert "先顯示 vault 狀態" not in ctx
+    assert "先顯示狀態" not in ctx
 
 
 def test_a_failure_older_than_the_unpushed_commits_is_quiet(tmp_path):
@@ -225,5 +225,5 @@ def test_session_start_deck_warns_on_unpushed_commits(tmp_path):
         "text": f"有 2 個 commit 尚未推送到 origin（失敗原因見 {home}/.cortex/push-failures.log）",
         "warn": True,
     }]
-    assert "先顯示 vault 狀態：\n  - 有 2 個 commit 尚未推送" in ctx
+    assert "先顯示狀態：\n  - 有 2 個 commit 尚未推送" in ctx
     assert "\n\n然後列出選項：\n1. " in ctx

@@ -11,6 +11,7 @@ _index.md
 __pycache__/
 *.pyc
 *.egg-info/
+cortex-vec/build/
 
 # Node dependencies for cc-marketspec build tooling
 node_modules/
