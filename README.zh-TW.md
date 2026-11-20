@@ -23,6 +23,8 @@
 
 Cortexes 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
 
+<p align="center"><img src="docs/images/lifecycle.svg" alt="Cortexes 的循環：session 開始時回想、工作時搜尋、結束時記錄，之後提煉並 broadcast 回 vault" width="860"></p>
+
 - **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
 - **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
 - **知識提煉** — 從 Raw session dump 萃取踩坑知識、內部慣例、關鍵決策
@@ -182,6 +184,8 @@ command 寫客製 filter，讓 Raw 存下來的是真正有訊號的內容。
 
 ## Architecture
 
+<p align="center"><img src="docs/images/architecture.svg" alt="Cortexes 架構：plugin、vault、衍生索引，以及兩個選用的模型 API" width="860"></p>
+
 ```
 cortex repo
 ├── plugin branch (orphan)     ← Claude Code plugin（本檔案所在）
@@ -223,6 +227,8 @@ log.md                         ← evolve/distill 的時序歷程
 ```
 
 ### Retrieval Strategy
+
+<p align="center"><img src="docs/images/retrieval.svg" alt="cortex-vec 的 hybrid 檢索：BM25、向量與 graph 三條流以 RRF 融合，可選 rerank" width="860"></p>
 
 **Hybrid 檢索**（0.4.0+）— BM25 + vector 雙流，以 Reciprocal Rank Fusion（RRF, k=60）融合，預設權重 w_bm25=0.4 / w_vec=0.6：
 

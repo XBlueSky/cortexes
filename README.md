@@ -25,6 +25,8 @@ Cortexes turns your working memory into a searchable knowledge base. Every
 Claude Code session gets automatically recorded when it ends, then can be
 distilled and retrieved later.
 
+<p align="center"><img src="docs/images/lifecycle.svg" alt="The Cortexes loop: recall at session start, search while working, record at the end, then distill and broadcast into the vault" width="860"></p>
+
 - **Automatic capture** — a full report (commits, findings, decisions) is
   generated when a session ends and saved to the vault
 - **Semantic search** — OpenAI embeddings + ChromaDB, with mixed Chinese/English
@@ -203,6 +205,8 @@ what lands in Raw/ actually carries signal.
 
 ## Architecture
 
+<p align="center"><img src="docs/images/architecture.svg" alt="Cortexes architecture: the plugin, the vault, the derived index, and the two optional model APIs" width="860"></p>
+
 ```
 cortex repo
 ├── plugin branch (orphan)     ← the Claude Code plugin (this file lives here)
@@ -246,6 +250,8 @@ Periodically:
 ```
 
 ### Retrieval Strategy
+
+<p align="center"><img src="docs/images/retrieval.svg" alt="Hybrid retrieval in cortex-vec: BM25, vector and graph streams fused by RRF, with optional rerank" width="860"></p>
 
 **Hybrid retrieval** (0.4.0+) — BM25 + vector dual streams, fused with
 Reciprocal Rank Fusion (RRF, k=60), default weights w_bm25=0.4 / w_vec=0.6:

@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 410" width="1000" height="410" role="img" aria-labelledby="t d">
+  <title id="t">The Cortexes loop</title>
+  <desc id="d">Each Claude Code session recalls memory from the vault at start, searches it while working, and writes a filtered record to Raw/ at the end. Distill and broadcast later turn those records into Notes and Projects pages, which the next session recalls.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2937; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #111827; }
+    .group { font-size: 11px; font-weight: 600; letter-spacing: .08em; }
+    .h { font-size: 14px; font-weight: 700; }
+    .p { font-size: 12px; fill: #4b5563; }
+    .num { font-size: 12px; font-weight: 700; fill: #ffffff; }
+    .lbl { font-size: 11.5px; fill: #4b5563; }
+    .chip { font-size: 12px; fill: #065f46; }
+    .note { font-size: 12px; fill: #6b7280; }
+    .flow { stroke: #9ca3af; stroke-width: 1.6; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <!-- self-contained card so the figure reads on light and dark themes -->
+  <rect x="0.5" y="0.5" width="999" height="409" rx="16" fill="#ffffff" stroke="#e5e7eb"/>
+
+  <text class="title" x="30" y="36">The Cortexes loop</text>
+
+  <text class="group" x="30" y="66" fill="#4f46e5">EVERY SESSION · AUTOMATIC</text>
+  <text class="group" x="606" y="66" fill="#b45309">ON DEMAND · YOU DECIDE</text>
+
+  <!-- step cards: in-session (indigo) -->
+  <g>
+    <rect x="30" y="76" width="172" height="108" rx="12" fill="#eef2ff" stroke="#818cf8"/>
+    <circle cx="52" cy="100" r="11" fill="#4f46e5"/><text class="num" x="52" y="104" text-anchor="middle">1</text>
+    <text class="h" x="70" y="105">Session start</text>
+    <text class="p" x="44" y="132">A band offers this</text>
+    <text class="p" x="44" y="150">repo's memory, recent</text>
+    <text class="p" x="44" y="168">sessions, hand-offs</text>
+  </g>
+  <g>
+    <rect x="222" y="76" width="172" height="108" rx="12" fill="#eef2ff" stroke="#818cf8"/>
+    <circle cx="244" cy="100" r="11" fill="#4f46e5"/><text class="num" x="244" y="104" text-anchor="middle">2</text>
+    <text class="h" x="262" y="105">Work</text>
+    <text class="p" x="236" y="132">Skills search the</text>
+    <text class="p" x="236" y="150">vault before guessing</text>
+    <text class="p mono" x="236" y="168">cortex-vec search</text>
+  </g>
+  <g>
+    <rect x="414" y="76" width="172" height="108" rx="12" fill="#eef2ff" stroke="#818cf8"/>
+    <circle cx="436" cy="100" r="11" fill="#4f46e5"/><text class="num" x="436" y="104" text-anchor="middle">3</text>
+    <text class="h" x="454" y="105">Session end</text>
+    <text class="p" x="428" y="132">Transcript filtered,</text>
+    <text class="p" x="428" y="150">secrets redacted,</text>
+    <text class="p" x="428" y="168">saved to Raw/</text>
+  </g>
+
+  <!-- step cards: curation (amber) -->
+  <g>
+    <rect x="606" y="76" width="172" height="108" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
+    <circle cx="628" cy="100" r="11" fill="#d97706"/><text class="num" x="628" y="104" text-anchor="middle">4</text>
+    <text class="h" x="646" y="105">Distill</text>
+    <text class="p" x="620" y="132">Raw sessions become</text>
+    <text class="p" x="620" y="150">Notes/ and Projects/</text>
+    <text class="p" x="620" y="168">pages worth keeping</text>
+  </g>
+  <g>
+    <rect x="798" y="76" width="172" height="108" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
+    <circle cx="820" cy="100" r="11" fill="#d97706"/><text class="num" x="820" y="104" text-anchor="middle">5</text>
+    <text class="h" x="838" y="105">Broadcast</text>
+    <text class="p" x="812" y="132">New findings merged</text>
+    <text class="p" x="812" y="150">into the existing</text>
+    <text class="p" x="812" y="168">pages they touch</text>
+  </g>
+
+  <!-- step-to-step arrows; the session-end to distill gap is dashed (time passes) -->
+  <line class="flow" x1="204" y1="130" x2="219" y2="130" marker-end="url(#arrow)"/>
+  <line class="flow" x1="396" y1="130" x2="411" y2="130" marker-end="url(#arrow)"/>
+  <line class="flow" x1="588" y1="130" x2="603" y2="130" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <line class="flow" x1="780" y1="130" x2="795" y2="130" marker-end="url(#arrow)"/>
+
+  <!-- vault -->
+  <rect x="30" y="270" width="940" height="80" rx="12" fill="#ecfdf5" stroke="#34d399"/>
+  <text class="h" x="50" y="303" style="font-size:15px">Vault</text>
+  <text class="p" x="50" y="324" fill="#047857" style="fill:#047857">markdown + git · the source of truth</text>
+
+  <g class="chip mono">
+    <rect x="543" y="297" width="45" height="26" rx="6" fill="#ffffff" stroke="#a7f3d0"/><text class="chip mono" x="565.5" y="314" text-anchor="middle">Raw/</text>
+    <rect x="598" y="297" width="59" height="26" rx="6" fill="#ffffff" stroke="#a7f3d0"/><text class="chip mono" x="627.5" y="314" text-anchor="middle">Notes/</text>
+    <rect x="667" y="297" width="81" height="26" rx="6" fill="#ffffff" stroke="#a7f3d0"/><text class="chip mono" x="707.5" y="314" text-anchor="middle">Projects/</text>
+    <rect x="758" y="297" width="81" height="26" rx="6" fill="#ffffff" stroke="#a7f3d0"/><text class="chip mono" x="798.5" y="314" text-anchor="middle">_index.md</text>
+    <rect x="849" y="297" width="59" height="26" rx="6" fill="#ffffff" stroke="#a7f3d0"/><text class="chip mono" x="878.5" y="314" text-anchor="middle">log.md</text>
+  </g>
+
+  <!-- vault edges: reads point up, writes point down -->
+  <line class="flow" x1="116" y1="268" x2="116" y2="188" marker-end="url(#arrow)"/>
+  <text class="lbl" x="124" y="232">recall</text>
+  <line class="flow" x1="308" y1="268" x2="308" y2="188" marker-end="url(#arrow)"/>
+  <text class="lbl" x="316" y="232">search</text>
+  <line class="flow" x1="500" y1="186" x2="500" y2="266" marker-end="url(#arrow)"/>
+  <text class="lbl" x="508" y="232">record</text>
+  <line class="flow" x1="692" y1="186" x2="692" y2="266" marker-end="url(#arrow)"/>
+  <text class="lbl" x="700" y="232">new pages</text>
+  <line class="flow" x1="884" y1="186" x2="884" y2="266" marker-end="url(#arrow)"/>
+  <text class="lbl" x="892" y="232">merge</text>
+
+  <text class="note" x="500" y="386" text-anchor="middle">A BM25 + vector index of the vault lives in ~/.cortex and can be rebuilt at any time, so recall is a search, not a re-read.</text>
+</svg>

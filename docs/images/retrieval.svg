@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 424" width="1000" height="424" role="img" aria-labelledby="t d">
+  <title id="t">Hybrid retrieval in cortex-vec</title>
+  <desc id="d">A query runs through BM25 and vector streams, plus an opt-in wikilink graph stream seeded by their top hits. Reciprocal rank fusion merges the streams with weights 0.4, 0.6 and 0.3. An opt-in LLM rerank reorders the top results. Hits go to stdout as one JSON line each; notes explaining the results go to stderr. Without an OpenAI key the vector stream is skipped and stderr says results are BM25-only.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2937; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+    .title { font-size: 18px; font-weight: 700; fill: #111827; }
+    .h { font-size: 14px; font-weight: 700; }
+    .p { font-size: 12px; fill: #4b5563; }
+    .s { font-size: 11px; fill: #6b7280; }
+    .w { font-size: 11.5px; font-weight: 600; fill: #6b7280; }
+    .flow { stroke: #9ca3af; stroke-width: 1.6; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="423" rx="16" fill="#ffffff" stroke="#e5e7eb"/>
+  <text class="title" x="30" y="36">Hybrid retrieval</text>
+
+  <!-- query -->
+  <rect x="30" y="150" width="150" height="90" rx="10" fill="#f9fafb" stroke="#d1d5db"/>
+  <text class="h" x="44" y="176">Query</text>
+  <text class="p mono" x="44" y="198" style="font-size:11px">cortex-vec search</text>
+  <text class="s mono" x="44" y="220">"oauth token"</text>
+  <text class="s mono" x="30" y="264">--repo  --type</text>
+  <text class="s" x="30" y="280">filter every stream</text>
+
+  <!-- streams -->
+  <rect x="230" y="60" width="220" height="68" rx="10" fill="#eef2ff" stroke="#818cf8"/>
+  <text class="h" x="246" y="84">BM25</text>
+  <text class="p" x="246" y="104">exact terms, names, IDs</text>
+  <text class="s" x="246" y="120">jieba tokenizer for CJK</text>
+
+  <rect x="230" y="152" width="220" height="68" rx="10" fill="#ecfeff" stroke="#22d3ee"/>
+  <text class="h" x="246" y="176">Vector</text>
+  <text class="p" x="246" y="196">meaning, not wording</text>
+  <text class="s" x="246" y="212">body + summary embeddings</text>
+
+  <rect x="230" y="244" width="220" height="68" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-dasharray="5 4"/>
+  <text class="h" x="246" y="268">Wikilink graph <tspan style="font-weight:400;font-size:12px;fill:#6b7280">· opt-in</tspan></text>
+  <text class="p" x="246" y="288">[[links]] of the top hits</text>
+  <text class="s mono" x="246" y="304">--graph</text>
+
+  <line class="flow" x1="420" y1="222" x2="420" y2="241" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <text class="s" x="428" y="236">seeds</text>
+
+  <path class="flow" d="M182,195 C206,195 204,94 227,94" marker-end="url(#arrow)"/>
+  <path class="flow" d="M182,195 C206,195 204,186 227,186" marker-end="url(#arrow)"/>
+  <path class="flow" d="M182,195 C206,195 204,278 227,278" marker-end="url(#arrow)"/>
+
+  <!-- fusion -->
+  <rect x="500" y="140" width="140" height="110" rx="10" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text class="h" x="514" y="166">RRF fusion</text>
+  <text class="p" x="514" y="188">rank-based</text>
+  <text class="p mono" x="514" y="206" style="font-size:11px">k = 60</text>
+  <text class="s" x="514" y="230">optional per-repo cap</text>
+
+  <path class="flow" d="M452,94 C478,94 474,175 497,175" marker-end="url(#arrow)"/>
+  <path class="flow" d="M452,186 C474,186 476,195 497,195" marker-end="url(#arrow)"/>
+  <path class="flow" d="M452,278 C478,278 474,215 497,215" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text class="w" x="458" y="86">×0.4</text>
+  <text class="w" x="458" y="180">×0.6</text>
+  <text class="w" x="458" y="296">×0.3</text>
+
+  <!-- rerank -->
+  <rect x="680" y="145" width="130" height="100" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-dasharray="5 4"/>
+  <text class="h" x="694" y="170">LLM rerank</text>
+  <text class="s mono" x="694" y="188">--rerank</text>
+  <text class="p" x="694" y="210" style="font-size:11px">top 15; on error,</text>
+  <text class="p" x="694" y="226" style="font-size:11px">keeps RRF order</text>
+  <line class="flow" x1="642" y1="195" x2="677" y2="195" marker-end="url(#arrow)"/>
+
+  <!-- output streams -->
+  <rect x="850" y="120" width="120" height="72" rx="10" fill="#ecfdf5" stroke="#34d399"/>
+  <text class="h mono" x="864" y="144" style="font-size:13px">stdout</text>
+  <text class="p" x="864" y="164" style="font-size:11px">hits only, one</text>
+  <text class="p" x="864" y="180" style="font-size:11px">JSON line each</text>
+
+  <rect x="850" y="206" width="120" height="72" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text class="h mono" x="864" y="230" style="font-size:13px">stderr</text>
+  <text class="p" x="864" y="250" style="font-size:11px">notes that explain</text>
+  <text class="p" x="864" y="266" style="font-size:11px">the results</text>
+
+  <path class="flow" d="M812,190 C830,190 830,156 847,156" marker-end="url(#arrow)"/>
+  <path class="flow" d="M812,200 C830,200 830,242 847,242" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+
+  <!-- degradation callout -->
+  <rect x="30" y="326" width="940" height="76" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text class="h" x="48" y="350" style="font-size:13px">Degrades loudly, never silently</text>
+  <text class="p" x="48" y="370">No OPENAI_API_KEY, or the API fails: the vector stream is skipped, hits still print, and stderr says results are BM25-only.</text>
+  <text class="p" x="48" y="388">No BM25 index or no config: exit 3 with the one-line fix. Bad arguments: exit 2. An empty result set says "0 results" instead of printing nothing.</text>
+</svg>
