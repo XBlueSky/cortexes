@@ -5,6 +5,50 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-11-20
+
+### Added
+- **A `pip`-installed `cortex-vec` follows the plugin.** `/plugin update`
+  used to leave the CLI behind. At startup `hooks/scripts/cvec_sync.py`
+  compares the installed package with the copy the plugin ships, by content
+  hash, and reinstalls that copy in the background with no network. The
+  menu says "updating", then "updated" once; a failed reinstall warns in
+  every session with the log path and the command to run until it is
+  fixed. `uv tool` and editable installs are left alone. The check runs
+  under a 5 s cap (`timeout`, or Homebrew's `gtimeout` on macOS) and is
+  skipped without either. State lives in `~/.cortex/cvec-sync/`.
+- **`cortex-vec` 0.11.0 pages `raw-map --find`.** Past 50 hits the result
+  now reports `find_total` and `find_truncated`, and `--find-after
+  <span-id>` resumes after the last hit shown; the distill skill pages until
+  the result is no longer truncated.
+- **Passwords typed in prose are redacted.** A value right after
+  `password` / `passwd` / `密碼` / `密码` (optionally followed by `:`, `=`,
+  `is`, `是`, `為`) is replaced with `REDACTED` when it is 4+ characters and
+  contains a digit. The digit keeps prose ("the password field") and code
+  (`get_password()`) untouched.
+- **Diagrams in the README**: the session loop, the plugin / vault /
+  derived-index layers, and cortex-vec's hybrid retrieval.
+
+### Changed
+- **The unpushed-commit line needs a failed push.** Being ahead of the
+  remote is not by itself a failure: the vault is shared, and a distill in
+  another session commits for hours before anything pushes. The line now
+  shows only when `push-failures.log` holds a failure of this vault no older
+  than the oldest unpushed commit. The menu opens with a status block only
+  when there is something to report.
+
+### Fixed
+- **`auto_push` pushes again.** genesis writes the flag under `git`, but
+  distill and evolve read a top-level key that is always null, so they never
+  pushed, and broadcast had no push step. All three now read
+  `.git.auto_push`.
+- The failure timestamp in `push-failures.log` parses on macOS (BSD
+  `date -j -f`) as well as with GNU `date -d`.
+- The deck tests pass on newer Claude Code engines, which resolve a mount
+  that draws nothing with an empty tree instead of rejecting it.
+- PRIVACY lists the per-session deck files (`$CLAUDE_PLUGIN_ROOT/.deck/`)
+  and `~/.cortex/cvec-sync/`.
+
 ## [2.2.0] - 2026-10-21
 
 ### Added
