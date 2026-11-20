@@ -109,6 +109,12 @@ def _main():
     p_rm.add_argument("--find-only", action="store_true", dest="find_only",
                       help="With --find: emit only `find_matches` (no cards, "
                            "no map progress); costs one envelope, not a page")
+    p_rm.add_argument("--find-after", type=int, dest="find_after",
+                      metavar="SPAN_ID",
+                      help="With --find: report only hits in spans after this "
+                           "id. `find_matches` holds at most 50 ids; when "
+                           "`find_truncated` is true, pass the last id here "
+                           "for the next 50 (`find_total` counts all hits)")
 
     p_rsp = sub.add_parser(
         "raw-span", help="Bounded original-source page of one span"
