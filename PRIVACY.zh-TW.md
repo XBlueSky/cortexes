@@ -60,7 +60,8 @@ bytes、`~/.cortex/config.json` 不存在或其中的 `vault_path` 無效、設�
 固定的憑證形狀表，把符合的字串換成 `REDACTED` 佔位：GitLab personal-access
 與 OAuth token、AWS access key id、OpenAI 與 Anthropic API key、GitLab
 session cookie、JWT、`curl -u` 帳密、`Authorization` 與 `PRIVATE-TOKEN`
-標頭值、URL 內嵌的密碼，以及 `SOMETHING_TOKEN=` 形式的環境變數值。每筆記錄
+標頭值、URL 內嵌的密碼、緊接在 `password`／`passwd`／`密碼` 之後且含數字的值，
+以及 `SOMETHING_TOKEN=` 形式的環境變數值。每筆記錄
 開頭的 audit 註解會以 `redactions=N` 記下替換了幾處。
 
 **這是形狀比對，不是 secrets scanner，而且它是唯一的遮蔽機制。** 格式不在

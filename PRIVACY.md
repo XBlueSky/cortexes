@@ -65,8 +65,9 @@ record is written, the filter replaces strings matching a fixed table of
 credential shapes with `REDACTED` placeholders: GitLab personal-access and
 OAuth tokens, AWS access-key ids, OpenAI and Anthropic API keys, GitLab
 session cookies, JWTs, `curl -u` credentials, `Authorization` and
-`PRIVATE-TOKEN` header values, passwords embedded in URLs, and
-`SOMETHING_TOKEN=`-style environment values. The audit comment at the top of
+`PRIVATE-TOKEN` header values, passwords embedded in URLs, a value typed
+right after the word `password` / `passwd` / `密碼` when it contains a digit,
+and `SOMETHING_TOKEN=`-style environment values. The audit comment at the top of
 each record reports how many replacements were made as `redactions=N`.
 
 **This is a shape-matching pass, not a secrets scanner, and it is the only

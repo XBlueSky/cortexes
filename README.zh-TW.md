@@ -397,8 +397,8 @@ raw commit 與 broadcast 不加。
 
 raw commit 不需要 trailer，因為 Raw 在擷取時就已經處理過兩件會讓 git hosting 拒收的事：
 換行字元統一成 `\n`，以及憑證形狀的字串（GitLab PAT、OpenAI / Anthropic key、AWS key、
-JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼、`*_TOKEN=` 類環境
-變數值）換成 `REDACTED` 佔位；Raw 開頭的 audit 註解會記 `redactions=N`。
+JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼、緊接在 `password`／`密碼`
+之後且含數字的值、`*_TOKEN=` 類環境變數值）換成 `REDACTED` 佔位；Raw 開頭的 audit 註解會記 `redactions=N`。
 
 `auto_push` 失敗時不再靜默：遠端的錯誤訊息會附加到 `~/.cortex/push-failures.log`，
 下一個 session 的開場狀態列也會顯示「有 N 個 commit 尚未推送」。
