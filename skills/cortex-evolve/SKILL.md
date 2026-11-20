@@ -120,7 +120,11 @@ If `git.commit_trailer` in config is a non-empty string, pass it as a second
 `-m` so it becomes the last line of the message body:
 `git commit -m "cortex: <type> <brief>" -m "<commit_trailer>"`.
 
-If `auto_push` is true in config: `git push`
+Then push if the config asks for it. The flag lives under `git`, and a top-level lookup always reads null, so read it by this exact path.
+
+```bash
+if [ "$(jq -r '.git.auto_push // false' ~/.cortex/config.json)" = true ]; then git push; fi
+```
 
 Confirm to the user what was saved and where.
 
