@@ -215,3 +215,14 @@ def test_old_deck_files_are_swept(tmp_path):
     _inject(_make_repo(tmp_path / "work"), vault, plugin_root=plug, session_id="sess-1")
     assert not old.exists()
     assert recent.exists() and _deck_file(plug, "sess-1").exists()
+
+
+def test_quiet_vault_has_no_status_block(tmp_path):
+    # A fixed status line in every new session reads like an alarm; the
+    # status block appears only when there is something to report.
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ctx = _inject(_make_repo(tmp_path / "work"), vault)
+    assert "先顯示 vault 狀態" not in ctx
+    assert "然後列出選項" not in ctx
+    assert "列出以下選項" in ctx
