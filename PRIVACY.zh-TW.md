@@ -60,7 +60,8 @@ bytes、`~/.cortex/config.json` 不存在或其中的 `vault_path` 無效、設�
 固定的憑證形狀表，把符合的字串換成 `REDACTED` 佔位：GitLab personal-access
 與 OAuth token、AWS access key id、OpenAI 與 Anthropic API key、GitLab
 session cookie、JWT、`curl -u` 帳密、`Authorization` 與 `PRIVATE-TOKEN`
-標頭值、URL 內嵌的密碼，以及 `SOMETHING_TOKEN=` 形式的環境變數值。每筆記錄
+標頭值、URL 內嵌的密碼、緊接在 `password`／`passwd`／`密碼` 之後且含數字的值，
+以及 `SOMETHING_TOKEN=` 形式的環境變數值。每筆記錄
 開頭的 audit 註解會以 `redactions=N` 記下替換了幾處。
 
 **這是形狀比對，不是 secrets scanner，而且它是唯一的遮蔽機制。** 格式不在
@@ -175,10 +176,12 @@ OpenAI 進行重新排序。
 | `~/.cortex/bm25/` | BM25 詞彙索引 |
 | `${XDG_CACHE_HOME:-~/.cache}/cortex/distill-plans/` | 提煉流程的工作狀態 |
 | `~/.cortex/push-failures.log` | 只在啟用 `auto_push` 且 push 被拒時寫入：時間戳、repo 名稱、vault 路徑，以及遠端回傳的錯誤訊息 |
+| `$CLAUDE_PLUGIN_ROOT/.deck/<session_id>.json` | 給 band 用的 SessionStart 選單資料：repo 名稱、vault 路徑、尚未推送的提示（若有），以及每個待處理交接的 topic、摘要與來源路徑。session 結束時刪除；超過一天的殘檔會在下一次 session 開始時清掉 |
+| `~/.cortex/cvec-sync/` | 只在 `cortex-vec` 以 `pip` 安裝時寫入：正在安裝那份的內容雜湊、plugin 版本、結果，以及上一次重裝的 pip 輸出（`install.log`） |
 | `~/.cortex/filter-failures.log` | 只在 transcript 過濾器崩潰時寫入：它的 stderr，且會先經過與記錄本文相同的遮蔽流程；檔案以 `0600` 建立 |
 
 **保存期限無限，且完全由你控制。** Cortexes 不會自行讓資料過期、輪替或
-刪除。唯一的例外是 `reclaim-superseded`，它會移除那些「內容是同一段對話
+刪除。例外是上面那些每個 session 一份的 deck 檔（內容只是 vault 與設定裡已有資料的副本），以及 `reclaim-superseded`，它會移除那些「內容是同一段對話
 較長記錄之嚴格前綴」的冗餘 `Raw/` 記錄——刪掉的是重複品，永遠不是獨有
 內容。
 

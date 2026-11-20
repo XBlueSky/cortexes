@@ -95,7 +95,7 @@ class RedactSecretsTest(unittest.TestCase):
             "https://git.example.com/org/project.git",
             'keyboard = "ctrl+shift+alt+x"',
             "MAX_TOKENS=4096",
-            "postgres://akashic:${DB_PASSWORD}@postgres:5432/akashic",
+            "postgres://app:${DB_PASSWORD}@postgres:5432/app",
             "commit 449ce929bf17ba2d7e4844db9290df2c700f5e39",
             "sk-learn is a python package",
             "Authorization header must be set",
@@ -113,6 +113,52 @@ class RedactSecretsTest(unittest.TestCase):
         got, _ = redact_secrets(
             "https://gitlab-ci-token:[secure]@git.example.com/x/y.git")
         self.assertIsNone(host_rule.search(got))
+
+
+class TypedPasswordTest(unittest.TestCase):
+    """A password a person types into a prompt has no token shape.
+
+    2026-11-18: a user prompt carrying NAS and VM credentials in prose reached
+    Raw/ and origin; every rule above wants a vendor prefix, a header, or a
+    16+ char KEY=VALUE value, and a human-chosen password has none of those.
+    This rule keys on the word instead and wants a digit in the value, which
+    keeps English prose ("the password field") and code (get_password())
+    out of it.
+    """
+
+    CAUGHT = [
+        ("NAS 帳號 admin 密碼 Acme2024",
+         "NAS 帳號 admin 密碼 REDACTED"),
+        ("密碼：Abc12345", "密碼：REDACTED"),
+        ("VM 的密碼是 hunter22", "VM 的密碼是 REDACTED"),
+        ("密码为P@ss1234", "密码为REDACTED"),
+        ("password: hunter22", "password: REDACTED"),
+        ("the Password is abc123!", "the Password is REDACTED"),
+        ('{"password": "P@ssw0rd1"}', '{"password": "REDACTED"}'),
+        ("sshpass --password S3cret! root@vm", "sshpass --password REDACTED root@vm"),
+        ("passwd=Pa55word", "passwd=REDACTED"),
+    ]
+
+    UNTOUCHED = [
+        "password 欄位要填",
+        "the password field is empty",
+        "password = get_password()",
+        "密碼錯誤 3 次",
+        "postgres://app:${DB_PASSWORD}@postgres:5432/app",
+        "password=${DB_PASSWORD}",
+        "reset_password1234 handler",
+        "password: REDACTED",
+    ]
+
+    def test_a_typed_password_is_replaced(self):
+        for src, want in self.CAUGHT:
+            with self.subTest(src=src):
+                self.assertEqual(redact_secrets(src)[0], want)
+
+    def test_prose_and_code_about_passwords_are_untouched(self):
+        for src in self.UNTOUCHED:
+            with self.subTest(src=src):
+                self.assertEqual(redact_secrets(src), (src, 0))
 
 
 class RedactionAnchoringTest(unittest.TestCase):

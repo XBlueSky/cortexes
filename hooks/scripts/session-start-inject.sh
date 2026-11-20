@@ -36,12 +36,63 @@ repo_name="$(cortex_repo_slug "$cwd" || true)"
 # session-end-record.sh logs a rejected push to push-failures.log but stays
 # silent otherwise; without this line the vault could trail its remote for
 # weeks. Only counted when the vault branch has an upstream at all.
-unpushed_status=""
+#
+# Being ahead of the remote is not by itself a failure: the vault is shared,
+# and a distill in another session commits for hours before anything pushes.
+# So the line needs a logged failure of this vault no older than the oldest
+# unpushed commit -- a push that carried these commits and was refused. A
+# commit that really is stuck gets there: every later SessionEnd push takes
+# it along, and a refusal is logged.
 unpushed_text=""
+push_log="$(dirname "$CORTEX_CONFIG")/push-failures.log"
 unpushed=$(git -C "$CORTEX_DIR" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
-if [[ "${unpushed:-0}" -gt 0 ]]; then
-  unpushed_text="有 ${unpushed} 個 commit 尚未推送到 origin（失敗原因見 $(dirname "$CORTEX_CONFIG")/push-failures.log）"
-  unpushed_status="先顯示 vault 狀態："$'\n'"  - ${unpushed_text}"$'\n\n'
+if [[ "${unpushed:-0}" -gt 0 && -f "$push_log" ]]; then
+  oldest_unpushed=$(git -C "$CORTEX_DIR" log --format=%ct '@{u}..HEAD' 2>/dev/null | sort -n | head -1)
+  # Entry headers read "[<local time>] repo=<slug> vault=<path>"; keep the last.
+  last_failure=$(awk -v tail=" vault=$CORTEX_DIR" '
+    substr($0, 1, 1) == "[" && substr($0, length($0) - length(tail) + 1) == tail {
+      ts = substr($0, 2, index($0, "]") - 2)
+    }
+    END { print ts }' "$push_log" 2>/dev/null || true)
+  # An empty string must not reach date -d: it reads as today at midnight.
+  failure_epoch=0
+  if [[ -n "$last_failure" ]]; then
+    # GNU date -d first, then BSD/macOS date -j -f for the same layout.
+    failure_epoch=$(date -d "$last_failure" +%s 2>/dev/null \
+      || date -j -f '%Y-%m-%dT%H:%M:%S' "$last_failure" +%s 2>/dev/null \
+      || echo 0)
+  fi
+  if [[ -n "$oldest_unpushed" && "$failure_epoch" -ge "$oldest_unpushed" ]]; then
+    unpushed_text="有 ${unpushed} 個 commit 尚未推送到 origin（失敗原因見 ${push_log}）"
+  fi
+fi
+
+# --- cortex-vec sync: the CLI follows the copy this plugin ships ---
+# /plugin update leaves the pip-installed CLI behind. cvec_sync.py compares it
+# with the plugin's copy, reinstalls in the background when they differ, and
+# prints one status line as JSON (updating / updated / failed) or nothing.
+# Only at startup: a process started before /plugin update keeps the old
+# plugin root, and a /clear or compaction there would reinstall the old copy.
+# The check runs under a 5 s cap so it can never eat the hook's own budget;
+# macOS ships no `timeout`, so Homebrew's `gtimeout` stands in, and with
+# neither the check is skipped rather than run unbounded.
+cvec_status=""
+cvec_timeout=$(command -v timeout || command -v gtimeout || true)
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && "$start_source" == "startup" && -n "$cvec_timeout" ]]; then
+  cvec_status=$("$cvec_timeout" 5 python3 "$(dirname "${BASH_SOURCE[0]}")/cvec_sync.py" check \
+    --plugin-root "$CLAUDE_PLUGIN_ROOT" 2>/dev/null || true)
+fi
+
+status_json=$(jq -cn --arg unpushed "$unpushed_text" --arg cvec "$cvec_status" '
+  (if $unpushed == "" then [] else [{text: $unpushed, warn: true}] end)
+  + [$cvec | fromjson? // empty | select(type == "object" and (.text | type) == "string")]')
+
+# The menu opens with the vault status only when there is something to report;
+# a fixed line in every session reads like an alarm and trains people to skip it.
+menu_intro="列出以下選項："
+status_lines=$(printf '%s' "$status_json" | jq -r '.[] | "  - " + .text')
+if [[ -n "$status_lines" ]]; then
+  menu_intro="呈現以下格式："$'\n\n'"先顯示狀態："$'\n'"${status_lines}"$'\n\n'"然後列出選項："
 fi
 
 # --- Vault topic summary (top-level Notes/ and Projects/ entries) ---
@@ -109,8 +160,7 @@ fi
 # a bare number. `<` and `>` become \u003c / \u003e: JSON syntax uses neither,
 # so each sits inside a string, and no path or label holding `-->` can close
 # the HTML comment early.
-deck_status=$(jq -cn --arg unpushed "$unpushed_text" \
-  'if $unpushed == "" then [] else [{text: $unpushed, warn: true}] end')
+deck_status="$status_json"
 deck_batons=$(printf '%s' "$baton_json" | jq -cs '.')
 # The stamp marks this run, so the mod takes a deck that reaches it through
 # both the context and the deck file once.
@@ -164,9 +214,7 @@ Vault 目前涵蓋的主題（僅為主題名稱清單，不是內容；用來�
 
 <!-- cortex:menu -->
 __DECK__
-在你第一次回覆使用者時，呈現以下格式：
-
-__UNPUSHED_STATUS__列出選項：
+在你第一次回覆使用者時，__MENU_INTRO__
 1. 載入此 repo 的記憶筆記（執行 cortex-vec search --repo __REPO__）
 2. 查看最近的 session 紀錄（列出 __VAULT__/Raw/ 中最近幾筆）
 3. 處理待辦事項（提煉未處理的紀錄）
@@ -184,7 +232,7 @@ PROMPT_TEMPLATE
 # Substitute placeholders
 context="${context//__REPO__/$repo_name}"
 context="${context//__VAULT__/$CORTEX_DIR}"
-context="${context//__UNPUSHED_STATUS__/$unpushed_status}"
+context="${context//__MENU_INTRO__/$menu_intro}"
 context="${context//__NOTES_TOPICS__/$notes_topics}"
 context="${context//__PROJECTS_TOPICS__/$projects_topics}"
 context="${context//__TAKEOFF_OPTION__/$takeoff_option}"

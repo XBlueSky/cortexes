@@ -7,6 +7,7 @@ is complete); prose/output_body/ambiguous/opaque always need raw-span.
 """
 from __future__ import annotations
 
+import bisect
 import re
 
 from . import distill_plan as dp
@@ -16,6 +17,8 @@ from .raw_page import (PAGE_BUDGET_DEFAULT, PageError, decode_cursor,
                        render_page)
 
 PREVIEW_CHARS = 160
+# span ids per find envelope; keeps a find-only reply inside its page budget
+FIND_LIMIT = 50
 _ISSUE_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,9}-\d{3,7}\b")
 _URL_RE = re.compile(r"https?://\S+")
 
@@ -95,15 +98,21 @@ def _dispatch(args) -> None:
                         reason="--find-only needs --find <literal>")
     find_matches = None
     if find:
-        find_matches = []
+        # Spans partition the text contiguously, so a bisect on char_start
+        # maps each occurrence to its span without scanning every span.
+        starts = [s.char_start for s in spans]
+        after = getattr(args, "find_after", None)
+        hits = []
         pos = text.find(find)
-        while pos != -1 and len(find_matches) < 50:
-            for s in spans:
-                if s.char_start <= pos < s.char_end \
-                        and s.id not in find_matches:
-                    find_matches.append(s.id)
-                    break
+        while pos != -1:
+            sid = spans[bisect.bisect_right(starts, pos) - 1].id
+            if not hits or hits[-1] != sid:
+                hits.append(sid)
             pos = text.find(find, pos + 1)
+        later = [h for h in hits if after is None or h > after]
+        find_matches = later[:FIND_LIMIT]
+        find_total = len(hits)
+        find_truncated = len(later) > FIND_LIMIT
 
     used_before = state["session_used_chars"]
     budget = state["session_budget"] - dp.CONTROL_RESERVE
@@ -126,6 +135,8 @@ def _dispatch(args) -> None:
         }
         if find_matches is not None:
             obj["find_matches"] = find_matches
+            obj["find_total"] = find_total
+            obj["find_truncated"] = find_truncated
         if find_only:
             # Locate only: no cards, no map progress, no continuation.
             obj["find_only"] = True

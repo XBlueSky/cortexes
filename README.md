@@ -25,6 +25,8 @@ Cortexes turns your working memory into a searchable knowledge base. Every
 Claude Code session gets automatically recorded when it ends, then can be
 distilled and retrieved later.
 
+<p align="center"><img src="docs/images/lifecycle.svg" alt="The Cortexes loop: recall at session start, search while working, record at the end, then distill and broadcast into the vault" width="860"></p>
+
 - **Automatic capture** — a full report (commits, findings, decisions) is
   generated when a session ends and saved to the vault
 - **Semantic search** — OpenAI embeddings + ChromaDB, with mixed Chinese/English
@@ -72,6 +74,16 @@ instead, install from the repo:
 ```bash
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
+
+A `pip` install is also kept in step automatically. When the installed
+`cortex-vec` differs from the copy the plugin ships, the next session
+reinstalls that copy in the background (no network) and says so at the top
+of the menu ("updating", then "updated" once). If the reinstall fails, every
+session warns with the log path and the command to run until it is fixed.
+A `uv tool` install lives outside the session's `python3` and an editable
+install (`pip install -e`) is yours to manage, so the sync leaves both
+alone. The check needs `timeout` (or Homebrew's `gtimeout` on macOS) and is
+skipped without it.
 
 `OPENAI_API_KEY` is **optional**. Setting it enables embeddings, and with
 them semantic (vector) search. Without it nothing breaks: `search` runs on
@@ -129,12 +141,13 @@ and indexes are untouched — there is no data migration.
    uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
    ```
 
-   `cortex-vec` 0.10.0 is the version this plugin release ships against. 0.8.0
+   `cortex-vec` 0.11.0 is the version this plugin release ships against. 0.8.0
    is what carried the Weekly removal into the CLI — `--type weekly` is gone
    from `search --help` and `Weekly/` is no longer classified as a content
    type — 0.9.0 adds the cosine backfill and the retrieval-filter fixes
-   that 2.1.0's dedup and scoped search depend on, and 0.10.0 adds the quiet
-   stderr and classified exit codes the 2.2.0 query skill reads. Older CLIs
+   that 2.1.0's dedup and scoped search depend on, 0.10.0 adds the quiet
+   stderr and classified exit codes the 2.2.0 query skill reads, and 0.11.0
+   adds the `raw-map --find` paging the 2.3.0 distill skill uses. Older CLIs
    keep working, but a scoped search on one still leaks out-of-scope pages
    and a keyword-only hit still reports `0.00`.
 6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
@@ -193,6 +206,8 @@ what lands in Raw/ actually carries signal.
 
 ## Architecture
 
+<p align="center"><img src="docs/images/architecture.svg" alt="Cortexes architecture: the plugin, the vault, the derived index, and the two optional model APIs" width="860"></p>
+
 ```
 cortex repo
 ├── plugin branch (orphan)     ← the Claude Code plugin (this file lives here)
@@ -236,6 +251,8 @@ Periodically:
 ```
 
 ### Retrieval Strategy
+
+<p align="center"><img src="docs/images/retrieval.svg" alt="Hybrid retrieval in cortex-vec: BM25, vector and graph streams fused by RRF, with optional rerank" width="860"></p>
 
 **Hybrid retrieval** (0.4.0+) — BM25 + vector dual streams, fused with
 Reciprocal Rank Fusion (RRF, k=60), default weights w_bm25=0.4 / w_vec=0.6:
@@ -453,7 +470,8 @@ Raw commits need no trailer, because a Raw is already cleaned at capture time
 of the two things a git host rejects: line breaks are normalized to `\n`, and
 credential-shaped strings (GitLab PATs, OpenAI / Anthropic keys, AWS keys, JWTs,
 session cookies, curl and Authorization header credentials, passwords in URLs,
-`*_TOKEN=` environment values) are replaced with `REDACTED` placeholders. The
+a value with a digit typed right after `password` / `密碼`, `*_TOKEN=`
+environment values) are replaced with `REDACTED` placeholders. The
 audit comment at the top of each Raw records `redactions=N`.
 
 A failing `auto_push` is no longer silent: the remote's error is appended to

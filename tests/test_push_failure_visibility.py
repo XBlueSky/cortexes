@@ -5,7 +5,9 @@ push (pre-receive hook, auth, network) left the vault silently behind, and
 every later push failed the same way until someone noticed by accident.
 Now a failed push appends the remote's message to ~/.cortex/push-failures.log,
 and session-start-inject.sh tells the next session how many commits are
-still unpushed.
+still unpushed -- but only when the log holds a failure newer than the oldest
+of them. Being ahead of the remote alone is not a failure: the vault is shared,
+and a distill in another session commits for hours before anything pushes.
 """
 from __future__ import annotations
 
@@ -132,25 +134,78 @@ def _inject(home, cwd):
     return json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
 
 
-def test_session_start_reports_unpushed_commit_count(tmp_path):
-    vault = _vault_with_remote(tmp_path)
-    for i in range(2):
+def _commit_unpushed(vault, n, when="2026-11-05T10:00:00"):
+    env = {**os.environ, **GIT_ENV, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+    for i in range(n):
         (vault / f"n{i}.md").write_text("x\n")
-        _git(vault, "add", f"n{i}.md")
-        _git(vault, "commit", "-q", "-m", f"raw: session x {i}")
+        subprocess.run(["git", "-C", str(vault), "add", f"n{i}.md"], check=True, env=env)
+        subprocess.run(["git", "-C", str(vault), "commit", "-q", "-m", f"raw: session x {i}"],
+                       check=True, env=env)
+
+
+def _log_failure(home, vault, ts):
+    """An entry in the shape session-end-record.sh appends."""
+    with open(home / ".cortex" / "push-failures.log", "a") as f:
+        f.write(f"[{ts}] repo=demo vault={vault}\n ! [remote rejected] main -> main\n\n")
+
+
+def test_session_start_reports_unpushed_commits_after_a_failed_push(tmp_path):
+    vault = _vault_with_remote(tmp_path)
+    _commit_unpushed(vault, 2)
     home = _home(tmp_path, vault, auto_push=True)
-    cwd = _work_repo(tmp_path)
-    ctx = _inject(home, cwd)
+    _log_failure(home, vault, "2026-11-05T10:00:05")
+    ctx = _inject(home, _work_repo(tmp_path))
     assert "2 個 commit 尚未推送" in ctx
     assert "push-failures.log" in ctx
+
+
+def test_unpushed_commits_without_a_failure_are_quiet(tmp_path):
+    # Another session's distill has committed and not pushed yet.
+    vault = _vault_with_remote(tmp_path)
+    _commit_unpushed(vault, 2)
+    home = _home(tmp_path, vault, auto_push=True)
+    ctx = _inject(home, _work_repo(tmp_path))
+    assert "尚未推送" not in ctx
+    assert "先顯示狀態" not in ctx
+
+
+def test_a_failure_older_than_the_unpushed_commits_is_quiet(tmp_path):
+    vault = _vault_with_remote(tmp_path)
+    _commit_unpushed(vault, 1)
+    home = _home(tmp_path, vault, auto_push=True)
+    _log_failure(home, vault, "2026-10-29T17:48:43")
+    assert "尚未推送" not in _inject(home, _work_repo(tmp_path))
+
+
+def test_a_failure_of_another_vault_is_quiet(tmp_path):
+    vault = _vault_with_remote(tmp_path)
+    _commit_unpushed(vault, 1)
+    home = _home(tmp_path, vault, auto_push=True)
+    _log_failure(home, tmp_path / "elsewhere", "2026-11-05T10:00:05")
+    assert "尚未推送" not in _inject(home, _work_repo(tmp_path))
 
 
 def test_session_start_is_quiet_when_everything_is_pushed(tmp_path):
     vault = _vault_with_remote(tmp_path)
     home = _home(tmp_path, vault, auto_push=True)
+    _log_failure(home, vault, "2026-11-05T10:00:05")
     cwd = _work_repo(tmp_path)
     ctx = _inject(home, cwd)
     assert "尚未推送" not in ctx
+
+
+def test_a_push_the_remote_rejects_reaches_the_next_session(tmp_path):
+    vault = _vault_with_remote(tmp_path, reject_message="GL-HOOK-ERR: nope")
+    home = _home(tmp_path, vault, auto_push=True)
+    tx = _transcript(tmp_path)
+    cwd = _work_repo(tmp_path)
+    env = {**os.environ, **GIT_ENV, "HOME": str(home)}
+    env.pop("CORTEX_SESSION_RECORDING", None)
+    subprocess.run(["bash", str(RECORD)],
+                   input=json.dumps({"transcript_path": str(tx), "cwd": str(cwd)}),
+                   text=True, capture_output=True, env=env)
+    assert _wait_for((home / ".cortex" / "push-failures.log").exists)
+    assert "1 個 commit 尚未推送" in _inject(home, cwd)
 
 
 def _deck(ctx):
@@ -161,13 +216,14 @@ def _deck(ctx):
 
 def test_session_start_deck_warns_on_unpushed_commits(tmp_path):
     vault = _vault_with_remote(tmp_path)
-    for i in range(2):
-        (vault / f"n{i}.md").write_text("x\n")
-        _git(vault, "add", f"n{i}.md")
-        _git(vault, "commit", "-q", "-m", f"raw: session x {i}")
+    _commit_unpushed(vault, 2)
     home = _home(tmp_path, vault, auto_push=True)
-    deck = _deck(_inject(home, _work_repo(tmp_path)))
-    assert deck["status"][0] == {
+    _log_failure(home, vault, "2026-11-05T10:00:05")
+    ctx = _inject(home, _work_repo(tmp_path))
+    deck = _deck(ctx)
+    assert deck["status"] == [{
         "text": f"有 2 個 commit 尚未推送到 origin（失敗原因見 {home}/.cortex/push-failures.log）",
         "warn": True,
-    }
+    }]
+    assert "先顯示狀態：\n  - 有 2 個 commit 尚未推送" in ctx
+    assert "\n\n然後列出選項：\n1. " in ctx

@@ -3,7 +3,6 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 const PROPS = { hasSurvey: false, isWorking: false, maxRows: 20 } as never
-const NO_BAND = 'no implementation for ui.render'
 
 const deckOf = (source: string, batons: object[] = [{ label: 'line-a', prompt: 'resume line-a' }]) => ({
   v: 1, source, repo: 'cortex',
@@ -76,6 +75,17 @@ const measure = ($: Engine, pct: number) =>
 const mountBand = ($: Engine, surface: 'terminal' | 'desktop' = 'terminal') =>
   $.ui.mount({ plugin: 'cortexes', surface, component: 'AbovePrompt', props: PROPS })
 
+// No band means nothing drawn. Older engines rejected the mount ("no
+// implementation for ui.render"); newer ones resolve it with an empty tree.
+// Either outcome passes; a band, which always draws its repo, does not.
+async function expectNoBand(mounting: Promise<{ findAll(q: { type: 'Text' }): Promise<unknown[]> }>) {
+  const ui = await mounting.catch((err: unknown) => {
+    expect(String(err)).toContain('no implementation for ui.render')
+    return null
+  })
+  if (ui) expect(await ui.findAll({ type: 'Text' })).toHaveLength(0)
+}
+
 describe('menu block', () => {
   test('a hook-context row loses only the fenced block', async ($, on) => {
     const rows = recordRows(on)
@@ -101,7 +111,7 @@ describe('menu block', () => {
     const text = hookText({ ...deckOf('startup'), v: 2 })
     await append($, [text])
     expect(rows).toEqual([text])
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 })
 
@@ -117,7 +127,7 @@ describe('band', () => {
       expect(await ui.find({ type: 'Button', text: '接續交接 line-a' })).toBeDefined()
       await ui.press({ key: 'action-0' })
       expect(subs).toEqual([{ text: 'load memory', asUser: true }])
-      await expect(mountBand($, surface)).rejects.toThrow(NO_BAND)
+      await expectNoBand(mountBand($, surface))
     })
   }
 
@@ -154,29 +164,28 @@ describe('band', () => {
     recordSubmits(on)
     await append($, [hookText(deckOf('startup'))])
     await $.prompt.submit({ text: 'typed by the person' })
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('a survey holds the band', async ($, on) => {
     recordRows(on)
     await append($, [hookText(deckOf('startup'))])
     const props = { hasSurvey: true, isWorking: false, maxRows: 20 } as never
-    await expect($.ui.mount({ plugin: 'cortexes', surface: 'terminal', component: 'AbovePrompt', props }))
-      .rejects.toThrow(NO_BAND)
+    await expectNoBand($.ui.mount({ plugin: 'cortexes', surface: 'terminal', component: 'AbovePrompt', props }))
   })
 
   test('the hide button folds the menu', async ($, on) => {
     recordRows(on)
     await append($, [hookText(deckOf('startup'))])
     await (await mountBand($)).press({ key: 'hide' })
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('after a compaction the block is cut but no band shows', async ($, on) => {
     const rows = recordRows(on)
     await append($, [hookText(deckOf('compact'))])
     expect(rows).toEqual(['[Cortexes] front\n\nOTHER PLUGIN'])
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('many batons all stay pressable', async ($, on) => {
@@ -239,7 +248,7 @@ describe('deck file', () => {
     const files = deckFiles(on)
     await startSession($)
     await clock.advance(1000)
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
     files.write('sess-1', { ...deckOf('startup'), stamp: 's1' }, 5)
     await clock.advance(1000)
     expect(await (await mountBand($)).find({ type: 'Button', text: '載入記憶' })).toBeDefined()
@@ -268,7 +277,7 @@ describe('deck file', () => {
     await clock.advance(1000)
     await (await mountBand($)).press({ key: 'hide' })
     await clock.advance(5000)
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('the deck the context already carried does not come back', async ($, on) => {
@@ -281,7 +290,7 @@ describe('deck file', () => {
     await (await mountBand($)).press({ key: 'hide' })
     files.write('sess-1', deck, 5)
     await clock.advance(1000)
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('a file that is not a deck draws nothing', async ($, on) => {
@@ -290,7 +299,7 @@ describe('deck file', () => {
     await startSession($)
     files.write('sess-1', null, 5, '{broken')
     await clock.advance(1000)
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 })
 
@@ -312,7 +321,7 @@ describe('context reminder', () => {
     expect((await ui.find({ key: 'handoff' }))?.props.hotkey).toBeUndefined()
     await ui.press({ key: 'handoff' })
     expect(subs.at(-1)).toEqual({ text: 'write a baton', asUser: true })
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 
   test('a resumed session is reminded again', async ($, on) => {
@@ -332,6 +341,6 @@ describe('context reminder', () => {
     answerMeasure(on)
     await measure($, 75)
     expect(toasts).toEqual(['context 已用 75%，可以考慮建立交接'])
-    await expect(mountBand($)).rejects.toThrow(NO_BAND)
+    await expectNoBand(mountBand($))
   })
 })

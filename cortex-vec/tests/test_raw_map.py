@@ -31,9 +31,10 @@ def env(tmp_path, monkeypatch):
 
 
 def _page(capsys, raw, st, cursor=None, max_chars=12000, find=None,
-          find_only=False):
+          find_only=False, find_after=None):
     rm.dispatch(Args(path=str(raw), plan_id=st["plan_id"], cursor=cursor,
-                     max_chars=max_chars, find=find, find_only=find_only))
+                     max_chars=max_chars, find=find, find_only=find_only,
+                     find_after=find_after))
     out = capsys.readouterr().out
     assert out.endswith("\n")
     assert len(out) <= max_chars
@@ -153,3 +154,44 @@ def test_find_only_without_find_errors(env, capsys):
                          max_chars=12000, find=None, find_only=True))
     out = capsys.readouterr().out
     assert json.loads(out)["error"] == "FIND_ONLY_REQUIRES_FIND"
+
+
+# 60 user turns, each with its own "needle" prose span: more hits than the
+# 50 ids one find envelope reports.
+MANY = ("---\nrepo: cortex\n---\n"
+        + "### User\n\nneedle here\n\n### Claude\n\nok\n\n" * 60)
+
+
+@pytest.fixture
+def many(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    raw = tmp_path / "many.md"
+    raw.write_text(MANY, encoding="utf-8")
+    st = dp.start_plan(str(raw), 12000, 100000)
+    return raw, st
+
+
+def test_find_reports_total_and_truncation_past_the_cap(many, capsys):
+    raw, st = many
+    page = _page(capsys, raw, st, find="needle", find_only=True)
+    assert len(page["find_matches"]) == 50
+    assert page["find_total"] == 60
+    assert page["find_truncated"] is True
+
+
+def test_find_under_the_cap_is_not_truncated(env, capsys):
+    raw, st = env
+    page = _page(capsys, raw, st, find="PROJ-4521", find_only=True)
+    assert page["find_total"] == len(page["find_matches"]) == 1
+    assert page["find_truncated"] is False
+
+
+def test_find_after_pages_to_the_hits_past_the_cap(many, capsys):
+    raw, st = many
+    first = _page(capsys, raw, st, find="needle", find_only=True)
+    rest = _page(capsys, raw, st, find="needle", find_only=True,
+                 find_after=first["find_matches"][-1])
+    assert len(rest["find_matches"]) == 10
+    assert min(rest["find_matches"]) > max(first["find_matches"])
+    assert rest["find_total"] == 60
+    assert rest["find_truncated"] is False

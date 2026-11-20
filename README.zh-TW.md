@@ -23,6 +23,8 @@
 
 Cortexes 把你的工作記憶變成可搜尋的知識庫。每次 Claude Code session 結束時自動記錄，之後可以提煉、檢索。
 
+<p align="center"><img src="docs/images/lifecycle.svg" alt="Cortexes 的循環：session 開始時回想、工作時搜尋、結束時記錄，之後提煉並 broadcast 回 vault" width="860"></p>
+
 - **自動記錄** — session 結束時產出完整報告（commits、發現、決策），存到 vault
 - **語意搜尋** — 用 OpenAI embedding + ChromaDB，中英文混合搜尋
 - **知識提煉** — 從 Raw session dump 萃取踩坑知識、內部慣例、關鍵決策
@@ -64,6 +66,13 @@ cortex-vec`）升級。`/cortexes:genesis` 會檢查 CLI 是否已安裝，缺�
 ```bash
 uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirectory=cortex-vec"
 ```
+
+用 `pip` 安裝的 CLI 也會自動跟上：已安裝的 `cortex-vec` 與 plugin 附帶的版本
+不同時，下一個 session 會在背景重裝 plugin 附帶的那份（不需網路），並在選單
+最上方顯示（「正在更新」，完成後顯示一次「已更新」）。重裝失敗時，每個 session
+都會提示 log 路徑與手動指令，直到修好為止。`uv tool` 安裝在 session 的 `python3`
+之外，editable 安裝（`pip install -e`）由你自己管理，這兩種都不會被同步。檢查需要
+`timeout`（macOS 可用 Homebrew 的 `gtimeout`），沒有時會略過。
 
 `OPENAI_API_KEY` 是**選用的**。設定它會啟用 embedding，也就啟用語意
 （向量）搜尋。不設定也不會壞掉：`search` 會走本機 BM25 索引，完全在你的
@@ -116,11 +125,12 @@ uv tool install "git+https://github.com/XBlueSky/cortexes.git@plugin#subdirector
    uv tool upgrade cortex-vec    # 或：pip install -U cortex-vec
    ```
 
-   這個 plugin 版本對應的是 `cortex-vec` 0.10.0。Weekly 的移除要靠 0.8.0 才會
+   這個 plugin 版本對應的是 `cortex-vec` 0.11.0。Weekly 的移除要靠 0.8.0 才會
    到 CLI 端 —— `search --help` 不再列出 `--type weekly`，`Weekly/` 也不再被
    歸類成 content type —— 0.9.0 補上了 cosine backfill 與檢索過濾的修正，
    2.1.0 的去重與帶範圍搜尋都靠它；0.10.0 則讓 stderr 安靜下來並為 exit code
-   分類，2.2.0 的 query skill 會讀這些訊號。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
+   分類，2.2.0 的 query skill 會讀這些訊號；
+   0.11.0 加上 `raw-map --find` 的分頁，2.3.0 的 distill skill 會用到。舊版 CLI 仍可運作，但帶範圍的搜尋還是會
    漏出範圍外的頁面，只靠關鍵字命中的結果也還是回報 `0.00`。
 6. **其他都沒變。** `~/.cortex/config.json`、vector/BM25 索引與快取、
    `CORTEX_*` 環境變數，名稱與路徑全部保留。不用重建、不用重新索引、
@@ -175,6 +185,8 @@ command 寫客製 filter，讓 Raw 存下來的是真正有訊號的內容。
 
 ## Architecture
 
+<p align="center"><img src="docs/images/architecture.svg" alt="Cortexes 架構：plugin、vault、衍生索引，以及兩個選用的模型 API" width="860"></p>
+
 ```
 cortex repo
 ├── plugin branch (orphan)     ← Claude Code plugin（本檔案所在）
@@ -216,6 +228,8 @@ log.md                         ← evolve/distill 的時序歷程
 ```
 
 ### Retrieval Strategy
+
+<p align="center"><img src="docs/images/retrieval.svg" alt="cortex-vec 的 hybrid 檢索：BM25、向量與 graph 三條流以 RRF 融合，可選 rerank" width="860"></p>
 
 **Hybrid 檢索**（0.4.0+）— BM25 + vector 雙流，以 Reciprocal Rank Fusion（RRF, k=60）融合，預設權重 w_bm25=0.4 / w_vec=0.6：
 
@@ -390,8 +404,8 @@ raw commit 與 broadcast 不加。
 
 raw commit 不需要 trailer，因為 Raw 在擷取時就已經處理過兩件會讓 git hosting 拒收的事：
 換行字元統一成 `\n`，以及憑證形狀的字串（GitLab PAT、OpenAI / Anthropic key、AWS key、
-JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼、`*_TOKEN=` 類環境
-變數值）換成 `REDACTED` 佔位；Raw 開頭的 audit 註解會記 `redactions=N`。
+JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼、緊接在 `password`／`密碼`
+之後且含數字的值、`*_TOKEN=` 類環境變數值）換成 `REDACTED` 佔位；Raw 開頭的 audit 註解會記 `redactions=N`。
 
 `auto_push` 失敗時不再靜默：遠端的錯誤訊息會附加到 `~/.cortex/push-failures.log`，
 下一個 session 的開場狀態列也會顯示「有 N 個 commit 尚未推送」。

@@ -47,8 +47,8 @@ def _write_baton(vault, slug, topic, summary="s", workdir=None):
     return p
 
 
-def _inject(cwd, vault, plugin_root=None, **fields):
-    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault)}
+def _inject(cwd, vault, plugin_root=None, extra_env=None, **fields):
+    env = {**os.environ, "CORTEX_VAULT_PATH": str(vault), **(extra_env or {})}
     env.pop("CLAUDE_PLUGIN_ROOT", None)
     if plugin_root is not None:
         env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
@@ -215,3 +215,57 @@ def test_old_deck_files_are_swept(tmp_path):
     _inject(_make_repo(tmp_path / "work"), vault, plugin_root=plug, session_id="sess-1")
     assert not old.exists()
     assert recent.exists() and _deck_file(plug, "sess-1").exists()
+
+
+def test_quiet_vault_has_no_status_block(tmp_path):
+    # A fixed status line in every new session reads like an alarm; the
+    # status block appears only when there is something to report.
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ctx = _inject(_make_repo(tmp_path / "work"), vault)
+    # With nothing to report, the menu skips the status block entirely.
+    assert "先顯示狀態" not in ctx
+    assert "然後列出選項" not in ctx
+    assert "列出以下選項" in ctx
+
+
+# --- cortex-vec sync status (hooks/scripts/cvec_sync.py) ---------------------
+
+def test_cvec_status_reaches_deck_and_menu(tmp_path):
+    from cvec_fixtures import make_layout, wait_settled
+    lay = make_layout(tmp_path / "cvec")
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ctx = _inject(_make_repo(tmp_path / "work"), vault, plugin_root=lay.plugin,
+                  extra_env=lay.env())
+    wait_settled(lay)
+    running = "cortex-vec 正在背景更新為 plugin 9.9.9 附帶版本"
+    assert _deck(ctx)["status"] == [{"text": running, "warn": False}]
+    assert "先顯示狀態" in ctx
+    assert f"  - {running}" in ctx
+
+
+def test_no_cvec_status_when_in_sync(tmp_path):
+    from cvec_fixtures import make_layout
+    lay = make_layout(tmp_path / "cvec", same=True)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ctx = _inject(_make_repo(tmp_path / "work"), vault, plugin_root=lay.plugin,
+                  extra_env=lay.env())
+    assert _deck(ctx)["status"] == []
+    assert "列出以下選項" in ctx
+
+
+@pytest.mark.parametrize("source", ["resume", "clear", "compact"])
+def test_cvec_sync_runs_only_at_startup(tmp_path, source):
+    # A process started before /plugin update keeps the old plugin root; a
+    # /clear or compaction there must not reinstall the old copy.
+    from cvec_fixtures import make_layout
+    lay = make_layout(tmp_path / "cvec")
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ctx = _inject(_make_repo(tmp_path / "work"), vault, plugin_root=lay.plugin,
+                  extra_env=lay.env(), source=source)
+    assert _deck(ctx)["status"] == []
+    assert not lay.state_file.exists()
+    assert lay.pip_calls() == 0

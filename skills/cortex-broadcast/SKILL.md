@@ -391,6 +391,13 @@ git add <raw-relative-path> log.md
 git commit -m "broadcast: finalize <raw-filename>"
 ```
 
+Then push if the config asks for it; this one push also carries the
+per-page commits from Step 8. The flag lives under `git`, and a top-level lookup always reads null, so read it by this exact path.
+
+```bash
+if [ "$(jq -r '.git.auto_push // false' ~/.cortex/config.json)" = true ]; then git push; fi
+```
+
 Then clear the Step 4 plan, if one was opened.
 
 ## Step 10: Offer Next Raw

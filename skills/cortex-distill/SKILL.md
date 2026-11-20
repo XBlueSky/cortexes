@@ -130,6 +130,9 @@ L3/L3* projection. All original text arrives through bounded pages.
    Read `find_matches`, not `cards`, to see where the hit is. When the
    span id is all you need, add `--find-only`: no cards, no map
    progress, one ~600-char envelope instead of a ~12K page.
+   `find_matches` holds at most 50 ids: `find_total` counts every hit
+   span, and when `find_truncated` is true, pass the last id to
+   `--find-after <id>` for the next 50.
 
    **Monster play (find-first).** For a Raw whose map traversal cannot
    fit the budget, skip paging entirely:
@@ -425,7 +428,11 @@ If `git.commit_trailer` in config is a non-empty string, pass it as a second
 `-m` so it becomes the last line of the message body:
 `git commit -m "distill: extract N entries from Raw" -m "<commit_trailer>"`.
 
-If `auto_push` is true in config: `git push`.
+Then push if the config asks for it. The flag lives under `git`, and a top-level lookup always reads null, so read it by this exact path.
+
+```bash
+if [ "$(jq -r '.git.auto_push // false' ~/.cortex/config.json)" = true ]; then git push; fi
+```
 
 After the commit completes, close the plan (this verifies the only file
 change was the expected marker):

@@ -725,6 +725,24 @@ _SECRET_RULES = [
                 r"(?=[A-Za-z0-9_\-+/=.]{0,256}[A-Za-z])"
                 r"[A-Za-z0-9_\-+/=.]{16,}"),
      r"\1REDACTED"),
+    # A password typed into a prompt has no token shape and is often short
+    # ("NAS 帳號 admin 密碼 Abc12345"), so the rules above all miss it. This
+    # one keys on the word itself: password / passwd as a whole word, or
+    # 密碼 / 密码, then an optional ":" "=" "：" "is" "是" "為" "为", then a
+    # 4+ char ASCII value that contains a digit. The digit is what keeps
+    # prose ("the password field") and code ("get_password()") untouched;
+    # a password without one slips through, which is the accepted trade.
+    # The value class is printable ASCII minus space and quotes, so a JSON
+    # value stops at its closing quote; a value starting with "$" is a
+    # placeholder or an earlier ${REDACTED} and is left alone. Lookaheads
+    # are bounded so a run of repeated keywords stays linear.
+    (re.compile(r"(?i)((?:(?<![A-Za-z0-9_])pass(?:word|wd)(?![A-Za-z0-9_])|密碼|密码)"
+                r"[\"']?[ \t]*(?:[:=：]|is\b|是|為|为)?[ \t]*[\"']?)"
+                r"(?![$*:=])"
+                r"(?![!#-&(-~]{0,256}REDACTED)"
+                r"(?=[!#-&(-~]{0,64}\d)"
+                r"[!#-&(-~]{4,}"),
+     r"\1REDACTED"),
 ]
 
 
