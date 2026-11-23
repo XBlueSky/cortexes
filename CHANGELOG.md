@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-11-23
+
+### Fixed
+- The password-in-URL redaction now uses the same character classes as a
+  git host's secret-check that excludes only a newline. A URL whose
+  scheme, user, password and host are quoted pieces joined in code matches
+  the host rule across the spaces between them; it used to slip past the
+  plugin rule into Raw/, and the host then declined every push until the
+  commit was rewritten by hand.
+- The transcript classifier no longer boots the whole Claude Code setup.
+  Its `claude -p` call started every configured MCP server and ran every
+  plugin's hooks just to get a one-word answer; with a typical setup that
+  took ~28s, past the 20s timeout, and each killed call left its
+  `npm exec <mcp>` wrappers orphaned under init until memory ran out. The
+  call now runs with no MCP servers, tools, skills or hooks and answers
+  in ~8s.
+
 ## [2.3.0] - 2026-11-20
 
 ### Added
