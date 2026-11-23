@@ -210,10 +210,21 @@ def classify_block(text: str, state: dict) -> str:
     state["classifier_calls"] += 1
     env = {**os.environ, "CORTEX_SESSION_RECORDING": "1"}
     truncated = text[:CLASSIFIER_INPUT_CAP]
+    # A one-word verdict needs the model and nothing else. A bare `claude -p`
+    # boots the user's whole harness: every MCP server, every plugin's hooks,
+    # the skill list. That took ~28s with a typical setup, past the timeout,
+    # and the SIGKILL that follows leaves `npm exec <mcp>` wrappers orphaned
+    # under init. --bare would be leaner but drops OAuth login, so the
+    # harness is switched off piece by piece instead.
     try:
         result = subprocess.run(
             ["claude", "-p", "--model", "sonnet",
-             "--no-session-persistence", CLASSIFIER_PROMPT],
+             "--no-session-persistence",
+             "--strict-mcp-config",
+             "--tools", "",
+             "--disable-slash-commands",
+             "--settings", '{"disableAllHooks": true}',
+             CLASSIFIER_PROMPT],
             input=truncated,
             capture_output=True,
             text=True,
