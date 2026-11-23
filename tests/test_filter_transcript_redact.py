@@ -114,6 +114,20 @@ class RedactSecretsTest(unittest.TestCase):
             "https://gitlab-ci-token:[secure]@git.example.com/x/y.git")
         self.assertIsNone(host_rule.search(got))
 
+    def test_host_rule_match_spanning_spaces_is_redacted(self):
+        # The host rule only excludes "\n", so a URL assembled from quoted
+        # pieces in prose or code matches it across the spaces; the plugin
+        # rule excluded all whitespace, let the line into Raw/, and every
+        # push was declined until the commit was rewritten by hand.
+        import re
+        host_rule = re.compile(
+            r"[a-zA-Z]{3,10}://[^$][^:@/\n]{3,20}:[^$][^:@\n/]{3,40}@.{1,100}")
+        src = "用 ['https://', 'embed-user', ':', ..., '@', 'db.host'].join('') 拼"
+        self.assertIsNotNone(host_rule.search(src))
+        got, n = redact_secrets(src)
+        self.assertIsNone(host_rule.search(got))
+        self.assertEqual(n, 1)
+
 
 class TypedPasswordTest(unittest.TestCase):
     """A password a person types into a prompt has no token shape.

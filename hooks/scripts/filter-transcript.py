@@ -700,7 +700,9 @@ _SECRET_RULES = [
                 r"(?![A-Za-z0-9._~+/=\-]*REDACTED)[A-Za-z0-9._~+/=\-]{8,}"), r"\1REDACTED"),
     (re.compile(r"((?i:private-token)[\"']?\s*[:=]\s*[\"']?)(?![A-Za-z0-9_\-]*REDACTED)[A-Za-z0-9_\-]{8,}"),
      r"\1REDACTED"),
-    (re.compile(r"([a-zA-Z]{3,10}://[^$\s][^:@/\s]{3,20}:)[^$\s][^:@\s/]{3,40}@"), r"\1${REDACTED}@"),
+    # Same character classes as the host rule, which excludes only "\n": a
+    # narrower class lets a URL assembled across spaces reach Raw/ and block push.
+    (re.compile(r"([a-zA-Z]{3,10}://[^$\n][^:@/\n]{3,20}:)[^$\n][^:@\n/]{3,40}@"), r"\1${REDACTED}@"),
     # Two quantifiers in this rule used to make it O(n^2) in the length of one
     # contiguous [A-Za-z0-9_.-] run. Measured on the original: 4 KB 1.2s,
     # 8 KB 4.7s, 16 KB 19.1s — ~4x per doubling, crossing the recorder's 600s
