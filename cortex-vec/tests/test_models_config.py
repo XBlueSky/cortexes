@@ -69,6 +69,31 @@ def test_invalid_models_names_the_file_the_field_and_the_fix(monkeypatch, models
     assert "sk-nope" not in rendered          # a pasted key is never echoed back
 
 
+HEX_KEY = "a3f1c09b7d2e4f6a8b0c1d2e3f405162"    # no prefix, no punctuation: shaped like an identifier
+
+
+@pytest.mark.parametrize("role, extra", [
+    ("embedding", {}),
+    ("chat", {"type": "azure", "base_url": "https://chat.example.com", "api_version": "2024-06-01"}),
+])
+def test_a_key_that_looks_like_an_identifier_is_still_refused_unechoed(monkeypatch, role, extra):
+    # Later messages print the name ("<name> not set"), and stderr ends up in
+    # session records, so a pasted key has to stop here.
+    _cfg(monkeypatch, {role: {**extra, "api_key_env": HEX_KEY}})
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    rendered = exc.value.render()
+    assert exc.value.code == EXIT_SETUP
+    assert f"models.{role}.api_key_env" in rendered and "uppercase" in rendered
+    assert HEX_KEY not in rendered
+
+
+@pytest.mark.parametrize("name", ["OPENAI_API_KEY", "MY_GATEWAY_KEY", "_KEY2"])
+def test_conventional_env_var_names_are_accepted(monkeypatch, name):
+    _cfg(monkeypatch, {"embedding": {"api_key_env": name}})
+    assert config.get_models_config()["embedding"]["api_key_env"] == name
+
+
 @pytest.mark.parametrize("argv", [
     ("search", "anything"), ("status",), ("delete", "Notes/a.md"),
     ("upsert", "Notes/a.md"), ("rebuild",),

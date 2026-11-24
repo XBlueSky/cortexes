@@ -79,7 +79,9 @@ def get_retrieval_config():
     return rc
 
 
-_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# Uppercase only. Plain letters and digits would also let through a key that
+# has no prefix or punctuation (a hex key, say), and the name is printed later.
+_ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]*")
 
 
 def _bad_models(path, problem, hint=""):
@@ -90,8 +92,10 @@ def get_models_config():
     """Return the `models` block merged over defaults, one dict per role.
 
     Raises CliError (exit 3) on the first thing wrong with the block. Messages
-    name the field and what it accepts but never echo a field's value: the
-    likeliest mistake is a key pasted where an env var name belongs.
+    name the field and what it accepts but do not echo a field's value: the
+    likeliest mistake is a key pasted where an env var name belongs. The one
+    exception is an unknown `type`, which is shown; it is a word picked from
+    a short list, not a place a key ends up.
     """
     models = load_config().get("models")
     if models is None:                      # null = unset, at every level
@@ -125,7 +129,8 @@ def _merge_role(role, user):
     if key_env is not None and not _ENV_NAME.fullmatch(key_env):
         raise _bad_models(f"{path}.api_key_env",
                           "must be the name of an environment variable, not the key itself",
-                          "letters, digits and underscores only, e.g. OPENAI_API_KEY")
+                          "uppercase letters, digits and underscores only, "
+                          "e.g. OPENAI_API_KEY")
 
     merged = dict(defaults)
     merged.update({k: v for k, v in user.items() if v is not None})   # null = unset
