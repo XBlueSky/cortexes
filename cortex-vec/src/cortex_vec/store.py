@@ -12,34 +12,15 @@ except ModuleNotFoundError:
     pass
 
 import json
-import os
 
 import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
+from . import providers
 from .bm25 import BM25Index
-from .config import (
-    BM25_DIR,
-    COLLECTION_NAME,
-    EMBEDDING_MODEL,
-    SUMMARY_MODEL,
-    VECTORSTORE_DIR,
-    get_vault_path,
-)
-from .errors import EXIT_SETUP, CliError
+from .config import EMBEDDING_MODEL, SUMMARY_MODEL  # noqa: F401  (importable from here)
+from .config import BM25_DIR, COLLECTION_NAME, VECTORSTORE_DIR, get_vault_path
+from .errors import EXIT_SETUP, CliError, brief
 from .parser import classify_path, extract_summary, parse_document
-
-
-def _get_embedding_function():
-    """Return OpenAI embedding function."""
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not api_key:
-        raise CliError(
-            "OPENAI_API_KEY not set",
-            "export it for embeddings; `cortex-vec rebuild --bm25-only` "
-            "works without it",
-            code=EXIT_SETUP)
-    return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
 
 
 _SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索引。
@@ -56,14 +37,16 @@ _SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索�
 {body}"""
 
 
+_summary_warned = False   # the fallback warning is printed once per process
+
+
 def _generate_summary(title, tags, body):
     """Generate a bilingual summary using LLM. Falls back to title+tags on failure."""
+    global _summary_warned
     try:
-        from openai import OpenAI
-
-        client = OpenAI()
+        client = providers.chat_client()
         resp = client.chat.completions.create(
-            model=SUMMARY_MODEL,
+            model=providers.chat_model(),
             messages=[
                 {
                     "role": "user",
@@ -74,7 +57,13 @@ def _generate_summary(title, tags, body):
             reasoning_effort="none",
         )
         return resp.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        # A rebuild hits this once per note, so only the first failure is shown.
+        if not _summary_warned:
+            _summary_warned = True
+            print(f"cortex-vec: warning: summary generation failed ({brief(e)}); "
+                  "indexing title + tags instead (further failures not shown)",
+                  file=sys.stderr)
         return f"{title}. Tags: {tags}"
 
 
@@ -88,7 +77,7 @@ def get_collection(client):
     """Get or create the cortex collection."""
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
-        embedding_function=_get_embedding_function(),
+        embedding_function=providers.embedding_function(),
         metadata={"hnsw:space": "cosine"},
     )
 
@@ -178,12 +167,14 @@ def cmd_status(args):
     if not getattr(args, "json", False):
         for w in warnings:
             print(f"  WARNING: {w}", file=sys.stderr)
+    embedding = providers.describe("embedding")
+    chat = providers.describe("chat")
     _emit(args, [
         f"BM25:       {bm25_count} notes",
         f"Collection: {COLLECTION_NAME}",
         f"Entries:    {total} ({bodies} body + {summaries} summary)",
-        f"Embedding:  {EMBEDDING_MODEL} (OpenAI)",
-        f"Summary:    {SUMMARY_MODEL} (OpenAI)",
+        f"Embedding:  {embedding['model']} ({embedding['label']})",
+        f"Summary:    {chat['model']} ({chat['label']})",
         f"DB path:    {VECTORSTORE_DIR}",
         f"Vault:      {vault}",
     ], {
@@ -192,8 +183,10 @@ def cmd_status(args):
         "entries": total,
         "body_entries": bodies,
         "summary_entries": summaries,
-        "embedding_model": EMBEDDING_MODEL,
-        "summary_model": SUMMARY_MODEL,
+        "embedding_model": embedding["model"],
+        "embedding_provider": embedding["type"],
+        "summary_model": chat["model"],
+        "summary_provider": chat["type"],
         "db_path": str(VECTORSTORE_DIR),
         "vault": str(vault),
         "warnings": warnings,
@@ -544,7 +537,7 @@ def cmd_search(args):
     if not getattr(args, "no_bm25", False) and not BM25Index(BM25_DIR).exists():
         raise CliError("no search index found",
                        "run `cortex-vec rebuild`, or `cortex-vec rebuild "
-                       "--bm25-only` without OPENAI_API_KEY",
+                       f"--bm25-only` without {providers.embedding_key_env()}",
                        code=EXIT_SETUP)
 
     notes = []

@@ -45,6 +45,16 @@ def _isolate_bm25_index(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "BM25_DIR", bm25_dir)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_vectorstore(tmp_path, monkeypatch):
+    """Point store.VECTORSTORE_DIR at a directory under tmp_path.
+
+    Without this, any test that reaches `store.get_client()` opens the
+    developer's real ~/.cortex/vectorstore.
+    """
+    monkeypatch.setattr(store, "VECTORSTORE_DIR", tmp_path / "isolated-vectorstore")
+
+
 @pytest.fixture
 def fixture_docs():
     """A tiny in-memory corpus: list of (base_path, title, body, repo, type, category)."""

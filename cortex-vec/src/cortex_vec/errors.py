@@ -28,3 +28,15 @@ class CliError(Exception):
     def render(self):
         line = f"cortex-vec: error: {self.message}"
         return f"{line} ({self.hint})" if self.hint else line
+
+
+def brief(exc):
+    """Name an exception in one short line, for stderr notes and warnings.
+
+    A provider error can carry a whole response body; only the first line of
+    the message is kept, cut at 200 characters.
+    """
+    text = str(exc).strip()
+    first = text.splitlines()[0][:200] if text else ""
+    name = type(exc).__name__
+    return f"{name}: {first}" if first else name

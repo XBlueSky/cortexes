@@ -86,16 +86,15 @@ def _run(args):
 
 
 def _propose(args):
-    """Use OpenAI to propose candidate queries from notes for the user to confirm.
+    """Use the chat model to propose candidate queries from notes for the user to confirm.
 
     Writes JSONL with gold pre-filled to the note path; the user edits/confirms.
     """
-    from openai import OpenAI
-
-    from ..config import SUMMARY_MODEL
+    from .. import providers
 
     docs = _load_corpus_docs()
-    client = OpenAI()
+    client = providers.chat_client()
+    model = providers.chat_model()
     out_path = Path(args.queries)
     proposed = []
     for d in docs:
@@ -106,7 +105,7 @@ def _propose(args):
         )
         try:
             resp = client.chat.completions.create(
-                model=SUMMARY_MODEL,
+                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 max_completion_tokens=40,
                 reasoning_effort="none",
