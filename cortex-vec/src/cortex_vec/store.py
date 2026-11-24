@@ -18,11 +18,16 @@ import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 from .bm25 import BM25Index
-from .config import BM25_DIR, COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
+from .config import (
+    BM25_DIR,
+    COLLECTION_NAME,
+    EMBEDDING_MODEL,
+    SUMMARY_MODEL,
+    VECTORSTORE_DIR,
+    get_vault_path,
+)
 from .errors import EXIT_SETUP, CliError
 from .parser import classify_path, extract_summary, parse_document
-
-EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def _get_embedding_function():

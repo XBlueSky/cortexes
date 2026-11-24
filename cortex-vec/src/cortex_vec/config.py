@@ -8,8 +8,29 @@ from .errors import EXIT_SETUP, CliError
 CORTEX_CONFIG = Path.home() / ".cortex" / "config.json"
 VECTORSTORE_DIR = Path.home() / ".cortex" / "vectorstore"
 COLLECTION_NAME = "cortex"
+EMBEDDING_MODEL = "text-embedding-3-small"
 SUMMARY_MODEL = "gpt-5.4-mini"
 BM25_DIR = Path.home() / ".cortex" / "bm25"
+
+# The `models` block: one entry per role, each merged over these defaults.
+_MODELS_DEFAULTS = {
+    "embedding": {"type": "openai", "model": EMBEDDING_MODEL, "base_url": None,
+                  "api_key_env": "OPENAI_API_KEY"},
+    "chat": {"type": "openai", "model": SUMMARY_MODEL, "base_url": None,
+             "api_key_env": "OPENAI_API_KEY", "api_version": None},
+}
+
+# role -> type -> (fields that type accepts, fields it requires)
+_MODEL_TYPES = {
+    "embedding": {
+        "openai": (("model", "base_url", "api_key_env"), ()),
+    },
+    "chat": {
+        "openai": (("model", "base_url", "api_key_env"), ()),
+        "azure": (("model", "base_url", "api_key_env", "api_version"),
+                  ("base_url", "api_version")),
+    },
+}
 
 _RETRIEVAL_DEFAULTS = {
     # Plan 1
@@ -55,6 +76,63 @@ def get_retrieval_config():
     rc = dict(_RETRIEVAL_DEFAULTS)
     rc.update(cfg.get("retrieval", {}))
     return rc
+
+
+def _bad_models(path, problem, hint=""):
+    return CliError(f"invalid {path} in {CORTEX_CONFIG}: {problem}", hint, code=EXIT_SETUP)
+
+
+def get_models_config():
+    """Return the `models` block merged over defaults, one dict per role.
+
+    Raises CliError (exit 3) on the first thing wrong with the block. Messages
+    name the field and what it accepts but never echo a field's value: the
+    likeliest mistake is a key pasted where an env var name belongs.
+    """
+    models = load_config().get("models")
+    if models is None:                      # null = unset, at every level
+        models = {}
+    if not isinstance(models, dict):
+        raise _bad_models("models", "must be an object")
+    for role in models:
+        if role not in _MODELS_DEFAULTS:
+            raise _bad_models(f"models.{role}", "unknown role",
+                              "valid roles: " + ", ".join(_MODELS_DEFAULTS))
+    return {role: _merge_role(role, models.get(role)) for role in _MODELS_DEFAULTS}
+
+
+def _merge_role(role, user):
+    path = f"models.{role}"
+    defaults = _MODELS_DEFAULTS[role]
+    if user is None:
+        user = {}
+    if not isinstance(user, dict):
+        raise _bad_models(path, "must be an object")
+    for field in user:
+        if field not in defaults:
+            raise _bad_models(f"{path}.{field}", "unknown field",
+                              "valid fields: " + ", ".join(defaults))
+    for field, value in user.items():
+        if value is not None and not (isinstance(value, str) and value):
+            raise _bad_models(f"{path}.{field}", "must be a non-empty string")
+
+    merged = dict(defaults)
+    merged.update({k: v for k, v in user.items() if v is not None})   # null = unset
+
+    types = _MODEL_TYPES[role]
+    kind = merged["type"]
+    if kind not in types:
+        raise _bad_models(f"{path}.type", f"unknown type {kind!r}",
+                          "valid values: " + ", ".join(types))
+    settable, required = types[kind]
+    for field, value in user.items():
+        if field != "type" and value is not None and field not in settable:
+            raise _bad_models(f"{path}.{field}", f"does not apply to type '{kind}'",
+                              f"fields for '{kind}': " + ", ".join(settable))
+    for field in required:
+        if merged[field] is None:
+            raise _bad_models(f"{path}.{field}", f"required when type is '{kind}'")
+    return merged
 
 
 def get_view_config():

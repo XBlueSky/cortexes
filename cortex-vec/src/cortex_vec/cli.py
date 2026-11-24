@@ -210,6 +210,13 @@ def _main():
         "eval": _dispatch_eval,
     }
 
+    # A wrong `models` block stops every model-using command here, before it
+    # touches the index. A BM25-only rebuild uses no model, so it stays usable
+    # while the block is broken.
+    if not (args.command == "rebuild" and args.bm25_only):
+        from .config import get_models_config
+        get_models_config()
+
     commands[args.command](args)
 
 
