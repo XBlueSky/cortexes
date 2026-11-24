@@ -23,7 +23,7 @@ This document covers the plugin (commands, skills, hooks) and the
 | Large text blocks (>12 KB) during filtering | Anthropic, via your own Claude Code | **On** (opt-out) |
 | Vault metadata at session start (repo name, vault path, topic names, baton summaries) | Anthropic, via your own Claude Code | **On** (opt-out) |
 | Vault pages read during query / distill / broadcast / takeoff resume | Anthropic, via your own Claude Code | **On** whenever you use those flows |
-| Vault page content, for indexing | OpenAI | Only with `OPENAI_API_KEY` |
+| Vault page content, for indexing | OpenAI, or the endpoint you set in `models` | Only with `OPENAI_API_KEY`, or the variable `models.*.api_key_env` names |
 | Vault commits | Your local git repo | **On** |
 | Vault pushes to a git remote | The remote you configured | **Off** (opt-in) |
 | Anything at all | The Cortexes authors | Never |
@@ -162,15 +162,17 @@ in a vault that a model searches. Keep it somewhere else.
 
 ## 3. Data sent to OpenAI
 
-All OpenAI features require you to set `OPENAI_API_KEY` yourself. **Without
-that variable, no data is ever sent to OpenAI** and retrieval runs entirely
-on the local BM25 index. The key is read from the environment and is never
-written to the vault, the index, or any config file.
+By default, all OpenAI features require you to set `OPENAI_API_KEY` yourself.
+**Without that variable, no data is ever sent to OpenAI** and retrieval runs
+entirely on the local BM25 index. The key is read from the environment and
+is never written to the vault, the index, or any config file.
 
-If you set a `models` block in `~/.cortex/config.json`, the same data goes to
-the endpoint you configured there instead, authenticated with the key in the
-environment variable you named. Without that variable, nothing is sent
-either.
+A `models` block in `~/.cortex/config.json` can change both halves of that.
+`base_url` sends the same data to the endpoint you configured instead of
+OpenAI, and `api_key_env` names the environment variable the key is read
+from. Each role (embedding, chat) sends nothing only while its own variable
+is unset — so once `api_key_env` names another variable, unsetting
+`OPENAI_API_KEY` no longer stops that role.
 
 Three features use it:
 
@@ -243,10 +245,10 @@ crash reporting and no update checks, and the authors receive nothing.
 
 Outbound network traffic originated by the plugin's own code goes to three
 destinations: Anthropic for the filter's classifier calls
-([§2](#2-data-sent-to-anthropic)); OpenAI for the embeddings, summary
-generation, and optional reranking described in
-[§3](#3-data-sent-to-openai); and the git remote you configured when
-`git.auto_push` is enabled ([§5](#5-git-behaviour)).
+([§2](#2-data-sent-to-anthropic)); OpenAI — or the endpoint you set in the
+`models` block — for the embeddings, summary generation, and optional
+reranking described in [§3](#3-data-sent-to-openai); and the git remote you
+configured when `git.auto_push` is enabled ([§5](#5-git-behaviour)).
 
 Separately — and this is not a Cortexes network channel — because the plugin
 runs *inside* Claude Code, every flow that reads vault content into the
@@ -262,7 +264,7 @@ Anthropic**, under your account. See
 | Stop all recording | Remove the `SessionEnd` entry from `hooks/hooks.json`, or disable the plugin |
 | Stop the filter's classifier calls to Anthropic | Set `CORTEX_NO_CLASSIFIER=1` |
 | Stop injecting vault metadata at session start | Remove the `SessionStart` entry from `hooks/hooks.json`, or disable the plugin |
-| Stop sending anything to OpenAI | Unset `OPENAI_API_KEY` — retrieval falls back to local BM25 |
+| Stop sending anything to OpenAI or a configured model endpoint | Unset `OPENAI_API_KEY`, and any variable named in `models.*.api_key_env` — retrieval falls back to local BM25 |
 | Stop automatic commits | Set `git.auto_commit` to `false` in `~/.cortex/config.json` |
 | Stop pushing to a remote | Set `git.auto_push` to `false` (this is the default) |
 

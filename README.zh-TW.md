@@ -438,11 +438,12 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 | 接點 | `type` | 連到哪裡 | 備註 |
 |------|--------|----------|------|
 | `embedding` | `openai` | 任何 OpenAI 相容的 `/embeddings` endpoint | |
-| `chat` | `openai` | 任何 OpenAI 相容的 chat completions endpoint | |
-| `chat` | `azure` | Azure OpenAI | `model` 是 deployment 名稱；`base_url` 與 `api_version` 必填 |
+| `chat` | `openai` | OpenAI 相容的 chat completions endpoint | 模型必須接受下面的 chat 參數 |
+| `chat` | `azure` | Azure OpenAI | `model` 是 deployment 名稱；`base_url` 與 `api_version` 必填。deployment 必須接受下面的 chat 參數 |
 
 - **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。
-- **`api_key_env`** — 填的是存放金鑰的環境變數**名稱**。金鑰本身不會寫進 `config.json`。
+- **`api_key_env`** — 填的是存放金鑰的環境變數**名稱**，只能用大寫字母、數字與底線。金鑰本身不會寫進 `config.json`。
+- **Chat 參數** — 每一次 chat 呼叫（摘要、`eval propose`、LLM rerank）都會帶 `max_completion_tokens` 與 `reasoning_effort: "none"`，這是配合預設的 `gpt-5.4-mini` 設的，目前不能調整。模型或 endpoint 若不接受其中任何一個，每次 chat 呼叫都會失敗：摘要退回「標題 + tags」並在 stderr 印出警告，rerank 則維持原本的順序。
 - **寫錯會立刻停下** — `models` 區塊有誤時（未知的接點、類型或欄位，或缺少必填欄位），`search`、`upsert`、`rebuild`、`status`、`delete` 與 `eval` 會以 exit code 3 結束並點名是哪個欄位。`rebuild --bm25-only` 不讀 `models`。
 
 範例 — embedding 走 OpenAI 相容的 gateway，摘要用 Azure OpenAI：
@@ -513,9 +514,10 @@ plugin，所以 query、distill、broadcast 或 takeoff resume 讀到的 vault �
 把過大的區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送
 給 Anthropic 做壓縮分類——`CORTEX_NO_CLASSIFIER=1` 可停用它，而它只停掉這
 組巢狀呼叫，不影響一般 session 處理；語意索引會把 vault 頁面內容送往
-OpenAI 產生 embedding，只在你設定 `OPENAI_API_KEY` 時發生，未設定時檢索走
-本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行開啟時發生
-（預設關閉）。
+OpenAI（或你在 [`models`](#models) 設定的 endpoint）產生 embedding，只在你
+設定 `OPENAI_API_KEY`（或 `models.embedding.api_key_env` 指名的變數）時發生，
+未設定時檢索走本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行
+開啟時發生（預設關閉）。
 
 [`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md) 完整記錄了每一條資料流：session
 記錄包含什麼、寫入前排除什麼、檔案存在哪裡、git commit 與 push 行為、

@@ -512,13 +512,20 @@ another endpoint. Every key can be left out; these are the defaults:
 | Role | `type` | Talks to | Notes |
 |------|--------|----------|-------|
 | `embedding` | `openai` | Any OpenAI-compatible `/embeddings` endpoint | |
-| `chat` | `openai` | Any OpenAI-compatible chat completions endpoint | |
-| `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required |
+| `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
+| `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
 
 - **`base_url`** — when omitted, the OpenAI SDK's default applies, including
   the `OPENAI_BASE_URL` environment variable.
 - **`api_key_env`** — the *name* of the environment variable that holds the
-  key. The key itself never goes into `config.json`.
+  key: uppercase letters, digits and underscores. The key itself never goes
+  into `config.json`.
+- **Chat parameters** — every chat call (summaries, `eval propose`, LLM
+  rerank) sends `max_completion_tokens` and `reasoning_effort: "none"`, which
+  suit the default `gpt-5.4-mini`. They are not configurable. A model or
+  endpoint that rejects either one fails every chat call: summaries fall back
+  to title + tags with a warning on stderr, and rerank keeps the original
+  order.
 - **Mistakes fail fast** — when the `models` block is wrong (an unknown role,
   type or field, or a missing required field), `search`, `upsert`, `rebuild`,
   `status`, `delete` and `eval` exit with code 3 and name the field.
@@ -604,9 +611,11 @@ the transcript filter sends oversized blocks (>12 KB, capped at 5 per
 session) to Anthropic through your own Claude Code to classify them for
 compression — `CORTEX_NO_CLASSIFIER=1` disables it, and stops only those
 nested calls, not normal session processing; semantic indexing sends vault
-page content to OpenAI for embeddings, only if you set `OPENAI_API_KEY`, and
-without it retrieval runs on the local BM25 index; and `git push` to a
-remote you configured, only if you turn it on (off by default).
+page content to OpenAI (or the endpoint you set in [`models`](#models)) for
+embeddings, only if you set `OPENAI_API_KEY` (or the variable
+`models.embedding.api_key_env` names), and without it retrieval runs on the
+local BM25 index; and `git push` to a remote you configured, only if you turn
+it on (off by default).
 
 [`PRIVACY.md`](PRIVACY.md) documents every data flow in full: what a session
 record contains, what is stripped before writing, where files live, git

@@ -50,6 +50,8 @@ inside the working directory or added with `/add-dir <vault_path>`. If that
 bites, say so explicitly rather than reporting an empty result.
 
 If `cortex-vec` is not installed, say so and fall back to grep rather than
-failing. Semantic scoring needs `OPENAI_API_KEY`; without it `cortex-vec`
-degrades to its local BM25 index on its own, which is still a real search —
-report the degraded mode, don't call retrieval unavailable.
+failing. Semantic scoring needs the embedding key (`OPENAI_API_KEY`, unless
+`models.embedding.api_key_env` in `~/.cortex/config.json` names another
+variable); without it `cortex-vec` degrades to its local BM25 index on its
+own, which is still a real search — report the degraded mode, don't call
+retrieval unavailable.
