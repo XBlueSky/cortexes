@@ -10,7 +10,7 @@ def test_plan2_retrieval_defaults(monkeypatch):
     assert rc["w_graph"] == 0.3
     assert rc["graph_top_k"] == 5
     assert rc["rerank"] is False
-    assert rc["rerank_model"] == "gpt-5.4-mini"
+    assert rc["rerank_model"] is None      # unset: rerank follows models.chat.model
     assert rc["rerank_window"] == 15
     assert rc["rrf_k"] == 60
     assert rc["max_per_repo"] == 0

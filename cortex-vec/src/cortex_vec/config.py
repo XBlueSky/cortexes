@@ -45,7 +45,7 @@ _RETRIEVAL_DEFAULTS = {
     "w_graph": 0.3,             # graph stream weight in RRF (rank-based, not additive)
     "graph_top_k": 5,           # how many top hits to expand wikilink-neighbors from
     "rerank": False,
-    "rerank_model": "gpt-5.4-mini",
+    "rerank_model": None,       # unset = follow models.chat.model
     "rerank_window": 15,
 }
 

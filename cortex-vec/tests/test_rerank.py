@@ -1,5 +1,5 @@
 import openai
-from cortex_vec import rerank
+from cortex_vec import providers, rerank
 
 
 class _FakeResp:
@@ -44,3 +44,20 @@ def test_rerank_handles_fenced_json(monkeypatch):
     monkeypatch.setattr(openai, "OpenAI", lambda: _FakeClient(fenced))
     out = rerank.rerank("q", _results(), model="m", window=15)
     assert [r["id"] for r in out] == ["b", "a"]
+
+
+def test_rerank_failure_leaves_a_note(monkeypatch):
+    def _boom():
+        raise RuntimeError("no key")
+    monkeypatch.setattr(providers, "chat_client", _boom)
+    res, notes = _results(), []
+    assert rerank.rerank("q", res, model="m", window=15, notes=notes) == res
+    assert notes == ["rerank failed (RuntimeError: no key); order unchanged"]
+
+
+def test_rerank_uses_the_shared_chat_client(monkeypatch):
+    monkeypatch.setattr(providers, "chat_client",
+                        lambda: _FakeClient('[{"index": 1, "score": 9}, {"index": 0, "score": 2}]'))
+    notes = []
+    out = rerank.rerank("q", _results(), model="m", window=15, notes=notes)
+    assert [r["id"] for r in out] == ["b", "a"] and notes == []

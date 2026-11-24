@@ -1,9 +1,13 @@
-"""Optional LLM reranker over the top window of results (reuses OpenAI).
+"""Optional LLM reranker over the top window of results (uses the chat model).
 
 Off by default. Any failure (no key, bad JSON, API error) returns the input
-order unchanged — reranking must never make a search fail.
+order unchanged — reranking must never make a search fail. The failure is
+reported through `notes` so the caller can tell the order is not reranked.
 """
 import json
+
+from . import providers
+from .errors import brief
 
 _SYSTEM = (
     "你是檢索結果重排器。給定查詢與若干候選筆記（每個有 index、title、summary），"
@@ -22,15 +26,18 @@ def _parse_scores(content):
     return json.loads(text)
 
 
-def rerank(query, results, model, window=15):
-    """Reorder the top `window` of `results` by LLM relevance; tail unchanged."""
+def rerank(query, results, model, window=15, notes=None):
+    """Reorder the top `window` of `results` by LLM relevance; tail unchanged.
+
+    On failure the input order is returned and, when `notes` is a list, one
+    line saying so is appended to it.
+    """
     if not results:
         return results
     head = results[:window]
     tail = results[window:]
     try:
-        import openai
-        client = openai.OpenAI()
+        client = providers.chat_client()
         candidates = "\n".join(
             f'{i}: {r.get("title", "")} — {r.get("summary", "")}' for i, r in enumerate(head)
         )
@@ -47,6 +54,8 @@ def rerank(query, results, model, window=15):
         order = {int(s["index"]): float(s["score"]) for s in scored}
         ranked_idx = sorted(range(len(head)), key=lambda i: order.get(i, -1.0), reverse=True)
         head = [head[i] for i in ranked_idx]
-    except Exception:
+    except Exception as e:
+        if notes is not None:
+            notes.append(f"rerank failed ({brief(e)}); order unchanged")
         return results
     return head + tail

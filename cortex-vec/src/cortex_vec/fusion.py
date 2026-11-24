@@ -204,6 +204,8 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
 
     if use_rerank:
         from . import rerank as rerank_mod
-        out = rerank_mod.rerank(query, out, model=rc["rerank_model"], window=rc["rerank_window"])
+        out = rerank_mod.rerank(query, out,
+                                model=rc["rerank_model"] or providers.chat_model(),
+                                window=rc["rerank_window"], notes=notes)
 
     return out[:n]
