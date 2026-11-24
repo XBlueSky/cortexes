@@ -476,30 +476,44 @@ def cmd_delete(args):
 
     Opens the collection without an embedding function: deleting embeds
     nothing, so it works without a key and on an index built with another
-    model.
+    model. The BM25 index is cleaned either way: a keyless setup has no
+    vector index at all, and the note must still stop showing up in search.
     """
     client = get_client()
     col = open_existing_collection(client)
     rel_path = args.path
 
     stale = _delete_stale_entries(col, rel_path) if col is not None else []
-    if not stale:
+    from_bm25 = _delete_from_bm25(rel_path)
+    if not stale and not from_bm25:
         # Idempotent: the goal state (not indexed) already holds.
         print(f"cortex-vec: {rel_path} not indexed; nothing to delete",
               file=sys.stderr)
         _emit(args, [], {"deleted": 0, "path": rel_path})
         return
 
-    bm25_index = BM25Index(BM25_DIR)
-    try:
-        bm25_index.load()
-        bm25_index.delete(rel_path)
-        bm25_index.save()
-    except FileNotFoundError:
-        pass
+    if not stale:
+        # `deleted` counts vector entries; with none, it counts the BM25
+        # document, so 0 keeps meaning "nothing was indexed".
+        _emit(args, [f"Deleted: {rel_path} from the BM25 index (no vector entries)"],
+              {"deleted": from_bm25, "path": rel_path})
+        return
 
     _emit(args, [f"Deleted: {len(stale)} entries for {rel_path}"],
           {"deleted": len(stale), "path": rel_path})
+
+
+def _delete_from_bm25(rel_path):
+    """Drop a path from the BM25 index; return how many documents that removed."""
+    bm25_index = BM25Index(BM25_DIR)
+    try:
+        bm25_index.load()
+    except FileNotFoundError:
+        return 0
+    removed = bm25_index.delete(rel_path)
+    if removed:
+        bm25_index.save()
+    return removed
 
 
 def cosine_for(query, doc_ids):

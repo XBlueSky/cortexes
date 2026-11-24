@@ -167,3 +167,34 @@ def test_delete_before_any_index_exists_is_a_no_op(monkeypatch, capsys):
     cap = capsys.readouterr()
     assert json.loads(cap.out) == {"deleted": 0, "path": "Notes/never.md"} and "not indexed" in cap.err
     assert store.open_existing_collection(store.get_client()) is None    # nothing was created
+
+
+def _bm25_only_note(monkeypatch):
+    """A keyless setup: the note is in the BM25 index and there is no vector index."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    bm25 = BM25Index(store.BM25_DIR)
+    bm25.build_from_docs([{"id": "Notes/a.md", "title": "A", "body": "body"}])
+    bm25.save()
+
+
+def _bm25_count():
+    bm25 = BM25Index(store.BM25_DIR)
+    bm25.load()
+    return bm25.count()
+
+
+def test_delete_without_a_vector_index_still_removes_the_bm25_entry(monkeypatch, capsys):
+    _bm25_only_note(monkeypatch)
+    _main(monkeypatch, "delete", "Notes/a.md", "--json")
+    cap = capsys.readouterr()
+    assert json.loads(cap.out) == {"deleted": 1, "path": "Notes/a.md"}
+    assert "not indexed" not in cap.err
+    assert _bm25_count() == 0
+
+
+def test_a_bm25_only_delete_says_which_index_it_touched(monkeypatch, capsys):
+    _bm25_only_note(monkeypatch)
+    _main(monkeypatch, "delete", "Notes/a.md")
+    cap = capsys.readouterr()
+    assert cap.out.strip() == "Deleted: Notes/a.md from the BM25 index (no vector entries)"
+    assert cap.err == ""

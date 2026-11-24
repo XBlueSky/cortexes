@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `retrieval.rerank_model` now defaults to unset and follows
   `models.chat.model`. With default settings rerank uses the same model as
   before.
-- `cortex-vec delete` no longer needs an API key.
+- `cortex-vec delete` no longer needs an API key, and removes the note from
+  the BM25 index even when there is no vector index.
 - Model failures are no longer silent: a failed summary prints one warning
   per run before falling back to title + tags, a failed rerank leaves a
   `rerank failed … order unchanged` note, and chroma's "embedding function
