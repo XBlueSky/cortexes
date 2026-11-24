@@ -88,6 +88,20 @@ def test_vector_note_names_the_configured_key_env(monkeypatch):
     assert "MY_EMBED_KEY not set" in notes[0] and "BM25-only" in notes[0]
 
 
+def test_a_vector_failure_note_stays_on_one_short_line(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+
+    def gateway_error(query, n, where):
+        raise RuntimeError("502 Bad Gateway " + "x" * 3000 + "\n<html>\n<body>down</body>")
+
+    monkeypatch.setattr(store, "vector_stream", gateway_error)
+    notes = []
+    assert fusion._vector_stream("q", 5, None, notes) == []
+    assert notes[0].startswith("vector stream failed (RuntimeError: 502 Bad Gateway")
+    assert notes[0].endswith("results are BM25-only")
+    assert "\n" not in notes[0] and len(notes[0]) < 300
+
+
 def test_status_text_is_unchanged_without_models(monkeypatch, capsys, tmp_path):
     lines = _status(monkeypatch, capsys, tmp_path, {}).splitlines()
     assert "Embedding:  text-embedding-3-small (OpenAI)" in lines
