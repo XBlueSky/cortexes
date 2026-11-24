@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- A `models` block in `~/.cortex/config.json` points the embedding and chat
+  models at your own endpoint. Two roles: `embedding` (type `openai`, any
+  OpenAI-compatible `/embeddings` endpoint) and `chat` (type `openai` or
+  `azure`), each with `model`, `base_url` and `api_key_env`. Without the
+  block nothing changes: the same models, the same `OPENAI_API_KEY`, no
+  rebuild.
+- The index records which embedding model built it. When `models.embedding`
+  no longer matches, `upsert` stops and says how to fix it, `search` falls
+  back to BM25-only with a note, and `status` shows a warning; `cortex-vec
+  rebuild` re-embeds with the current setting.
+- `cortex-vec status --json` reports `embedding_provider` and
+  `summary_provider`.
+
+### Changed
+- `retrieval.rerank_model` now defaults to unset and follows
+  `models.chat.model`. With default settings rerank uses the same model as
+  before.
+- `cortex-vec delete` no longer needs an API key.
+- Model failures are no longer silent: a failed summary prints one warning
+  per run before falling back to title + tags, a failed rerank leaves a
+  `rerank failed … order unchanged` note, and chroma's "embedding function
+  conflict" error is reported as an index mismatch with the fix instead of
+  a traceback.
+
 ## [2.3.1] - 2026-11-23
 
 ### Fixed

@@ -130,7 +130,8 @@ comparable number is still only the semantic band, not the verdict.
 
 **What `0.0` means.** The backfill needs a live vector stream, so it does not
 remove the ambiguity, it narrows it. The CLI emits `0.0` when the vector
-stream is unavailable (no `OPENAI_API_KEY`, or vector retrieval switched
+stream is unavailable (no `OPENAI_API_KEY`, an index built with a different
+embedding model than the one configured, or vector retrieval switched
 off — the score is then missing for every non-vector hit), when the backfill
 query itself failed, and when an actual cosine is zero or rounds to zero at
 four decimal places. The implication runs one way only: a result with no vector

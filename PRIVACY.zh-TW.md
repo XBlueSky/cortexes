@@ -147,6 +147,10 @@ vault 裡。請把它放到別的地方。
 時，不會有任何資料送往 OpenAI**，檢索會完全跑在本機的 BM25 索引上。這把
 key 從環境變數讀取，永遠不會被寫進 vault、索引或任何設定檔。
 
+如果你在 `~/.cortex/config.json` 設定了 `models` 區塊，同樣的資料會改送到
+你在那裡設定的 endpoint，並用你指名的環境變數裡的 key 驗證。沒有設定那個
+變數時，同樣不會送出任何資料。
+
 有三個功能會用到它：
 
 **Embeddings**（`text-embedding-3-small`）——當你執行 `cortex-vec

@@ -167,6 +167,11 @@ that variable, no data is ever sent to OpenAI** and retrieval runs entirely
 on the local BM25 index. The key is read from the environment and is never
 written to the vault, the index, or any config file.
 
+If you set a `models` block in `~/.cortex/config.json`, the same data goes to
+the endpoint you configured there instead, authenticated with the key in the
+environment variable you named. Without that variable, nothing is sent
+either.
+
 Three features use it:
 
 **Embeddings** (`text-embedding-3-small`) — when you run `cortex-vec
