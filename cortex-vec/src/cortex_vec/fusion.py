@@ -1,5 +1,6 @@
 """Hybrid retrieval: RRF fusion of vector + BM25 streams."""
 from . import providers, store
+from .errors import IndexMismatch
 from .config import BM25_DIR, get_retrieval_config, get_vault_path
 
 
@@ -54,6 +55,11 @@ def _vector_stream(query, n, where, notes=None):
         return []
     try:
         return store.vector_stream(query, n, where)
+    except IndexMismatch as e:
+        # Raised before the query is embedded; BM25 can still answer.
+        _note(notes, f"vector stream skipped ({e.message}; {e.hint}); "
+                     "results are BM25-only")
+        return []
     except Exception as e:
         _note(notes, f"vector stream failed ({type(e).__name__}: {e}); "
                      "results are BM25-only")

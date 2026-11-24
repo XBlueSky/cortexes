@@ -50,7 +50,9 @@ def _isolate_vectorstore(tmp_path, monkeypatch):
     """Point store.VECTORSTORE_DIR at a directory under tmp_path.
 
     Without this, any test that reaches `store.get_client()` opens the
-    developer's real ~/.cortex/vectorstore.
+    developer's real ~/.cortex/vectorstore, and the index signature kept there
+    (whatever model that index was built with) leaks into assertions about
+    defaults.
     """
     monkeypatch.setattr(store, "VECTORSTORE_DIR", tmp_path / "isolated-vectorstore")
 

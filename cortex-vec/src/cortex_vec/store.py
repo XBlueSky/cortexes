@@ -12,15 +12,28 @@ except ModuleNotFoundError:
     pass
 
 import json
+import os
 
 import chromadb
 
 from . import providers
 from .bm25 import BM25Index
-from .config import EMBEDDING_MODEL, SUMMARY_MODEL  # noqa: F401  (importable from here)
-from .config import BM25_DIR, COLLECTION_NAME, VECTORSTORE_DIR, get_vault_path
-from .errors import EXIT_SETUP, CliError, brief
+from .config import SUMMARY_MODEL  # noqa: F401  (importable from here)
+from .config import (
+    BM25_DIR,
+    COLLECTION_NAME,
+    CORTEX_CONFIG,
+    EMBEDDING_MODEL,
+    VECTORSTORE_DIR,
+    get_vault_path,
+)
+from .errors import EXIT_SETUP, CliError, IndexMismatch, brief
 from .parser import classify_path, extract_summary, parse_document
+
+# Records which embedding model built the index, next to the chroma files.
+SIGNATURE_FILE = "embedding-signature.json"
+_MISMATCH_HINT = ("run `cortex-vec rebuild` to re-embed the vault, "
+                  "or restore the previous models.embedding")
 
 
 _SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索引。
@@ -73,13 +86,100 @@ def get_client():
     return chromadb.PersistentClient(path=str(VECTORSTORE_DIR))
 
 
+def open_existing_collection(client):
+    """Open the collection without an embedding function; None if there is none.
+
+    Enough to count, list and delete entries, and it needs no API key.
+    """
+    try:
+        return client.get_collection(COLLECTION_NAME)
+    except Exception:
+        # chroma's "no such collection" error has changed type between
+        # releases. A real failure resurfaces when the caller goes on to
+        # create or query the collection.
+        return None
+
+
+def _read_signature():
+    """Return the signature file's content, or None if it is absent or unusable."""
+    try:
+        sig = json.loads((VECTORSTORE_DIR / SIGNATURE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if (isinstance(sig, dict) and set(sig) == {"type", "model"}
+            and all(isinstance(v, str) for v in sig.values())):
+        return sig
+    return None
+
+
+def _write_signature(sig):
+    if _read_signature() == sig:
+        return
+    path = VECTORSTORE_DIR / SIGNATURE_FILE
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(sig) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _built_signature(entry_count):
+    """Signature of an index that holds `entry_count` entries.
+
+    None for an empty index: nothing is embedded yet, so any model may claim
+    it. Entries without a readable signature file predate the file, and were
+    built with the stock default.
+    """
+    if not entry_count:
+        return None
+    return _read_signature() or {"type": "openai", "model": EMBEDDING_MODEL}
+
+
+def index_signature(client):
+    """Return the {"type", "model"} the index was built with; None if no index yet."""
+    col = open_existing_collection(client)
+    return _built_signature(col.count() if col is not None else 0)
+
+
+def _mismatch_message(built, wanted):
+    """Say how the index and `models.embedding` disagree; None when they agree."""
+    if built is None or built == wanted:
+        return None
+    return (f"index was built with {built['type']}/{built['model']}, but models.embedding "
+            f"in {CORTEX_CONFIG} is now {wanted['type']}/{wanted['model']}")
+
+
 def get_collection(client):
-    """Get or create the cortex collection."""
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=providers.embedding_function(),
-        metadata={"hnsw:space": "cosine"},
-    )
+    """Get or create the cortex collection for the configured embedding model.
+
+    Raises IndexMismatch when the index was built with another model. Vectors
+    from two models are not comparable, and chroma would accept them without
+    complaint as long as both come from the same kind of embedding function.
+    """
+    ef = providers.embedding_function()     # a missing key is reported first
+    wanted = providers.embedding_signature()
+    built = index_signature(client)
+    message = _mismatch_message(built, wanted)
+    if message:
+        raise IndexMismatch(message, _MISMATCH_HINT)
+    try:
+        col = client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            embedding_function=ef,
+            metadata={"hnsw:space": "cosine"},
+        )
+    except ValueError as e:
+        # chroma refuses a collection that was created by another kind of
+        # embedding function. Same situation, so report it the same way.
+        text = str(e)
+        if "embedding function" not in text.lower():
+            raise
+        detail = text.rsplit("conflict:", 1)[1].strip() if "conflict:" in text else ""
+        detail = detail.splitlines()[0][:200] if detail else brief(e)
+        raise IndexMismatch(
+            "index was built with a different embedding function than the configured "
+            f"{wanted['type']}/{wanted['model']} (chroma: {detail})", _MISMATCH_HINT) from e
+    if built is None:
+        _write_signature(wanted)
+    return col
 
 
 def _resolve_repos(doc_type, category, repos_str):
@@ -164,6 +264,9 @@ def cmd_status(args):
     warnings = []
     if total and not bm25_count:
         warnings.append("BM25 index empty — run `cortex-vec rebuild --bm25-only`")
+    mismatch = _mismatch_message(_built_signature(total), providers.embedding_signature())
+    if mismatch:
+        warnings.append(f"{mismatch} — run `cortex-vec rebuild`")
     if not getattr(args, "json", False):
         for w in warnings:
             print(f"  WARNING: {w}", file=sys.stderr)
@@ -369,12 +472,17 @@ def cmd_upsert(args):
 
 
 def cmd_delete(args):
-    """Remove a document from the index."""
+    """Remove a document from the index.
+
+    Opens the collection without an embedding function: deleting embeds
+    nothing, so it works without a key and on an index built with another
+    model.
+    """
     client = get_client()
-    col = get_collection(client)
+    col = open_existing_collection(client)
     rel_path = args.path
 
-    stale = _delete_stale_entries(col, rel_path)
+    stale = _delete_stale_entries(col, rel_path) if col is not None else []
     if not stale:
         # Idempotent: the goal state (not indexed) already holds.
         print(f"cortex-vec: {rel_path} not indexed; nothing to delete",

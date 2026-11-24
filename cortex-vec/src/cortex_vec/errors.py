@@ -30,6 +30,17 @@ class CliError(Exception):
         return f"{line} ({self.hint})" if self.hint else line
 
 
+class IndexMismatch(CliError):
+    """The index was built with a different embedding model than is configured.
+
+    Its own type so search can skip the vector stream with a specific note
+    while upsert and rebuild still stop with exit 3.
+    """
+
+    def __init__(self, message, hint=""):
+        super().__init__(message, hint, code=EXIT_SETUP)
+
+
 def brief(exc):
     """Name an exception in one short line, for stderr notes and warnings.
 
