@@ -5,6 +5,21 @@ from cortex_vec import config, store
 
 
 @pytest.fixture(autouse=True)
+def _no_real_model_credentials(monkeypatch):
+    """Keep every test away from real model credentials and endpoints.
+
+    A no-argument `OpenAI()` reads `OPENAI_API_KEY` and `OPENAI_BASE_URL` from
+    the environment, so a test that reaches one by mistake would send its
+    fixture text to the developer's endpoint with the developer's key. Tests
+    that need a key set their own. The base URL points at a closed local
+    port, so a stray request fails at connect instead of leaving the machine.
+    """
+    for name in ("OPENAI_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:9/v1")
+
+
+@pytest.fixture(autouse=True)
 def _isolate_retrieval_config(monkeypatch):
     """Isolate every test from the developer's real ~/.cortex/config.json.
 
