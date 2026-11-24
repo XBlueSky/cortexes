@@ -1,6 +1,7 @@
 """Configuration loading and constants."""
 
 import json
+import re
 from pathlib import Path
 
 from .errors import EXIT_SETUP, CliError
@@ -78,6 +79,9 @@ def get_retrieval_config():
     return rc
 
 
+_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
 def _bad_models(path, problem, hint=""):
     return CliError(f"invalid {path} in {CORTEX_CONFIG}: {problem}", hint, code=EXIT_SETUP)
 
@@ -115,6 +119,13 @@ def _merge_role(role, user):
     for field, value in user.items():
         if value is not None and not (isinstance(value, str) and value):
             raise _bad_models(f"{path}.{field}", "must be a non-empty string")
+    # Later messages print this name ("<name> not set"), so it has to look
+    # like one: a pasted key must stop here, where its value is not shown.
+    key_env = user.get("api_key_env")
+    if key_env is not None and not _ENV_NAME.fullmatch(key_env):
+        raise _bad_models(f"{path}.api_key_env",
+                          "must be the name of an environment variable, not the key itself",
+                          "letters, digits and underscores only, e.g. OPENAI_API_KEY")
 
     merged = dict(defaults)
     merged.update({k: v for k, v in user.items() if v is not None})   # null = unset

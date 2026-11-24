@@ -53,6 +53,8 @@ def test_a_null_block_or_role_means_unset_too(monkeypatch, models):
     ({"chat": {"type": "azure", "base_url": "https://chat.example.com"}}, "models.chat.api_version", "azure"),
     ({"chat": {"api_version": "2024-06-01"}}, "models.chat.api_version", "openai"),
     ({"embedding": {"api_key": "sk-nope"}}, "models.embedding.api_key", "api_key_env"),
+    ({"embedding": {"api_key_env": "sk-nope"}}, "models.embedding.api_key_env", "environment variable"),
+    ({"chat": {"api_key_env": "sk-nope"}}, "models.chat.api_key_env", "environment variable"),
     ({"embedding": {"model": ""}}, "models.embedding.model", "non-empty string"),
     ({"chat": "gpt-5.4-mini"}, "models.chat", "object"),
     ("openai", "models", "object"),
