@@ -85,7 +85,8 @@ def test_vector_note_names_the_configured_key_env(monkeypatch):
     monkeypatch.delenv("MY_EMBED_KEY", raising=False)
     notes = []
     assert fusion._vector_stream("q", 5, None, notes) == []
-    assert "MY_EMBED_KEY not set" in notes[0] and "BM25-only" in notes[0]
+    # "skipped", not "failed": the key is checked before the store is opened.
+    assert notes == ["vector stream skipped (MY_EMBED_KEY not set); results are BM25-only"]
 
 
 def test_a_vector_failure_note_stays_on_one_short_line(monkeypatch):

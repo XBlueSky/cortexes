@@ -79,10 +79,31 @@ def test_an_unmarked_index_counts_as_the_default_model(client):
     store.get_collection(client)                       # default config: no error, no rebuild
 
 
-def test_an_unreadable_signature_file_counts_as_unmarked(client):
+@pytest.mark.parametrize("content", [
+    "{not json",                              # cut off mid-write
+    "",                                       # truncated to nothing
+    '{"type": "openai"}',                     # a key is missing
+    '["openai", "text-embedding-3-small"]',   # valid JSON, wrong shape
+    '{"type": "openai", "model": 1}',         # a value is not a string
+])
+def test_an_unreadable_signature_file_counts_as_unmarked(client, content):
     _seed(store.get_collection(client))
-    _sig_file().write_text("{not json")
+    _sig_file().write_text(content)
     assert store.index_signature(client) == DEFAULT
+    store.get_collection(client)                       # and it is no traceback either
+
+
+def test_another_writers_temp_file_is_left_alone(client):
+    # Two first-time writers must not share one temp name: the second would
+    # move the first one's half-written file into place, or find it gone.
+    store.VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
+    theirs = _sig_file().with_name(store.SIGNATURE_FILE + ".tmp")
+    theirs.write_text("half-writ")
+    store.get_collection(client)
+    assert json.loads(_sig_file().read_text()) == DEFAULT
+    assert theirs.read_text() == "half-writ"
+    assert sorted(p.name for p in store.VECTORSTORE_DIR.glob(store.SIGNATURE_FILE + "*")) == [
+        store.SIGNATURE_FILE, store.SIGNATURE_FILE + ".tmp"]      # no temp of our own left behind
 
 
 def test_a_changed_model_is_refused_with_both_sides_and_the_fix(client, monkeypatch):
@@ -150,6 +171,27 @@ def test_status_warns_on_mismatch(client, tmp_path, monkeypatch, capsys):
     doc = json.loads(capsys.readouterr().out)
     assert doc["embedding_model"] == "my-embedding-model"
     assert any("text-embedding-3-small" in w and "cortex-vec rebuild" in w for w in doc["warnings"])
+
+
+def test_status_warns_when_chroma_reports_a_conflict(client, tmp_path, monkeypatch, capsys):
+    # No signature file and default settings, so the signatures agree; only
+    # chroma knows the index came from another function. `search` and `upsert`
+    # report that, and `status` has to say the same.
+    _seed(client.get_or_create_collection(name=config.COLLECTION_NAME, embedding_function=_OtherEF(),
+                                          metadata={"hnsw:space": "cosine"}))
+    _use(monkeypatch, {}, vault_path=str(_vault(tmp_path)))
+    _main(monkeypatch, "status", "--json")
+    doc = json.loads(capsys.readouterr().out)
+    assert any("cortex-test-other" in w and "cortex-vec rebuild" in w for w in doc["warnings"])
+    assert not _sig_file().exists()                    # status only looks
+
+
+def test_status_on_a_matching_index_has_no_mismatch_warning(client, tmp_path, monkeypatch, capsys):
+    _seed(store.get_collection(client))
+    _use(monkeypatch, {}, vault_path=str(_vault(tmp_path)))
+    _main(monkeypatch, "status", "--json")
+    assert not any("rebuild`" in w and "index was built" in w
+                   for w in json.loads(capsys.readouterr().out)["warnings"])
 
 
 def test_delete_works_on_a_mismatched_index_without_any_key(client, monkeypatch, capsys):

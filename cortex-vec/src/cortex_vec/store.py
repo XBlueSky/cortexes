@@ -13,6 +13,7 @@ except ModuleNotFoundError:
 
 import json
 import os
+import tempfile
 
 import chromadb
 
@@ -115,18 +116,25 @@ def _read_signature():
 def _write_signature(sig):
     if _read_signature() == sig:
         return
-    path = VECTORSTORE_DIR / SIGNATURE_FILE
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(sig) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    # A temp name of its own: two processes creating the first index at the
+    # same moment must not write through one shared file.
+    fd, tmp = tempfile.mkstemp(dir=VECTORSTORE_DIR, prefix=SIGNATURE_FILE + ".", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(sig) + "\n")
+    os.replace(tmp, VECTORSTORE_DIR / SIGNATURE_FILE)
 
 
 def _built_signature(entry_count):
     """Signature of an index that holds `entry_count` entries.
 
     None for an empty index: nothing is embedded yet, so any model may claim
-    it. Entries without a readable signature file predate the file, and were
-    built with the stock default.
+    it. Entries with no signature file predate the file, and were built with
+    the stock default.
+
+    Known limitation: a file that exists but cannot be read counts as absent
+    too. If it had recorded another model and `models.embedding` is back on
+    the default by then, the mismatch goes unnoticed. The file is written
+    atomically, so this takes outside damage; `cortex-vec rebuild` rewrites it.
     """
     if not entry_count:
         return None
@@ -167,19 +175,51 @@ def get_collection(client):
             metadata={"hnsw:space": "cosine"},
         )
     except ValueError as e:
-        # chroma refuses a collection that was created by another kind of
-        # embedding function. Same situation, so report it the same way.
-        text = str(e)
-        if "embedding function" not in text.lower():
+        mismatch = _chroma_conflict(e, wanted)
+        if mismatch is None:
             raise
-        detail = text.rsplit("conflict:", 1)[1].strip() if "conflict:" in text else ""
-        detail = detail.splitlines()[0][:200] if detail else brief(e)
-        raise IndexMismatch(
-            "index was built with a different embedding function than the configured "
-            f"{wanted['type']}/{wanted['model']} (chroma: {detail})", _MISMATCH_HINT) from e
+        raise mismatch from e
     if built is None:
         _write_signature(wanted)
     return col
+
+
+def _chroma_conflict(e, wanted):
+    """Turn chroma's embedding-function conflict into an IndexMismatch.
+
+    chroma refuses a collection that was created by another kind of embedding
+    function. Same situation as a changed model, so it is reported the same
+    way. Returns None for any other ValueError.
+    """
+    text = str(e)
+    if "embedding function" not in text.lower():
+        return None
+    detail = text.rsplit("conflict:", 1)[1].strip() if "conflict:" in text else ""
+    detail = detail.splitlines()[0][:200] if detail else brief(e)
+    return IndexMismatch(
+        "index was built with a different embedding function than the configured "
+        f"{wanted['type']}/{wanted['model']} (chroma: {detail})", _MISMATCH_HINT)
+
+
+def _function_conflict(client, wanted):
+    """What chroma says about opening the index with the configured function.
+
+    For `status`: an index with no signature file that another embedding
+    function built has matching signatures, and only chroma can tell. This
+    opens the collection and never creates one. Returns the mismatch message,
+    or None. Without the embedding key there is no function to try and
+    nothing to report: search skips the vector stream then anyway.
+    """
+    if not providers.embedding_available():
+        return None
+    try:
+        client.get_collection(COLLECTION_NAME, embedding_function=providers.embedding_function())
+    except ValueError as e:
+        conflict = _chroma_conflict(e, wanted)
+        return conflict.message if conflict else None
+    except Exception:
+        return None     # status reports what it can; search and upsert meet the real error
+    return None
 
 
 def _resolve_repos(doc_type, category, repos_str):
@@ -264,7 +304,10 @@ def cmd_status(args):
     warnings = []
     if total and not bm25_count:
         warnings.append("BM25 index empty — run `cortex-vec rebuild --bm25-only`")
-    mismatch = _mismatch_message(_built_signature(total), providers.embedding_signature())
+    wanted = providers.embedding_signature()
+    mismatch = _mismatch_message(_built_signature(total), wanted)
+    if not mismatch and total:
+        mismatch = _function_conflict(client, wanted)
     if mismatch:
         warnings.append(f"{mismatch} — run `cortex-vec rebuild`")
     if not getattr(args, "json", False):
