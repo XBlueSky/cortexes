@@ -513,17 +513,21 @@ another endpoint. Every key can be left out; these are the defaults:
 | Role | `type` | Talks to | Notes |
 |------|--------|----------|-------|
 | `embedding` | `openai` | Any OpenAI-compatible `/embeddings` endpoint | |
-| `embedding` | `http` | An endpoint that takes `POST {base_url}/embeddings` with a bearer key | For gateways that do not answer in the OpenAI shape. The reply may be the OpenAI `data` list, `{"embedding": [[…]]}` or `{"embeddings": [[…]]}`. `base_url` is required |
+| `embedding` | `http` | An endpoint that takes `POST {base_url}/embeddings` with a bearer key | For gateways that do not answer in the OpenAI shape. The reply may be the OpenAI `data` list, `{"embedding": [[…]]}` or `{"embeddings": [[…]]}`. Needs a URL: `base_url`, or else `OPENAI_BASE_URL` |
 | `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
 | `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
 
 - **`base_url`** — when omitted, the OpenAI SDK's default applies, including
   the `OPENAI_BASE_URL` environment variable. The `http` type calls the
   endpoint itself, so it must have a URL: the `base_url` in the block, or else
-  `OPENAI_BASE_URL`. With neither it is a setup error, and the value must
-  start with `http://` or `https://`. A `base_url` in the block wins over the
-  environment variable, so leave it out if you want to send a single command
-  to another gateway with `OPENAI_BASE_URL=… cortex-vec …`.
+  `OPENAI_BASE_URL`, and it must be an `http://` or `https://` URL with a
+  host. With neither, or with a value that is not such a URL, it is a setup
+  error: every command that reads `models` exits with code 3, `search`,
+  `status` and `delete` included, instead of falling back to BM25. So when the
+  block leaves `base_url` out, every command needs `OPENAI_BASE_URL` in its
+  environment. A `base_url` in the block wins over the environment variable,
+  so leave it out if you want to send a single command to another gateway
+  with `OPENAI_BASE_URL=… cortex-vec …`.
 - **`api_key_env`** — the *name* of the environment variable that holds the
   key: uppercase letters, digits and underscores. The key itself never goes
   into `config.json`.
@@ -578,10 +582,16 @@ Example — embeddings from a gateway that does not answer in the OpenAI shape:
 
 The request is `POST https://llm.example.com/v1/embeddings` with the header
 `Authorization: Bearer <key>` and the body
-`{"model": "my-embedding-model", "input": ["…"]}`. It times out after 60
-seconds, is not retried, and redirects are not followed. The key comes from
-the variable named by `api_key_env`; without `api_key_env`, the key sent to
-this endpoint is `OPENAI_API_KEY`.
+`{"model": "my-embedding-model", "input": ["…"]}`. It gives up after 10
+seconds without a connection or 60 seconds without a reply, is not retried,
+and redirects are not followed. The key comes from the variable named by
+`api_key_env`; without `api_key_env`, the key sent to this endpoint is
+`OPENAI_API_KEY`. A query string in `base_url` is kept after the path:
+`https://llm.example.com/v1?code=…` sends
+`POST https://llm.example.com/v1/embeddings?code=…`. Error messages give the
+HTTP status and, for a reply that cannot be read, its top-level field names,
+but never the reply body or the query, since an endpoint may echo the key
+back. To see the endpoint's own explanation, call it with `curl`.
 
 **Changing the embedding model needs a rebuild.** Vectors from different
 models cannot be compared, so the index records the `type` and `model` it was
@@ -589,9 +599,12 @@ built with (an index built before this setting existed counts as `openai` +
 `text-embedding-3-small`). When `models.embedding` no longer matches, `upsert`
 stops and says how to fix it, `search` falls back to BM25-only with a note,
 and `status` shows a warning. `cortex-vec rebuild` re-embeds the vault with
-the current setting. Switching `type` between `openai` and `http` counts as a
-change too, even when the model name stays the same. Changing only `base_url`
-or `api_key_env` needs no rebuild.
+the current setting. It deletes the existing vectors before it embeds
+anything: if the new endpoint fails, the vector index stays empty until a
+`rebuild` succeeds, and `search` answers from BM25 alone in the meantime.
+Switching `type` between `openai` and `http` counts as a change too, even
+when the model name stays the same. Changing only `base_url` or `api_key_env`
+needs no rebuild.
 
 ### Environment Variables
 
