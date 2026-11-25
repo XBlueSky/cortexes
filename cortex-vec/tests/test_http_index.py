@@ -38,18 +38,33 @@ def _by_topic(request):
         [1.0, 0.0, 0.0] if "nginx" in text else [0.0, 1.0, 0.0] for text in texts]})
 
 
-def test_importing_the_store_registers_cortex_http():
-    # In a fresh interpreter: `status` and `delete` open the index without ever
-    # building the function, and chroma looks the recorded name up in its registry.
-    code = ("import cortex_vec.store\n"
-            "from chromadb.utils.embedding_functions import known_embedding_functions as known\n"
-            "print(known['cortex-http'].__name__)")
+def _fresh_interpreter(code):
     # The environment is passed inline, not kept in a local: a failing assert
     # must never be able to print it.
-    done = subprocess.run(
+    return subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True,
         env={**os.environ, "PYTHONPATH": str(Path(store.__file__).parents[1])})
+
+
+def test_importing_the_store_registers_cortex_http():
+    # `status` and `delete` open the index without ever building the function,
+    # and chroma looks the recorded name up in its registry.
+    done = _fresh_interpreter(
+        "import cortex_vec.store\n"
+        "from chromadb.utils.embedding_functions import known_embedding_functions as known\n"
+        "print(known['cortex-http'].__name__)")
     assert done.stdout.strip() == "HttpEmbeddingFunction", done.stderr[-300:]
+
+
+def test_the_store_still_imports_when_the_http_module_cannot():
+    # An installed chromadb without the registry, say: every command imports
+    # the store, and the other embedding types must keep working.
+    done = _fresh_interpreter(
+        "import sys\n"
+        "sys.modules['cortex_vec.http_embedding'] = None\n"
+        "import cortex_vec.store\n"
+        "print('imported')")
+    assert done.stdout.strip() == "imported", done.stderr[-300:]
 
 
 def test_upsert_then_search_through_the_endpoint(vault, monkeypatch, embedding_endpoint):

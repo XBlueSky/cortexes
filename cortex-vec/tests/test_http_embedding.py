@@ -11,7 +11,6 @@ from chromadb.utils.embedding_functions import known_embedding_functions
 
 from cortex_vec.http_embedding import (
     NAME,
-    TIMEOUT_SECONDS,
     EmbeddingEndpointError,
     HttpEmbeddingFunction,
     parse_embeddings,
@@ -88,11 +87,44 @@ def test_the_request_is_a_bearer_post_of_model_and_input(embedding_endpoint):
     assert request.headers["authorization"] == f"Bearer {KEY}"
     assert json.loads(request.content) == {"model": "my-embedding-model", "input": ["one", "two"]}
     ef(["three"])                                            # the same client is reused
-    assert seen.client_kwargs == [{"timeout": TIMEOUT_SECONDS}] and TIMEOUT_SECONDS == 60.0
+    # Ten seconds to connect: `search` asks twice before it falls back to BM25,
+    # and an endpoint that is not there must not hold it for minutes.
+    assert seen.client_kwargs == [{"timeout": httpx.Timeout(60.0, connect=10.0)}]
+
+
+@pytest.mark.parametrize("base_url, sent", [
+    (GATEWAY + "?x=1", GATEWAY + "/embeddings?x=1"),
+    (GATEWAY + "/?x=1", GATEWAY + "/embeddings?x=1"),
+    (GATEWAY + "#part", GATEWAY + "/embeddings"),             # a fragment is never sent
+])
+def test_embeddings_goes_on_the_path_and_the_query_is_kept(embedding_endpoint, base_url, sent):
+    seen = embedding_endpoint()
+    _ef(base_url)(["one"])
+    assert str(seen.requests[0].url) == sent
+
+
+def test_the_query_is_sent_but_never_shown(embedding_endpoint):
+    # Some gateways take the key in the query string.
+    seen = embedding_endpoint(lambda r: httpx.Response(503))
+    with pytest.raises(EmbeddingEndpointError) as exc:
+        _ef(GATEWAY + "?code=s3cret")(["one"])
+    message = str(exc.value)
+    assert "POST https://llm.example.com/v1/embeddings" in message and "s3cret" not in message
+    assert seen.requests[0].url.params["code"] == "s3cret"
 
 
 def _refuse(request):
     raise httpx.ConnectError("[Errno 61] Connection refused", request=request)
+
+
+def _illegal_header(request):
+    # What the HTTP layer raises for a header value it refuses: the whole header.
+    raise httpx.LocalProtocolError(f"Illegal header value b'Bearer {KEY}'", request=request)
+
+
+def _garbled_reply(request):
+    raise httpx.RemoteProtocolError(
+        f"illegal status line: bytearray(b'<html>rejected {KEY}')", request=request)
 
 
 @pytest.mark.parametrize("handler, fragment", [
@@ -102,7 +134,11 @@ def _refuse(request):
     # the status line is the endpoint's text too
     (lambda r: httpx.Response(401, extensions={"reason_phrase": f"bad key {KEY}".encode()}), "HTTP 401"),
     (lambda r: httpx.Response(200, text="<html>Sign in to continue</html>"), "not JSON"),
-    (_refuse, "ConnectError"),
+    # the operating system's own text for a failed connection is kept
+    (_refuse, "ConnectError: [Errno 61] Connection refused"),
+    # any other transport error may quote the request or the reply: type only
+    (_illegal_header, "(LocalProtocolError)"),
+    (_garbled_reply, "(RemoteProtocolError)"),
 ])
 def test_endpoint_failures_are_one_line_naming_the_url_and_never_a_secret(
         embedding_endpoint, handler, fragment):
@@ -123,6 +159,37 @@ def test_a_missing_key_or_endpoint_is_reported_before_any_request(embedding_endp
     monkeypatch.delenv("MY_EMBED_KEY")
     with pytest.raises(EmbeddingEndpointError, match="MY_EMBED_KEY not set"):
         _ef()(["one"])
+    assert seen.requests == []
+
+
+@pytest.mark.parametrize("value", [KEY + "\r", KEY + "\n", f" {KEY} "])
+def test_whitespace_around_the_key_is_not_sent(embedding_endpoint, monkeypatch, value):
+    # A key saved with a line ending is common. Sent as it is, the HTTP layer
+    # refuses the header with an error that quotes all of it.
+    monkeypatch.setenv("MY_EMBED_KEY", value)
+    seen = embedding_endpoint()
+    _ef()(["one"])
+    assert seen.requests[0].headers["authorization"] == f"Bearer {KEY}"
+
+
+@pytest.mark.parametrize("value", ["k-test\r\nX-Injected: 1", "k-tést-123"])
+def test_a_key_that_cannot_be_a_header_is_refused_without_being_shown(
+        embedding_endpoint, monkeypatch, value):
+    monkeypatch.setenv("MY_EMBED_KEY", value)
+    seen = embedding_endpoint()
+    with pytest.raises(EmbeddingEndpointError) as exc:
+        _ef()(["one"])
+    message = str(exc.value)
+    assert "MY_EMBED_KEY" in message and "k-t" not in message and "\n" not in message
+    assert seen.requests == []
+
+
+def test_a_url_that_does_not_parse_shows_nothing_from_it(embedding_endpoint):
+    seen = embedding_endpoint()
+    with pytest.raises(EmbeddingEndpointError) as exc:
+        _ef("https://user:s3cret/x@llm.example.com/v1")(["one"])     # a password holding "/"
+    message = str(exc.value)
+    assert "InvalidURL" in message and "s3cret" not in message and "\n" not in message
     assert seen.requests == []
 
 
