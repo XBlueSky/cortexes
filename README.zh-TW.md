@@ -487,7 +487,7 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 
 請求是 `POST https://llm.example.com/v1/embeddings`，header 為 `Authorization: Bearer <key>`，body 為 `{"model": "my-embedding-model", "input": ["…"]}`。10 秒內連不上、或 60 秒內沒有回應就放棄，不重試，也不跟隨轉址。金鑰取自 `api_key_env` 指名的變數；沒寫 `api_key_env` 時，送到這個 endpoint 的是 `OPENAI_API_KEY`。`base_url` 裡的 query 會保留在路徑之後：`https://llm.example.com/v1?code=…` 送出的是 `POST https://llm.example.com/v1/embeddings?code=…`。錯誤訊息會寫 HTTP 狀態，回應讀不懂時再加上它的頂層欄位名稱，但不會包含回應內文或 query，因為 endpoint 可能把金鑰回印出來。想看 endpoint 自己寫的原因，請用 `curl` 直接呼叫。
 
-**換 embedding 模型需要 rebuild。** 不同模型產生的向量無法互相比較，所以 index 會記下建立時用的 `type` 與 `model`（這個設定出現之前建的 index 視為 `openai` + `text-embedding-3-small`）。`models.embedding` 與它不相符時，`upsert` 會停下並說明修正方式，`search` 退回 BM25-only 並留下一條 note，`status` 顯示 warning。`cortex-vec rebuild` 會用現在的設定重新 embed 整個 vault。它會先刪掉現有的向量才開始 embed：新的 endpoint 如果失敗，向量 index 會一直是空的，直到 `rebuild` 成功為止，這段期間 `search` 只靠 BM25 回答。`type` 在 `openai` 與 `http` 之間切換也算換模型，即使模型名稱相同。只改 `base_url` 或 `api_key_env` 不需要 rebuild。
+**換 embedding 模型需要 rebuild。** 不同模型產生的向量無法互相比較，所以 index 會記下建立時用的 `type` 與 `model`（這個設定出現之前建的 index 視為 `openai` + `text-embedding-3-small`）。`models.embedding` 與它不相符時，`upsert` 會停下並說明修正方式，`search` 退回 BM25-only 並留下一條 note，`status` 顯示 warning。`cortex-vec rebuild` 會用現在的設定重新 embed 整個 vault。它先刪掉現有的向量，再一則一則 embed。中途停下時（例如新的 endpoint 失敗），向量 index 只會有停下前已經 embed 的筆記（在第一則之前就停下則是空的），直到 `rebuild` 成功為止；這段期間其他筆記只能靠 BM25 找到。BM25 index 要等 embed 全部完成才會重寫，所以 rebuild 失敗不會動到它。`type` 在 `openai` 與 `http` 之間切換也算換模型，即使模型名稱相同。只改 `base_url` 或 `api_key_env` 不需要 rebuild。
 
 ### Environment Variables
 

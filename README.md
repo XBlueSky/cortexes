@@ -599,9 +599,13 @@ built with (an index built before this setting existed counts as `openai` +
 `text-embedding-3-small`). When `models.embedding` no longer matches, `upsert`
 stops and says how to fix it, `search` falls back to BM25-only with a note,
 and `status` shows a warning. `cortex-vec rebuild` re-embeds the vault with
-the current setting. It deletes the existing vectors before it embeds
-anything: if the new endpoint fails, the vector index stays empty until a
-`rebuild` succeeds, and `search` answers from BM25 alone in the meantime.
+the current setting. It deletes the existing vectors first, then embeds one
+note at a time. If it stops along the way, for example because the new
+endpoint fails, the vector index keeps only the notes embedded before that
+(none, if it stopped before the first note) until a `rebuild` succeeds. In the
+meantime `search` finds the other notes through BM25 alone. The BM25 index is
+rewritten only after the embedding finishes, so a failed rebuild leaves it as
+it was.
 Switching `type` between `openai` and `http` counts as a change too, even
 when the model name stays the same. Changing only `base_url` or `api_key_env`
 needs no rebuild.
