@@ -240,3 +240,85 @@ def test_a_bm25_only_delete_says_which_index_it_touched(monkeypatch, capsys):
     cap = capsys.readouterr()
     assert cap.out.strip() == "Deleted: Notes/a.md from the BM25 index (no vector entries)"
     assert cap.err == ""
+
+
+# ── the http type ────────────────────────────────────────────────────────────
+
+HTTP = {"embedding": {"type": "http", "model": "my-embedding-model"}}
+HTTP_SIG = {"type": "http", "model": "my-embedding-model"}
+
+
+def test_an_http_index_records_the_function_name_and_the_model_only(client, monkeypatch):
+    _use(monkeypatch, HTTP)
+    col = store.get_collection(client)
+    assert json.loads(_sig_file().read_text()) == HTTP_SIG
+    assert col.configuration_json["embedding_function"] == {
+        "type": "known", "name": "cortex-http", "config": {"model": "my-embedding-model"}}
+
+
+def test_changing_only_the_endpoint_needs_no_rebuild(client, monkeypatch):
+    _use(monkeypatch, HTTP)
+    _seed(store.get_collection(client))
+    _use(monkeypatch, {"embedding": {**HTTP["embedding"], "base_url": "http://127.0.0.1:9/other"}})
+    assert store.get_collection(store.get_client()).count() == 2
+
+
+@pytest.mark.parametrize("built, now, names", [
+    ({}, HTTP, ("openai/text-embedding-3-small", "http/my-embedding-model")),
+    (HTTP, {}, ("http/my-embedding-model", "openai/text-embedding-3-small")),
+    # the same model name behind the other type is still another index
+    (HTTP, {"embedding": {"model": "my-embedding-model"}},
+     ("http/my-embedding-model", "openai/my-embedding-model")),
+])
+def test_switching_between_openai_and_http_is_a_mismatch(client, monkeypatch, built, now, names):
+    _use(monkeypatch, built)
+    _seed(store.get_collection(client))
+    _use(monkeypatch, now)
+    with pytest.raises(IndexMismatch) as exc:
+        store.get_collection(client)
+    rendered = exc.value.render()
+    assert all(name in rendered for name in names) and "cortex-vec rebuild" in rendered
+
+
+def test_a_lost_signature_file_does_not_let_openai_reuse_an_http_index(client, monkeypatch):
+    _use(monkeypatch, HTTP)
+    _seed(store.get_collection(client))
+    _sig_file().unlink()                     # unmarked now counts as openai + the default model
+    _use(monkeypatch, {})
+    with pytest.raises(IndexMismatch) as exc:
+        store.get_collection(client)
+    assert "cortex-http" in exc.value.render() and "cortex-vec rebuild" in exc.value.render()
+
+
+def test_delete_works_on_an_http_index_after_switching_away_and_without_a_key(client, monkeypatch, capsys):
+    _use(monkeypatch, HTTP)
+    _seed(store.get_collection(client))
+    _use(monkeypatch, {})                    # openai now: a mismatch for search and upsert
+    monkeypatch.delenv("OPENAI_API_KEY")
+    _main(monkeypatch, "delete", "Notes/a.md", "--json")
+    assert json.loads(capsys.readouterr().out) == {"deleted": 2, "path": "Notes/a.md"}
+    assert store.open_existing_collection(store.get_client()).count() == 0
+
+
+def test_status_on_an_http_index_and_after_switching_away(client, tmp_path, monkeypatch, capsys):
+    root = _vault(tmp_path)
+    _use(monkeypatch, HTTP, vault_path=str(root))
+    _seed(store.get_collection(client))
+    _main(monkeypatch, "status", "--json")
+    doc = json.loads(capsys.readouterr().out)
+    assert (doc["entries"], doc["embedding_provider"], doc["embedding_model"]) == (
+        2, "http", "my-embedding-model")
+    assert not any("index was built" in w for w in doc["warnings"])
+    _use(monkeypatch, {}, vault_path=str(root))
+    _main(monkeypatch, "status", "--json")
+    assert any("http/my-embedding-model" in w and "cortex-vec rebuild" in w
+               for w in json.loads(capsys.readouterr().out)["warnings"])
+
+
+def test_rebuild_moves_an_openai_index_to_http(client, tmp_path, monkeypatch):
+    _seed(store.get_collection(client))
+    _use(monkeypatch, HTTP, vault_path=str(_vault(tmp_path)))   # empty vault: nothing to embed
+    _main(monkeypatch, "rebuild")
+    assert json.loads(_sig_file().read_text()) == HTTP_SIG
+    col = store.get_collection(store.get_client())
+    assert col.configuration_json["embedding_function"]["name"] == "cortex-http"

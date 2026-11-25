@@ -17,6 +17,9 @@ import tempfile
 
 import chromadb
 
+# Registers "cortex-http" with chroma, so an index built through the `http`
+# type opens in every process, whatever `models.embedding` says now.
+from . import http_embedding  # noqa: F401
 from . import providers
 from .bm25 import BM25Index
 from .config import SUMMARY_MODEL  # noqa: F401  (importable from here)

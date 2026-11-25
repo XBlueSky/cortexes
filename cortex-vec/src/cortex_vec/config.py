@@ -1,8 +1,10 @@
 """Configuration loading and constants."""
 
 import json
+import os
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .errors import EXIT_SETUP, CliError
 
@@ -25,6 +27,7 @@ _MODELS_DEFAULTS = {
 _MODEL_TYPES = {
     "embedding": {
         "openai": (("model", "base_url", "api_key_env"), ()),
+        "http": (("model", "base_url", "api_key_env"), ()),
     },
     "chat": {
         "openai": (("model", "base_url", "api_key_env"), ()),
@@ -32,6 +35,11 @@ _MODEL_TYPES = {
                   ("base_url", "api_version")),
     },
 }
+
+# (role, type) -> env var that supplies `base_url` when the block leaves it
+# out. These types call the endpoint themselves, so they need a usable URL
+# before the command starts.
+_BASE_URL_ENV = {("embedding", "http"): "OPENAI_BASE_URL"}
 
 _RETRIEVAL_DEFAULTS = {
     # Plan 1
@@ -88,6 +96,19 @@ def _bad_models(path, problem, hint=""):
     return CliError(f"invalid {path} in {CORTEX_CONFIG}: {problem}", hint, code=EXIT_SETUP)
 
 
+def _is_http_url(url):
+    """True for an http:// or https:// URL with a host that a request can use."""
+    # Checked before parsing: urlsplit silently drops tabs and line endings.
+    if any(c.isspace() or not c.isprintable() for c in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        parts.port                          # raises for a port that is not a number
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and bool(parts.hostname)
+
+
 def get_models_config():
     """Return the `models` block merged over defaults, one dict per role.
 
@@ -96,6 +117,10 @@ def get_models_config():
     likeliest mistake is a key pasted where an env var name belongs. The one
     exception is an unknown `type`, which is shown; it is a word picked from
     a short list, not a place a key ends up.
+
+    For the types listed in `_BASE_URL_ENV` the returned `base_url` is final:
+    the block's value, or else the env var's. For the others it stays None
+    when the block does not set it, and the SDK reads its own env var.
     """
     models = load_config().get("models")
     if models is None:                      # null = unset, at every level
@@ -148,6 +173,19 @@ def _merge_role(role, user):
     for field in required:
         if merged[field] is None:
             raise _bad_models(f"{path}.{field}", f"required when type is '{kind}'")
+
+    # Settled here, not when the first request is made: `rebuild` deletes the
+    # collection before it embeds anything.
+    env = _BASE_URL_ENV.get((role, kind))
+    if env:
+        url = merged["base_url"] or os.environ.get(env)     # an empty variable is unset
+        if not url:
+            raise _bad_models(f"{path}.base_url", f"required when type is '{kind}'",
+                              f"set it, or export {env}")
+        if not _is_http_url(url):
+            raise _bad_models(f"{path}.base_url", "must be an http:// or https:// URL with a host",
+                              f"when the field is not set, the value comes from {env}")
+        merged["base_url"] = url
     return merged
 
 

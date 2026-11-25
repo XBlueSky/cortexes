@@ -6,7 +6,9 @@ nowhere else.
 
 chromadb and openai are imported inside the functions, not at module level:
 store.py has to swap in pysqlite3 before chromadb is first imported, and this
-module must not get there first.
+module must not get there first. That is also why the `http` embedding
+function's class is not defined here: a chroma embedding function has to
+import chromadb where it is defined, so it lives in `http_embedding.py`.
 """
 
 import os
@@ -15,7 +17,7 @@ from . import config
 from .errors import EXIT_SETUP, CliError
 
 _DEFAULT_KEY_ENV = "OPENAI_API_KEY"
-_LABELS = {"openai": "OpenAI", "azure": "Azure OpenAI"}
+_LABELS = {"openai": "OpenAI", "azure": "Azure OpenAI", "http": "HTTP endpoint"}
 
 
 def _role(role):
@@ -47,6 +49,12 @@ def embedding_function():
             "export it for embeddings; `cortex-vec rebuild --bm25-only` "
             "works without it",
             code=EXIT_SETUP)
+    if mc["type"] == "http":
+        from .http_embedding import HttpEmbeddingFunction
+
+        # It takes the variable's name and reads the key on each call.
+        return HttpEmbeddingFunction(model=mc["model"], base_url=mc["base_url"],
+                                     api_key_env=key_env)
     # The key is always passed explicitly: left to itself chroma reads
     # OPENAI_API_KEY whenever that is set, whatever variable it was told to use.
     kwargs = {"model_name": mc["model"], "api_key": api_key}

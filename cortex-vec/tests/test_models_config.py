@@ -48,7 +48,8 @@ def test_a_null_block_or_role_means_unset_too(monkeypatch, models):
 @pytest.mark.parametrize("models, field, names", [
     ({"rerank": {"type": "llm"}}, "models.rerank", "embedding, chat"),
     ({"chat": {"type": "anthropic"}}, "models.chat.type", "openai, azure"),
-    ({"embedding": {"type": "azure"}}, "models.embedding.type", "valid values: openai"),
+    ({"embedding": {"type": "azure"}}, "models.embedding.type", "valid values: openai, http"),
+    ({"chat": {"type": "http"}}, "models.chat.type", "openai, azure"),
     ({"chat": {"type": "azure", "api_version": "2024-06-01"}}, "models.chat.base_url", "azure"),
     ({"chat": {"type": "azure", "base_url": "https://chat.example.com"}}, "models.chat.api_version", "azure"),
     ({"chat": {"api_version": "2024-06-01"}}, "models.chat.api_version", "openai"),
@@ -116,3 +117,90 @@ def test_bm25_only_rebuild_does_not_read_models(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cortex-vec", "rebuild", "--bm25-only"])
     cli.main()
     assert "BM25: 0 notes indexed" in capsys.readouterr().out
+
+
+GATEWAY = "https://llm.example.com/v1"
+
+
+def test_http_is_a_valid_embedding_type(monkeypatch):
+    _cfg(monkeypatch, {"embedding": {"type": "http", "model": "my-embedding-model",
+                                     "base_url": GATEWAY, "api_key_env": "MY_EMBED_KEY"}})
+    assert config.get_models_config()["embedding"] == {
+        "type": "http", "model": "my-embedding-model", "base_url": GATEWAY,
+        "api_key_env": "MY_EMBED_KEY"}
+
+
+def test_http_base_url_falls_back_to_OPENAI_BASE_URL_and_the_block_wins(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://other.example.com/v1")
+    _cfg(monkeypatch, {"embedding": {"type": "http"}})
+    assert config.get_models_config()["embedding"]["base_url"] == "https://other.example.com/v1"
+    _cfg(monkeypatch, {"embedding": {"type": "http", "base_url": GATEWAY}})
+    assert config.get_models_config()["embedding"]["base_url"] == GATEWAY
+
+
+def test_openai_base_url_is_still_left_to_the_sdk(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://other.example.com/v1")
+    models = config.get_models_config()
+    assert models["embedding"]["base_url"] is None and models["chat"]["base_url"] is None
+
+
+@pytest.mark.parametrize("env_value", [None, ""])
+def test_http_without_any_base_url_is_a_setup_error(monkeypatch, env_value):
+    if env_value is None:
+        monkeypatch.delenv("OPENAI_BASE_URL")
+    else:
+        monkeypatch.setenv("OPENAI_BASE_URL", env_value)
+    _cfg(monkeypatch, {"embedding": {"type": "http"}})
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    rendered = exc.value.render()
+    assert exc.value.code == EXIT_SETUP
+    assert "models.embedding.base_url" in rendered and "'http'" in rendered
+    assert "OPENAI_BASE_URL" in rendered
+
+
+@pytest.mark.parametrize("bad", [
+    "llm.example.com/v1",                       # no scheme
+    "https://",                                 # no host
+    "https:///v1",
+    "https://[::1/v1",                          # does not parse
+    "https://llm.example.com:port/v1",          # not a port
+    "https://llm.example.com/v1\n",             # a line ending
+    "https://llm.example.com/v1 ",
+    "https://llm.example.com/my models/v1",
+])
+@pytest.mark.parametrize("source", ["block", "env"])
+def test_http_base_url_must_be_an_http_url_and_is_not_echoed(monkeypatch, source, bad):
+    # Caught here, or `rebuild` deletes the index before the first request fails.
+    monkeypatch.setenv("OPENAI_BASE_URL", bad if source == "env" else GATEWAY)
+    _cfg(monkeypatch, {"embedding": {"type": "http", **({"base_url": bad} if source == "block" else {})}})
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    rendered = exc.value.render()
+    assert exc.value.code == EXIT_SETUP
+    assert "models.embedding.base_url" in rendered and "http:// or https://" in rendered
+    assert "example" not in rendered
+
+
+@pytest.mark.parametrize("good", [
+    "http://127.0.0.1:8080/v1",
+    "http://[::1]:8080/v1",
+    "HTTPS://llm.example.com",
+    "https://llm.example.com/v1?code=abc",
+])
+def test_http_base_url_accepts_hosts_ports_and_queries(monkeypatch, good):
+    _cfg(monkeypatch, {"embedding": {"type": "http", "base_url": good}})
+    assert config.get_models_config()["embedding"]["base_url"] == good
+
+
+@pytest.mark.parametrize("argv", [("rebuild",), ("upsert", "Notes/a.md"), ("search", "anything")])
+def test_http_without_a_base_url_stops_the_command_before_it_touches_the_index(monkeypatch, capsys, argv):
+    # `rebuild` deletes the collection first, so this has to fail before the command body.
+    monkeypatch.delenv("OPENAI_BASE_URL")
+    _cfg(monkeypatch, {"embedding": {"type": "http"}})
+    monkeypatch.setattr(store, "get_client", lambda: pytest.fail("command body ran"))
+    monkeypatch.setattr(sys, "argv", ["cortex-vec", *argv])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    err = capsys.readouterr().err
+    assert exc.value.code == 3 and "models.embedding.base_url" in err and err.count("\n") == 1
