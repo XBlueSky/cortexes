@@ -20,11 +20,14 @@
 Cortexes 會處理你的個人知識 vault 與 API 憑證，請留意：
 
 - **`OPENAI_API_KEY`** 由環境變數提供，不會被寫進 vault 或索引。請勿把它 commit 進任何 repo。
+  你在 `models.*.api_key_env` 指名的 key 變數也一樣：`~/.cortex/config.json` 只存變數的名稱，
+  不存 key 本身。
 - **Vault 內容** 是你的原始 session 記錄與筆記。索引（ChromaDB / BM25）儲存在本機 `~/.cortex/`，
   預設不進 git、不上傳。
-- **語意搜尋** 會把待索引的文件內容送到 OpenAI 產生 embedding。若你的 vault 含敏感資料，
-  請自行評估；未設定 `OPENAI_API_KEY` 時**不會有任何 vault 內容送往 OpenAI**，搜尋改走
-  本機 BM25 索引。
+- **語意搜尋** 會把待索引的文件內容送到 OpenAI（或你在 `~/.cortex/config.json` 的 `models`
+  區塊設定的 endpoint）產生 embedding。若你的 vault 含敏感資料，請自行評估；未設定
+  `OPENAI_API_KEY` 時**不會有任何 vault 內容送往 OpenAI**，搜尋改走本機 BM25 索引。如果
+  `models.*.api_key_env` 指向別的變數，開關就換成那個變數。
 - **被檢索到的內容仍然會進到 Anthropic。** Cortexes 是 Claude Code plugin：query、distill、
   broadcast 或 takeoff resume 從 `Notes/`、`Projects/`、`Raw/`、`.takeoff/` 讀出來的內容，
   都會進入當前 Claude Code session，並在你自己的帳號底下由 Anthropic 處理。即使在

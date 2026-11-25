@@ -340,7 +340,7 @@ cortex-vec eval run \
 
 #### LLM rerank
 
-透過 `cortex-vec search --rerank`（或 config `retrieval.rerank: true`）啟用。對初步 hybrid 結果的前 `retrieval.rerank_window`（預設 15）筆，呼叫 OpenAI（model 由 `retrieval.rerank_model` 指定，預設 `gpt-5.4-mini`）重新排序，以 LLM 判斷相關性取代純分數排名。任何失敗（API error / timeout）均自動回退原 RRF 順序，不影響搜尋可用性。
+透過 `cortex-vec search --rerank`（或 config `retrieval.rerank: true`）啟用。對初步 hybrid 結果的前 `retrieval.rerank_window`（預設 15）筆，呼叫 chat 模型（有設 `retrieval.rerank_model` 就用它，否則用 `models.chat.model`，預設 `gpt-5.4-mini`）重新排序，以 LLM 判斷相關性取代純分數排名。任何失敗（API error / timeout）均自動回退原 RRF 順序，不影響搜尋可用性，並在 stderr 留下一行 `rerank failed … order unchanged`。
 
 #### max-per-repo 多樣化
 
@@ -359,12 +359,13 @@ cortex-vec eval run \
     "w_graph": 0.3,
     "graph_top_k": 5,
     "rerank": false,
-    "rerank_model": "gpt-5.4-mini",
     "rerank_window": 15,
     "max_per_repo": 0
   }
 }
 ```
+
+`rerank_model` 是刻意省略的：沒設定時 rerank 用 `models.chat.model`（見 [Models](#models)）。只有想讓 rerank 用不同於產生摘要的模型時才需要設定。
 
 搭配 CLI flag 的用法：
 
@@ -410,11 +411,71 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 `auto_push` 失敗時不再靜默：遠端的錯誤訊息會附加到 `~/.cortex/push-failures.log`，
 下一個 session 的開場狀態列也會顯示「有 N 個 commit 尚未推送」。
 
+### Models
+
+預設所有模型呼叫都送往 OpenAI：embedding 用 `text-embedding-3-small`，摘要、`eval propose` 與 LLM rerank 用 `gpt-5.4-mini`。`~/.cortex/config.json` 裡選用的 `models` 區塊可以把任一接點指到別的 endpoint。每個鍵都可以省略，以下就是預設值：
+
+```json
+{
+  "models": {
+    "embedding": {
+      "type": "openai",
+      "model": "text-embedding-3-small",
+      "base_url": null,
+      "api_key_env": "OPENAI_API_KEY"
+    },
+    "chat": {
+      "type": "openai",
+      "model": "gpt-5.4-mini",
+      "base_url": null,
+      "api_key_env": "OPENAI_API_KEY",
+      "api_version": null
+    }
+  }
+}
+```
+
+| 接點 | `type` | 連到哪裡 | 備註 |
+|------|--------|----------|------|
+| `embedding` | `openai` | 任何 OpenAI 相容的 `/embeddings` endpoint | |
+| `chat` | `openai` | OpenAI 相容的 chat completions endpoint | 模型必須接受下面的 chat 參數 |
+| `chat` | `azure` | Azure OpenAI | `model` 是 deployment 名稱；`base_url` 與 `api_version` 必填。deployment 必須接受下面的 chat 參數 |
+
+- **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。
+- **`api_key_env`** — 填的是存放金鑰的環境變數**名稱**，只能用大寫字母、數字與底線。金鑰本身不會寫進 `config.json`。
+- **Chat 參數** — 每一次 chat 呼叫（摘要、`eval propose`、LLM rerank）都會帶 `max_completion_tokens` 與 `reasoning_effort: "none"`，這是配合預設的 `gpt-5.4-mini` 設的，目前不能調整。模型或 endpoint 若不接受其中任何一個，每次 chat 呼叫都會失敗：摘要退回「標題 + tags」並在 stderr 印出警告，rerank 則維持原本的順序。
+- **寫錯會立刻停下** — `models` 區塊有誤時（未知的接點、類型或欄位，或缺少必填欄位），`search`、`upsert`、`rebuild`、`status`、`delete` 與 `eval` 會以 exit code 3 結束並點名是哪個欄位。`rebuild --bm25-only` 不讀 `models`。
+
+範例 — embedding 走 OpenAI 相容的 gateway，摘要用 Azure OpenAI：
+
+```json
+{
+  "models": {
+    "embedding": {
+      "type": "openai",
+      "model": "my-embedding-model",
+      "base_url": "https://llm.example.com/v1",
+      "api_key_env": "MY_GATEWAY_KEY"
+    },
+    "chat": {
+      "type": "azure",
+      "model": "my-chat-deployment",
+      "base_url": "https://YOUR-RESOURCE.openai.azure.com",
+      "api_version": "2024-06-01",
+      "api_key_env": "AZURE_OPENAI_API_KEY"
+    }
+  }
+}
+```
+
+**換 embedding 模型需要 rebuild。** 不同模型產生的向量無法互相比較，所以 index 會記下建立時用的 `type` 與 `model`（這個設定出現之前建的 index 視為 `openai` + `text-embedding-3-small`）。`models.embedding` 與它不相符時，`upsert` 會停下並說明修正方式，`search` 退回 BM25-only 並留下一條 note，`status` 顯示 warning。`cortex-vec rebuild` 會用現在的設定重新 embed 整個 vault。只改 `base_url` 或 `api_key_env` 不需要 rebuild。
+
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
-| `OPENAI_API_KEY` | No* | OpenAI API key，用於 text-embedding-3-small。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
+| `OPENAI_API_KEY` | No* | embedding、摘要與 rerank 的預設 API key；`models.*.api_key_env` 可以改指別的變數。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
+| `OPENAI_BASE_URL` | No | 沒設 `models.*.base_url` 時由 OpenAI SDK 讀取；可把預設的 `openai` 類型指到 OpenAI 相容的 endpoint |
 | `CORTEX_VAULT_PATH` | No | 只有 `session-start-inject.sh` 與 `takeoff.sh` helper 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
 | `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
@@ -453,9 +514,10 @@ plugin，所以 query、distill、broadcast 或 takeoff resume 讀到的 vault �
 把過大的區塊（>12 KB，每次 session 最多 5 次）透過你自己的 Claude Code 送
 給 Anthropic 做壓縮分類——`CORTEX_NO_CLASSIFIER=1` 可停用它，而它只停掉這
 組巢狀呼叫，不影響一般 session 處理；語意索引會把 vault 頁面內容送往
-OpenAI 產生 embedding，只在你設定 `OPENAI_API_KEY` 時發生，未設定時檢索走
-本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行開啟時發生
-（預設關閉）。
+OpenAI（或你在 [`models`](#models) 設定的 endpoint）產生 embedding，只在你
+設定 `OPENAI_API_KEY`（或 `models.embedding.api_key_env` 指名的變數）時發生，
+未設定時檢索走本機 BM25 索引；以及 `git push` 到你設定的 remote，只在你自行
+開啟時發生（預設關閉）。
 
 [`PRIVACY.zh-TW.md`](PRIVACY.zh-TW.md) 完整記錄了每一條資料流：session
 記錄包含什麼、寫入前排除什麼、檔案存在哪裡、git commit 與 push 行為、

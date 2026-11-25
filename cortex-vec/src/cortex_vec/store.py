@@ -13,28 +13,28 @@ except ModuleNotFoundError:
 
 import json
 import os
+import tempfile
 
 import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
+from . import providers
 from .bm25 import BM25Index
-from .config import BM25_DIR, COLLECTION_NAME, SUMMARY_MODEL, VECTORSTORE_DIR, get_vault_path
-from .errors import EXIT_SETUP, CliError
+from .config import SUMMARY_MODEL  # noqa: F401  (importable from here)
+from .config import (
+    BM25_DIR,
+    COLLECTION_NAME,
+    CORTEX_CONFIG,
+    EMBEDDING_MODEL,
+    VECTORSTORE_DIR,
+    get_vault_path,
+)
+from .errors import EXIT_SETUP, CliError, IndexMismatch, brief
 from .parser import classify_path, extract_summary, parse_document
 
-EMBEDDING_MODEL = "text-embedding-3-small"
-
-
-def _get_embedding_function():
-    """Return OpenAI embedding function."""
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not api_key:
-        raise CliError(
-            "OPENAI_API_KEY not set",
-            "export it for embeddings; `cortex-vec rebuild --bm25-only` "
-            "works without it",
-            code=EXIT_SETUP)
-    return OpenAIEmbeddingFunction(model_name=EMBEDDING_MODEL, api_key=api_key)
+# Records which embedding model built the index, next to the chroma files.
+SIGNATURE_FILE = "embedding-signature.json"
+_MISMATCH_HINT = ("run `cortex-vec rebuild` to re-embed the vault, "
+                  "or restore the previous models.embedding")
 
 
 _SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索引。
@@ -51,14 +51,16 @@ _SUMMARY_PROMPT = """為這份技術筆記產生摘要，用於語意搜尋索�
 {body}"""
 
 
+_summary_warned = False   # the fallback warning is printed once per process
+
+
 def _generate_summary(title, tags, body):
     """Generate a bilingual summary using LLM. Falls back to title+tags on failure."""
+    global _summary_warned
     try:
-        from openai import OpenAI
-
-        client = OpenAI()
+        client = providers.chat_client()
         resp = client.chat.completions.create(
-            model=SUMMARY_MODEL,
+            model=providers.chat_model(),
             messages=[
                 {
                     "role": "user",
@@ -69,7 +71,13 @@ def _generate_summary(title, tags, body):
             reasoning_effort="none",
         )
         return resp.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        # A rebuild hits this once per note, so only the first failure is shown.
+        if not _summary_warned:
+            _summary_warned = True
+            print(f"cortex-vec: warning: summary generation failed ({brief(e)}); "
+                  "indexing title + tags instead (further failures not shown)",
+                  file=sys.stderr)
         return f"{title}. Tags: {tags}"
 
 
@@ -79,13 +87,139 @@ def get_client():
     return chromadb.PersistentClient(path=str(VECTORSTORE_DIR))
 
 
+def open_existing_collection(client):
+    """Open the collection without an embedding function; None if there is none.
+
+    Enough to count, list and delete entries, and it needs no API key.
+    """
+    try:
+        return client.get_collection(COLLECTION_NAME)
+    except Exception:
+        # chroma's "no such collection" error has changed type between
+        # releases. A real failure resurfaces when the caller goes on to
+        # create or query the collection.
+        return None
+
+
+def _read_signature():
+    """Return the signature file's content, or None if it is absent or unusable."""
+    try:
+        sig = json.loads((VECTORSTORE_DIR / SIGNATURE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if (isinstance(sig, dict) and set(sig) == {"type", "model"}
+            and all(isinstance(v, str) for v in sig.values())):
+        return sig
+    return None
+
+
+def _write_signature(sig):
+    if _read_signature() == sig:
+        return
+    # A temp name of its own: two processes creating the first index at the
+    # same moment must not write through one shared file.
+    fd, tmp = tempfile.mkstemp(dir=VECTORSTORE_DIR, prefix=SIGNATURE_FILE + ".", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(sig) + "\n")
+    os.replace(tmp, VECTORSTORE_DIR / SIGNATURE_FILE)
+
+
+def _built_signature(entry_count):
+    """Signature of an index that holds `entry_count` entries.
+
+    None for an empty index: nothing is embedded yet, so any model may claim
+    it. Entries with no signature file predate the file, and were built with
+    the stock default.
+
+    Known limitation: a file that exists but cannot be read counts as absent
+    too. If it had recorded another model and `models.embedding` is back on
+    the default by then, the mismatch goes unnoticed. The file is written
+    atomically, so this takes outside damage; `cortex-vec rebuild` rewrites it.
+    """
+    if not entry_count:
+        return None
+    return _read_signature() or {"type": "openai", "model": EMBEDDING_MODEL}
+
+
+def index_signature(client):
+    """Return the {"type", "model"} the index was built with; None if no index yet."""
+    col = open_existing_collection(client)
+    return _built_signature(col.count() if col is not None else 0)
+
+
+def _mismatch_message(built, wanted):
+    """Say how the index and `models.embedding` disagree; None when they agree."""
+    if built is None or built == wanted:
+        return None
+    return (f"index was built with {built['type']}/{built['model']}, but models.embedding "
+            f"in {CORTEX_CONFIG} is now {wanted['type']}/{wanted['model']}")
+
+
 def get_collection(client):
-    """Get or create the cortex collection."""
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=_get_embedding_function(),
-        metadata={"hnsw:space": "cosine"},
-    )
+    """Get or create the cortex collection for the configured embedding model.
+
+    Raises IndexMismatch when the index was built with another model. Vectors
+    from two models are not comparable, and chroma would accept them without
+    complaint as long as both come from the same kind of embedding function.
+    """
+    ef = providers.embedding_function()     # a missing key is reported first
+    wanted = providers.embedding_signature()
+    built = index_signature(client)
+    message = _mismatch_message(built, wanted)
+    if message:
+        raise IndexMismatch(message, _MISMATCH_HINT)
+    try:
+        col = client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            embedding_function=ef,
+            metadata={"hnsw:space": "cosine"},
+        )
+    except ValueError as e:
+        mismatch = _chroma_conflict(e, wanted)
+        if mismatch is None:
+            raise
+        raise mismatch from e
+    if built is None:
+        _write_signature(wanted)
+    return col
+
+
+def _chroma_conflict(e, wanted):
+    """Turn chroma's embedding-function conflict into an IndexMismatch.
+
+    chroma refuses a collection that was created by another kind of embedding
+    function. Same situation as a changed model, so it is reported the same
+    way. Returns None for any other ValueError.
+    """
+    text = str(e)
+    if "embedding function" not in text.lower():
+        return None
+    detail = text.rsplit("conflict:", 1)[1].strip() if "conflict:" in text else ""
+    detail = detail.splitlines()[0][:200] if detail else brief(e)
+    return IndexMismatch(
+        "index was built with a different embedding function than the configured "
+        f"{wanted['type']}/{wanted['model']} (chroma: {detail})", _MISMATCH_HINT)
+
+
+def _function_conflict(client, wanted):
+    """What chroma says about opening the index with the configured function.
+
+    For `status`: an index with no signature file that another embedding
+    function built has matching signatures, and only chroma can tell. This
+    opens the collection and never creates one. Returns the mismatch message,
+    or None. Without the embedding key there is no function to try and
+    nothing to report: search skips the vector stream then anyway.
+    """
+    if not providers.embedding_available():
+        return None
+    try:
+        client.get_collection(COLLECTION_NAME, embedding_function=providers.embedding_function())
+    except ValueError as e:
+        conflict = _chroma_conflict(e, wanted)
+        return conflict.message if conflict else None
+    except Exception:
+        return None     # status reports what it can; search and upsert meet the real error
+    return None
 
 
 def _resolve_repos(doc_type, category, repos_str):
@@ -170,15 +304,23 @@ def cmd_status(args):
     warnings = []
     if total and not bm25_count:
         warnings.append("BM25 index empty — run `cortex-vec rebuild --bm25-only`")
+    wanted = providers.embedding_signature()
+    mismatch = _mismatch_message(_built_signature(total), wanted)
+    if not mismatch and total:
+        mismatch = _function_conflict(client, wanted)
+    if mismatch:
+        warnings.append(f"{mismatch} — run `cortex-vec rebuild`")
     if not getattr(args, "json", False):
         for w in warnings:
             print(f"  WARNING: {w}", file=sys.stderr)
+    embedding = providers.describe("embedding")
+    chat = providers.describe("chat")
     _emit(args, [
         f"BM25:       {bm25_count} notes",
         f"Collection: {COLLECTION_NAME}",
         f"Entries:    {total} ({bodies} body + {summaries} summary)",
-        f"Embedding:  {EMBEDDING_MODEL} (OpenAI)",
-        f"Summary:    {SUMMARY_MODEL} (OpenAI)",
+        f"Embedding:  {embedding['model']} ({embedding['label']})",
+        f"Summary:    {chat['model']} ({chat['label']})",
         f"DB path:    {VECTORSTORE_DIR}",
         f"Vault:      {vault}",
     ], {
@@ -187,8 +329,10 @@ def cmd_status(args):
         "entries": total,
         "body_entries": bodies,
         "summary_entries": summaries,
-        "embedding_model": EMBEDDING_MODEL,
-        "summary_model": SUMMARY_MODEL,
+        "embedding_model": embedding["model"],
+        "embedding_provider": embedding["type"],
+        "summary_model": chat["model"],
+        "summary_provider": chat["type"],
         "db_path": str(VECTORSTORE_DIR),
         "vault": str(vault),
         "warnings": warnings,
@@ -371,29 +515,48 @@ def cmd_upsert(args):
 
 
 def cmd_delete(args):
-    """Remove a document from the index."""
+    """Remove a document from the index.
+
+    Opens the collection without an embedding function: deleting embeds
+    nothing, so it works without a key and on an index built with another
+    model. The BM25 index is cleaned either way: a keyless setup has no
+    vector index at all, and the note must still stop showing up in search.
+    """
     client = get_client()
-    col = get_collection(client)
+    col = open_existing_collection(client)
     rel_path = args.path
 
-    stale = _delete_stale_entries(col, rel_path)
-    if not stale:
+    stale = _delete_stale_entries(col, rel_path) if col is not None else []
+    from_bm25 = _delete_from_bm25(rel_path)
+    if not stale and not from_bm25:
         # Idempotent: the goal state (not indexed) already holds.
         print(f"cortex-vec: {rel_path} not indexed; nothing to delete",
               file=sys.stderr)
         _emit(args, [], {"deleted": 0, "path": rel_path})
         return
 
-    bm25_index = BM25Index(BM25_DIR)
-    try:
-        bm25_index.load()
-        bm25_index.delete(rel_path)
-        bm25_index.save()
-    except FileNotFoundError:
-        pass
+    if not stale:
+        # `deleted` counts vector entries; with none, it counts the BM25
+        # document, so 0 keeps meaning "nothing was indexed".
+        _emit(args, [f"Deleted: {rel_path} from the BM25 index (no vector entries)"],
+              {"deleted": from_bm25, "path": rel_path})
+        return
 
     _emit(args, [f"Deleted: {len(stale)} entries for {rel_path}"],
           {"deleted": len(stale), "path": rel_path})
+
+
+def _delete_from_bm25(rel_path):
+    """Drop a path from the BM25 index; return how many documents that removed."""
+    bm25_index = BM25Index(BM25_DIR)
+    try:
+        bm25_index.load()
+    except FileNotFoundError:
+        return 0
+    removed = bm25_index.delete(rel_path)
+    if removed:
+        bm25_index.save()
+    return removed
 
 
 def cosine_for(query, doc_ids):
@@ -539,7 +702,7 @@ def cmd_search(args):
     if not getattr(args, "no_bm25", False) and not BM25Index(BM25_DIR).exists():
         raise CliError("no search index found",
                        "run `cortex-vec rebuild`, or `cortex-vec rebuild "
-                       "--bm25-only` without OPENAI_API_KEY",
+                       f"--bm25-only` without {providers.embedding_key_env()}",
                        code=EXIT_SETUP)
 
     notes = []

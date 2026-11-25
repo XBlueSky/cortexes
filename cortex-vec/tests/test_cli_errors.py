@@ -82,7 +82,7 @@ def test_upsert_of_a_missing_file_is_a_caller_error(vault, monkeypatch, capsys):
 
 def test_delete_of_an_unindexed_path_succeeds(monkeypatch, capsys):
     monkeypatch.setattr(store, "get_client", lambda: None)
-    monkeypatch.setattr(store, "get_collection", lambda client: None)
+    monkeypatch.setattr(store, "open_existing_collection", lambda client: object())
     monkeypatch.setattr(store, "_delete_stale_entries", lambda col, rel: [])
 
     out = _run_ok(monkeypatch, capsys, "delete", "Notes/never.md")

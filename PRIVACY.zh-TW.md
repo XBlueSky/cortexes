@@ -22,7 +22,7 @@ remote——下面會完整說明。
 | 過濾時超過 12 KB 的文字區塊 | Anthropic，透過你自己的 Claude Code | **開啟**（可關閉） |
 | Session 開始時注入的 vault metadata（repo 名稱、vault 路徑、主題名稱、baton 摘要） | Anthropic，透過你自己的 Claude Code | **開啟**（可關閉） |
 | query／distill／broadcast／takeoff resume 過程中讀取的 vault 頁面 | Anthropic，透過你自己的 Claude Code | 使用這些流程時**必然發生** |
-| Vault 頁面內容，用於建索引 | OpenAI | 僅在設有 `OPENAI_API_KEY` 時 |
+| Vault 頁面內容，用於建索引 | OpenAI，或你在 `models` 設定的 endpoint | 僅在設有 `OPENAI_API_KEY`（或 `models.*.api_key_env` 指名的變數）時 |
 | Vault commit | 你的本機 git repo | **開啟** |
 | Vault push 到 git remote | 你設定的那個 remote | **關閉**（需自行開啟） |
 | 任何資料 | Cortexes 作者 | 永不 |
@@ -143,9 +143,15 @@ vault 裡。請把它放到別的地方。
 
 ## 3. 送往 OpenAI 的資料
 
-所有 OpenAI 功能都需要你自行設定 `OPENAI_API_KEY`。**沒有設定這個變數
-時，不會有任何資料送往 OpenAI**，檢索會完全跑在本機的 BM25 索引上。這把
-key 從環境變數讀取，永遠不會被寫進 vault、索引或任何設定檔。
+預設情況下，所有 OpenAI 功能都需要你自行設定 `OPENAI_API_KEY`。**沒有設定
+這個變數時，不會有任何資料送往 OpenAI**，檢索會完全跑在本機的 BM25 索引
+上。這把 key 從環境變數讀取，永遠不會被寫進 vault、索引或任何設定檔。
+
+`~/.cortex/config.json` 的 `models` 區塊可以改變這兩件事。`base_url` 讓同樣
+的資料改送到你設定的 endpoint，而不是 OpenAI；`api_key_env` 指定 key 要從
+哪個環境變數讀取。每個接點（embedding、chat）只有在它自己的那個變數沒有
+設定時才不會送出資料——所以一旦 `api_key_env` 指向別的變數，取消設定
+`OPENAI_API_KEY` 就不再能讓那個接點停下來。
 
 有三個功能會用到它：
 
@@ -212,8 +218,9 @@ repository。推到公開 repository 的 vault 就是公開的。
 收不到任何東西。
 
 由 plugin 自身程式碼發出的對外網路流量只到三個目的地：Anthropic，用於
-過濾器的分類呼叫（[§2](#2-送往-anthropic-的資料)）；OpenAI，用於
-[§3](#3-送往-openai-的資料) 描述的 embedding、摘要產生與選用的重排序；
+過濾器的分類呼叫（[§2](#2-送往-anthropic-的資料)）；OpenAI（或你在
+`models` 區塊設定的 endpoint），用於 [§3](#3-送往-openai-的資料) 描述的
+embedding、摘要產生與選用的重排序；
 以及你在 `git.auto_push` 開啟時所設定的 git remote
 （[§5](#5-git-行為)）。
 
@@ -230,7 +237,7 @@ repository。推到公開 repository 的 vault 就是公開的。
 | 完全停止錄製 | 從 `hooks/hooks.json` 移除 `SessionEnd` 項目，或停用整個 plugin |
 | 停止過濾器對 Anthropic 的分類呼叫 | 設定 `CORTEX_NO_CLASSIFIER=1` |
 | 停止在 session 開始時注入 vault metadata | 從 `hooks/hooks.json` 移除 `SessionStart` 項目，或停用整個 plugin |
-| 停止送任何資料給 OpenAI | 取消設定 `OPENAI_API_KEY`——檢索退回本機 BM25 |
+| 停止送任何資料給 OpenAI 或你設定的模型 endpoint | 取消設定 `OPENAI_API_KEY`，以及 `models.*.api_key_env` 指名的任何變數——檢索退回本機 BM25 |
 | 停止自動 commit | 把 `~/.cortex/config.json` 的 `git.auto_commit` 設為 `false` |
 | 停止推送到 remote | 把 `git.auto_push` 設為 `false`（此為預設值） |
 

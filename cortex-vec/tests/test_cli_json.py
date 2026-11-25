@@ -89,7 +89,7 @@ def test_upsert_json(vault, monkeypatch, capsys):
 
 def test_delete_json_counts_removed_entries(monkeypatch, capsys):
     monkeypatch.setattr(store, "get_client", lambda: None)
-    monkeypatch.setattr(store, "get_collection", lambda client: None)
+    monkeypatch.setattr(store, "open_existing_collection", lambda client: object())
     monkeypatch.setattr(store, "_delete_stale_entries",
                         lambda col, rel: ["Notes/a.md", "Notes/a.md::summary"])
 
@@ -100,7 +100,7 @@ def test_delete_json_counts_removed_entries(monkeypatch, capsys):
 
 def test_delete_json_of_unindexed_path_reports_zero(monkeypatch, capsys):
     monkeypatch.setattr(store, "get_client", lambda: None)
-    monkeypatch.setattr(store, "get_collection", lambda client: None)
+    monkeypatch.setattr(store, "open_existing_collection", lambda client: object())
     monkeypatch.setattr(store, "_delete_stale_entries", lambda col, rel: [])
 
     cap = _run(monkeypatch, capsys, "delete", "Notes/never.md", "--json")

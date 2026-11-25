@@ -396,11 +396,12 @@ Tunable parameters: `retrieval.graph_hops` (propagation hops),
 #### LLM rerank
 
 Enabled via `cortex-vec search --rerank` (or config `retrieval.rerank:
-true`). Calls OpenAI (model set by `retrieval.rerank_model`, default
-`gpt-5.4-mini`) to re-rank the top `retrieval.rerank_window` (default 15)
-hybrid results, replacing pure score ranking with LLM relevance judgment. Any
-failure (API error / timeout) automatically falls back to the original RRF
-order without affecting search availability.
+true`). Calls the chat model — `retrieval.rerank_model` if set, otherwise
+`models.chat.model` (default `gpt-5.4-mini`) — to re-rank the top
+`retrieval.rerank_window` (default 15) hybrid results, replacing pure score
+ranking with LLM relevance judgment. Any failure (API error / timeout)
+automatically falls back to the original RRF order without affecting search
+availability, and leaves one `rerank failed … order unchanged` line on stderr.
 
 #### max-per-repo diversification
 
@@ -422,12 +423,15 @@ defaults:
     "w_graph": 0.3,
     "graph_top_k": 5,
     "rerank": false,
-    "rerank_model": "gpt-5.4-mini",
     "rerank_window": 15,
     "max_per_repo": 0
   }
 }
 ```
+
+`rerank_model` is left out on purpose: when it is not set, rerank uses
+`models.chat.model` (see [Models](#models)). Set it only to give rerank a
+different model from the one that writes summaries.
 
 Using it with CLI flags:
 
@@ -478,11 +482,93 @@ A failing `auto_push` is no longer silent: the remote's error is appended to
 `~/.cortex/push-failures.log`, and the next session's opening status line
 reports how many commits are still unpushed.
 
+### Models
+
+By default every model call goes to OpenAI: `text-embedding-3-small` for
+embeddings, and `gpt-5.4-mini` for summaries, `eval propose` and LLM rerank.
+The optional `models` block in `~/.cortex/config.json` points either role at
+another endpoint. Every key can be left out; these are the defaults:
+
+```json
+{
+  "models": {
+    "embedding": {
+      "type": "openai",
+      "model": "text-embedding-3-small",
+      "base_url": null,
+      "api_key_env": "OPENAI_API_KEY"
+    },
+    "chat": {
+      "type": "openai",
+      "model": "gpt-5.4-mini",
+      "base_url": null,
+      "api_key_env": "OPENAI_API_KEY",
+      "api_version": null
+    }
+  }
+}
+```
+
+| Role | `type` | Talks to | Notes |
+|------|--------|----------|-------|
+| `embedding` | `openai` | Any OpenAI-compatible `/embeddings` endpoint | |
+| `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
+| `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
+
+- **`base_url`** — when omitted, the OpenAI SDK's default applies, including
+  the `OPENAI_BASE_URL` environment variable.
+- **`api_key_env`** — the *name* of the environment variable that holds the
+  key: uppercase letters, digits and underscores. The key itself never goes
+  into `config.json`.
+- **Chat parameters** — every chat call (summaries, `eval propose`, LLM
+  rerank) sends `max_completion_tokens` and `reasoning_effort: "none"`, which
+  suit the default `gpt-5.4-mini`. They are not configurable. A model or
+  endpoint that rejects either one fails every chat call: summaries fall back
+  to title + tags with a warning on stderr, and rerank keeps the original
+  order.
+- **Mistakes fail fast** — when the `models` block is wrong (an unknown role,
+  type or field, or a missing required field), `search`, `upsert`, `rebuild`,
+  `status`, `delete` and `eval` exit with code 3 and name the field.
+  `rebuild --bm25-only` does not read `models`.
+
+Example — embeddings through an OpenAI-compatible gateway, summaries on Azure
+OpenAI:
+
+```json
+{
+  "models": {
+    "embedding": {
+      "type": "openai",
+      "model": "my-embedding-model",
+      "base_url": "https://llm.example.com/v1",
+      "api_key_env": "MY_GATEWAY_KEY"
+    },
+    "chat": {
+      "type": "azure",
+      "model": "my-chat-deployment",
+      "base_url": "https://YOUR-RESOURCE.openai.azure.com",
+      "api_version": "2024-06-01",
+      "api_key_env": "AZURE_OPENAI_API_KEY"
+    }
+  }
+}
+```
+
+**Changing the embedding model needs a rebuild.** Vectors from different
+models cannot be compared, so the index records the `type` and `model` it was
+built with (an index built before this setting existed counts as `openai` +
+`text-embedding-3-small`). When `models.embedding` no longer matches, `upsert`
+stops and says how to fix it, `search` falls back to BM25-only with a note,
+and `status` shows a warning. `cortex-vec rebuild` re-embeds the vault with
+the current setting. Changing only `base_url` or `api_key_env` needs no
+rebuild.
+
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
-| `OPENAI_API_KEY` | No* | OpenAI API key for text-embedding-3-small. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
+| `OPENAI_API_KEY` | No* | Default API key for embeddings, summaries and rerank; `models.*.api_key_env` can name a different variable. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
+| `OPENAI_BASE_URL` | No | Read by the OpenAI SDK when `models.*.base_url` is not set; points the default `openai` type at an OpenAI-compatible endpoint |
 | `CORTEX_VAULT_PATH` | No | Read only by `session-start-inject.sh` and the `takeoff.sh` helper. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
 | `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |
@@ -525,9 +611,11 @@ the transcript filter sends oversized blocks (>12 KB, capped at 5 per
 session) to Anthropic through your own Claude Code to classify them for
 compression — `CORTEX_NO_CLASSIFIER=1` disables it, and stops only those
 nested calls, not normal session processing; semantic indexing sends vault
-page content to OpenAI for embeddings, only if you set `OPENAI_API_KEY`, and
-without it retrieval runs on the local BM25 index; and `git push` to a
-remote you configured, only if you turn it on (off by default).
+page content to OpenAI (or the endpoint you set in [`models`](#models)) for
+embeddings, only if you set `OPENAI_API_KEY` (or the variable
+`models.embedding.api_key_env` names), and without it retrieval runs on the
+local BM25 index; and `git push` to a remote you configured, only if you turn
+it on (off by default).
 
 [`PRIVACY.md`](PRIVACY.md) documents every data flow in full: what a session
 record contains, what is stripped before writing, where files live, git

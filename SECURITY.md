@@ -23,14 +23,19 @@ Cortexes handles your personal knowledge vault and API credentials. Keep in
 mind:
 
 - **`OPENAI_API_KEY`** comes from an environment variable and is never
-  written to the vault or the index. Don't commit it to any repository.
+  written to the vault or the index. Don't commit it to any repository. The
+  same goes for a key variable you name in `models.*.api_key_env`:
+  `~/.cortex/config.json` holds the variable's name, never the key.
 - **Vault content** is your raw session records and notes. The index
   (ChromaDB / BM25) lives locally under `~/.cortex/` and is not committed or
   uploaded by default.
-- **Semantic search** sends the content being indexed to OpenAI to generate
-  embeddings. If your vault contains sensitive data, evaluate that trade-off
-  yourself — without `OPENAI_API_KEY` set, **no vault content is sent to
-  OpenAI** and search runs on the local BM25 index.
+- **Semantic search** sends the content being indexed to OpenAI — or to the
+  endpoint you set in the `models` block of `~/.cortex/config.json` — to
+  generate embeddings. If your vault contains sensitive data, evaluate that
+  trade-off yourself — without `OPENAI_API_KEY` set, **no vault content is
+  sent to OpenAI** and search runs on the local BM25 index. If
+  `models.*.api_key_env` names another variable, that variable is the
+  switch instead.
 - **Retrieved content still reaches Anthropic.** Cortexes is a Claude Code
   plugin: whatever a query, distill, broadcast, or takeoff resume reads out
   of `Notes/`, `Projects/`, `Raw/`, or `.takeoff/` enters the current Claude

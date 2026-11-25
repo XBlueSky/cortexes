@@ -1,7 +1,6 @@
 """Hybrid retrieval: RRF fusion of vector + BM25 streams."""
-import os
-
-from . import store
+from . import providers, store
+from .errors import IndexMismatch, brief
 from .config import BM25_DIR, get_retrieval_config, get_vault_path
 
 
@@ -48,15 +47,22 @@ def _bm25_stream(query, n, where, synonym_weight=0.0, notes=None):
 def _vector_stream(query, n, where, notes=None):
     # No API key -> embeddings unavailable; skip vector so the query degrades to
     # BM25-only without building the embedding fn (which raises CliError).
-    if not os.environ.get("OPENAI_API_KEY"):
-        _note(notes, "vector stream skipped (OPENAI_API_KEY not set); "
+    # Asked outside the try below: a broken `models` block must stay an error,
+    # not turn into a note.
+    if not providers.embedding_available():
+        _note(notes, f"vector stream skipped ({providers.embedding_key_env()} not set); "
                      "results are BM25-only")
         return []
     try:
         return store.vector_stream(query, n, where)
-    except Exception as e:
-        _note(notes, f"vector stream failed ({type(e).__name__}: {e}); "
+    except IndexMismatch as e:
+        # Raised before the query is embedded; BM25 can still answer.
+        _note(notes, f"vector stream skipped ({e.message}; {e.hint}); "
                      "results are BM25-only")
+        return []
+    except Exception as e:
+        # brief(): an endpoint can answer with a whole error page.
+        _note(notes, f"vector stream failed ({brief(e)}); results are BM25-only")
         return []
 
 
@@ -186,7 +192,7 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
     # top-n window, so they carry no cosine. Ask the collection for theirs
     # rather than reporting 0.0, which reads as "no overlap" downstream.
     missing = [doc_id for doc_id, _ in head if doc_id not in vec_score]
-    if missing and use_vector and os.environ.get("OPENAI_API_KEY"):
+    if missing and use_vector and providers.embedding_available():
         try:
             vec_score.update(store.cosine_for(query, missing))
         except (Exception, SystemExit):
@@ -204,6 +210,8 @@ def search(query, n=5, where=None, use_bm25=True, use_vector=True, graph=None, r
 
     if use_rerank:
         from . import rerank as rerank_mod
-        out = rerank_mod.rerank(query, out, model=rc["rerank_model"], window=rc["rerank_window"])
+        out = rerank_mod.rerank(query, out,
+                                model=rc["rerank_model"] or providers.chat_model(),
+                                window=rc["rerank_window"], notes=notes)
 
     return out[:n]

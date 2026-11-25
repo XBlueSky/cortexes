@@ -144,6 +144,42 @@ class PrivacyClaims(unittest.TestCase):
                     f"{name} must bound the redaction claim with {phrase!r}",
                 )
 
+    def test_key_variable_claims_cover_a_renamed_key(self):
+        """"Unset `OPENAI_API_KEY`" keeps indexing local only by default.
+
+        `models.*.api_key_env` in config.json can name another variable, and
+        then unsetting `OPENAI_API_KEY` stops nothing: the same content goes
+        out under the other key. The summary table and the "how to turn
+        things off" table are instructions a reader follows, so a row that
+        names the variable has to name the setting too. SECURITY.md makes the
+        same promise in prose, and §6 lists where the plugin's own traffic
+        goes, which a `models` block changes.
+        """
+        rows = {
+            "PRIVACY.md": ("| Vault page content, for indexing",
+                           "| Stop sending anything to"),
+            "PRIVACY.zh-TW.md": ("| Vault 頁面內容，用於建索引",
+                                 "| 停止送任何資料給"),
+        }
+        for name, prefixes in rows.items():
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for prefix in prefixes:
+                row = next(line for line in text.splitlines() if line.startswith(prefix))
+                self.assertIn(
+                    "api_key_env", row,
+                    f"{name}: this row names OPENAI_API_KEY as the only switch — {row!r}",
+                )
+            telemetry = text.split("## 6. Telemetry", 1)[1].split("## 7.", 1)[0]
+            self.assertIn(
+                "`models`", telemetry,
+                f"{name} §6 lists OpenAI as the only model destination",
+            )
+        for name in ("SECURITY.md", "SECURITY.zh-TW.md"):
+            self.assertIn(
+                "api_key_env", (ROOT / name).read_text(encoding="utf-8"),
+                f"{name} names OPENAI_API_KEY as the only switch for model calls",
+            )
+
     def test_failure_logs_are_disclosed_as_stored_data(self):
         """A log the plugin writes is stored data, so §4 has to list it."""
         for name in ("PRIVACY.md", "PRIVACY.zh-TW.md"):
