@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `azure`), each with `model`, `base_url` and `api_key_env`. Without the
   block nothing changes: the same models, the same `OPENAI_API_KEY`, no
   rebuild.
+- `models.embedding` also accepts `type: "http"`, for embedding endpoints
+  that do not answer in the OpenAI shape. It sends `POST {base_url}/embeddings`
+  with a bearer key and reads the OpenAI `data` list, `{"embedding": [[…]]}`
+  or `{"embeddings": [[…]]}`. `base_url` falls back to `OPENAI_BASE_URL`.
+  Switching between `openai` and `http` needs `cortex-vec rebuild`.
+- `httpx` is now a declared dependency of `cortex-vec`. `chromadb` and
+  `openai` already installed it.
 - The index records which embedding model built it. When `models.embedding`
   no longer matches, `upsert` stops and says how to fix it, `search` falls
   back to BM25-only with a note, and `status` shows a warning; `cortex-vec
