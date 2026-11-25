@@ -5,10 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] - 2026-11-25
 
 ### Added
-- A `models` block in `~/.cortex/config.json` points the embedding and chat
+- **`cortex-vec` 0.12.0 takes configurable model providers.** A `models`
+  block in `~/.cortex/config.json` points the embedding and chat
   models at your own endpoint. Two roles: `embedding` (type `openai`, any
   OpenAI-compatible `/embeddings` endpoint) and `chat` (type `openai` or
   `azure`), each with `model`, `base_url` and `api_key_env`. Without the

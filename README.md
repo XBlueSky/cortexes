@@ -141,13 +141,14 @@ and indexes are untouched — there is no data migration.
    uv tool upgrade cortex-vec    # or: pip install -U cortex-vec
    ```
 
-   `cortex-vec` 0.11.0 is the version this plugin release ships against. 0.8.0
+   `cortex-vec` 0.12.0 is the version this plugin release ships against. 0.8.0
    is what carried the Weekly removal into the CLI — `--type weekly` is gone
    from `search --help` and `Weekly/` is no longer classified as a content
    type — 0.9.0 adds the cosine backfill and the retrieval-filter fixes
    that 2.1.0's dedup and scoped search depend on, 0.10.0 adds the quiet
-   stderr and classified exit codes the 2.2.0 query skill reads, and 0.11.0
-   adds the `raw-map --find` paging the 2.3.0 distill skill uses. Older CLIs
+   stderr and classified exit codes the 2.2.0 query skill reads, 0.11.0
+   adds the `raw-map --find` paging the 2.3.0 distill skill uses, and
+   0.12.0 adds the [`models`](#models) block 2.4.0 documents. Older CLIs
    keep working, but a scoped search on one still leaks out-of-scope pages
    and a keyword-only hit still reports `0.00`.
 6. **Nothing else changes.** `~/.cortex/config.json`, the vector/BM25 indexes
