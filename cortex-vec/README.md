@@ -31,8 +31,8 @@ Configuration lives in `~/.cortex/config.json` (created by the Cortexes
 plugin's `/cortexes:genesis` command). `OPENAI_API_KEY` is required for
 embeddings; without it, `search` automatically degrades to BM25-only. A
 `models` block in `config.json` points the embedding and chat models at other
-OpenAI-compatible or Azure OpenAI endpoints; see Configuration in the
-Cortexes README.
+endpoints: OpenAI-compatible, Azure OpenAI, or a plain HTTP embedding
+endpoint. See Configuration in the Cortexes README.
 
 This package is the retrieval backend of the
 [Cortexes Claude Code plugin](https://github.com/XBlueSky/cortexes) — session

@@ -1,9 +1,11 @@
 """providers: the one place that turns the `models` block into model clients."""
+import json
+
 import chromadb.utils.embedding_functions as chroma_ef
 import openai
 import pytest
 
-from cortex_vec import config, providers
+from cortex_vec import config, http_embedding, providers
 from cortex_vec.errors import EXIT_SETUP, CliError
 
 GATEWAY = "https://llm.example.com/v1"
@@ -119,3 +121,46 @@ def test_describe_and_signature(monkeypatch):
                  "base_url": "https://chat.example.com", "api_version": "2024-06-01"}})
     assert providers.describe("chat")["label"] == "Azure OpenAI"
     assert providers.embedding_signature() == {"type": "openai", "model": "my-embedding-model"}
+
+
+def test_embedding_http_posts_to_the_configured_endpoint(monkeypatch, embedding_endpoint):
+    _cfg(monkeypatch, {"embedding": {"type": "http", "model": "my-embedding-model",
+                                     "base_url": GATEWAY, "api_key_env": "MY_EMBED_KEY"}})
+    monkeypatch.setenv("MY_EMBED_KEY", "k2")
+    monkeypatch.setenv("OPENAI_API_KEY", "some-other-key")
+    seen = embedding_endpoint()
+    ef = providers.embedding_function()
+    assert type(ef) is http_embedding.HttpEmbeddingFunction
+    ef(["x"])
+    request = seen.requests[0]
+    assert str(request.url) == GATEWAY + "/embeddings"
+    assert request.headers["authorization"] == "Bearer k2"
+    assert json.loads(request.content) == {"model": "my-embedding-model", "input": ["x"]}
+    assert providers.embedding_signature() == {"type": "http", "model": "my-embedding-model"}
+    assert providers.describe("embedding") == {
+        "model": "my-embedding-model", "type": "http", "label": "HTTP endpoint"}
+
+
+def test_embedding_http_without_its_key_is_the_same_setup_error(monkeypatch):
+    _cfg(monkeypatch, {"embedding": {"type": "http", "base_url": GATEWAY,
+                                     "api_key_env": "MY_EMBED_KEY"}})
+    monkeypatch.setenv("OPENAI_API_KEY", "some-other-key")
+    assert providers.embedding_available() is False
+    with pytest.raises(CliError) as exc:
+        providers.embedding_function()
+    assert exc.value.code == EXIT_SETUP and "MY_EMBED_KEY not set" in exc.value.render()
+
+
+def test_http_follows_OPENAI_BASE_URL_per_command_and_keeps_its_signature(monkeypatch, embedding_endpoint):
+    # The block leaves base_url out, so one command can be sent to another gateway.
+    _cfg(monkeypatch, {"embedding": {"type": "http", "model": "my-embedding-model"}})
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    seen = embedding_endpoint()
+    signatures = []
+    for host in ("a", "b"):
+        monkeypatch.setenv("OPENAI_BASE_URL", f"https://{host}.example.com/v1")
+        providers.embedding_function()(["x"])
+        signatures.append(providers.embedding_signature())
+    assert [str(r.url) for r in seen.requests] == [
+        "https://a.example.com/v1/embeddings", "https://b.example.com/v1/embeddings"]
+    assert signatures == [{"type": "http", "model": "my-embedding-model"}] * 2

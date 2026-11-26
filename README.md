@@ -513,11 +513,21 @@ another endpoint. Every key can be left out; these are the defaults:
 | Role | `type` | Talks to | Notes |
 |------|--------|----------|-------|
 | `embedding` | `openai` | Any OpenAI-compatible `/embeddings` endpoint | |
+| `embedding` | `http` | An endpoint that takes `POST {base_url}/embeddings` with a bearer key | For gateways that do not answer in the OpenAI shape. The reply may be the OpenAI `data` list, `{"embedding": [[…]]}` or `{"embeddings": [[…]]}`. Needs a URL: `base_url`, or else `OPENAI_BASE_URL` |
 | `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
 | `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
 
 - **`base_url`** — when omitted, the OpenAI SDK's default applies, including
-  the `OPENAI_BASE_URL` environment variable.
+  the `OPENAI_BASE_URL` environment variable. The `http` type calls the
+  endpoint itself, so it must have a URL: the `base_url` in the block, or else
+  `OPENAI_BASE_URL`, and it must be an `http://` or `https://` URL with a
+  host. With neither, or with a value that is not such a URL, it is a setup
+  error: every command that reads `models` exits with code 3, `search`,
+  `status` and `delete` included, instead of falling back to BM25. So when the
+  block leaves `base_url` out, every command needs `OPENAI_BASE_URL` in its
+  environment. A `base_url` in the block wins over the environment variable,
+  so leave it out if you want to send a single command to another gateway
+  with `OPENAI_BASE_URL=… cortex-vec …`.
 - **`api_key_env`** — the *name* of the environment variable that holds the
   key: uppercase letters, digits and underscores. The key itself never goes
   into `config.json`.
@@ -555,21 +565,57 @@ OpenAI:
 }
 ```
 
+Example — embeddings from a gateway that does not answer in the OpenAI shape:
+
+```json
+{
+  "models": {
+    "embedding": {
+      "type": "http",
+      "model": "my-embedding-model",
+      "base_url": "https://llm.example.com/v1",
+      "api_key_env": "MY_GATEWAY_KEY"
+    }
+  }
+}
+```
+
+The request is `POST https://llm.example.com/v1/embeddings` with the header
+`Authorization: Bearer <key>` and the body
+`{"model": "my-embedding-model", "input": ["…"]}`. It gives up after 10
+seconds without a connection or 60 seconds without a reply, is not retried,
+and redirects are not followed. The key comes from the variable named by
+`api_key_env`; without `api_key_env`, the key sent to this endpoint is
+`OPENAI_API_KEY`. A query string in `base_url` is kept after the path:
+`https://llm.example.com/v1?code=…` sends
+`POST https://llm.example.com/v1/embeddings?code=…`. Error messages give the
+HTTP status and, for a reply that cannot be read, its top-level field names,
+but never the reply body or the query, since an endpoint may echo the key
+back. To see the endpoint's own explanation, call it with `curl`.
+
 **Changing the embedding model needs a rebuild.** Vectors from different
 models cannot be compared, so the index records the `type` and `model` it was
 built with (an index built before this setting existed counts as `openai` +
 `text-embedding-3-small`). When `models.embedding` no longer matches, `upsert`
 stops and says how to fix it, `search` falls back to BM25-only with a note,
 and `status` shows a warning. `cortex-vec rebuild` re-embeds the vault with
-the current setting. Changing only `base_url` or `api_key_env` needs no
-rebuild.
+the current setting. It deletes the existing vectors first, then embeds one
+note at a time. If it stops along the way, for example because the new
+endpoint fails, the vector index keeps only the notes embedded before that
+(none, if it stopped before the first note) until a `rebuild` succeeds. In the
+meantime `search` finds the other notes through BM25 alone. The BM25 index is
+rewritten only after the embedding finishes, so a failed rebuild leaves it as
+it was.
+Switching `type` between `openai` and `http` counts as a change too, even
+when the model name stays the same. Changing only `base_url` or `api_key_env`
+needs no rebuild.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | Default API key for embeddings, summaries and rerank; `models.*.api_key_env` can name a different variable. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
-| `OPENAI_BASE_URL` | No | Read by the OpenAI SDK when `models.*.base_url` is not set; points the default `openai` type at an OpenAI-compatible endpoint |
+| `OPENAI_BASE_URL` | No | Read by the OpenAI SDK when `models.*.base_url` is not set; points the default `openai` type at an OpenAI-compatible endpoint. The `http` embedding type reads it too when `models.embedding.base_url` is not set |
 | `CORTEX_VAULT_PATH` | No | Read only by `session-start-inject.sh` and the `takeoff.sh` helper. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
 | `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |

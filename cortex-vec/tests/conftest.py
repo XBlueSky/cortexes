@@ -83,3 +83,40 @@ def fixture_docs():
         ("Projects/acme-core/oauth.md", "acme-core OAuth 流程",
          "acme-core 的 token refresh 與 OAuth 授權實作。", "acme-core", "project", "acme-core"),
     ]
+
+
+@pytest.fixture
+def embedding_endpoint(monkeypatch):
+    """Stand in for an `http`-type embedding endpoint; no socket is opened.
+
+    `seen = embedding_endpoint(handler)` routes every `httpx.Client` built
+    afterwards to `handler(request) -> httpx.Response`. Without a handler the
+    endpoint answers one 3-d vector per input. `seen.requests` collects the
+    requests, `seen.client_kwargs` how each client was built.
+    """
+    import json
+    import types
+
+    import httpx
+
+    real_client = httpx.Client
+
+    def answer(request):
+        count = len(json.loads(request.content)["input"])
+        return httpx.Response(200, json={"embedding": [[0.1, 0.2, 0.3]] * count})
+
+    def serve(handler=answer):
+        seen = types.SimpleNamespace(requests=[], client_kwargs=[])
+
+        def record(request):
+            seen.requests.append(request)
+            return handler(request)
+
+        def client(**kwargs):
+            seen.client_kwargs.append(kwargs)
+            return real_client(transport=httpx.MockTransport(record), **kwargs)
+
+        monkeypatch.setattr(httpx, "Client", client)
+        return seen
+
+    return serve

@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `models.embedding` also accepts `type: "http"`, for embedding endpoints
+  that do not answer in the OpenAI shape. It sends `POST {base_url}/embeddings`
+  with a bearer key and reads the OpenAI `data` list, `{"embedding": [[…]]}`
+  or `{"embeddings": [[…]]}`. `base_url` falls back to `OPENAI_BASE_URL`.
+  Switching between `openai` and `http` needs `cortex-vec rebuild`.
+- `httpx` is now a declared dependency of `cortex-vec`. `chromadb` already
+  installs it.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

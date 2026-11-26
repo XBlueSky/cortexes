@@ -119,3 +119,12 @@ def test_status_reports_the_configured_models(monkeypatch, capsys, tmp_path):
     doc = json.loads(_status(monkeypatch, capsys, tmp_path, models, "--json"))
     assert doc["embedding_model"] == "my-embedding-model" and doc["embedding_provider"] == "openai"
     assert doc["summary_model"] == "my-deployment" and doc["summary_provider"] == "azure"
+
+
+def test_status_labels_the_http_type(monkeypatch, capsys, tmp_path):
+    models = {"embedding": {"type": "http", "model": "my-embedding-model",
+                            "base_url": "https://llm.example.com/v1"}}
+    assert "Embedding:  my-embedding-model (HTTP endpoint)" in _status(
+        monkeypatch, capsys, tmp_path, models)
+    doc = json.loads(_status(monkeypatch, capsys, tmp_path, models, "--json"))
+    assert doc["embedding_provider"] == "http"
