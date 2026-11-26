@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 import json
 import os
 import tempfile
+from pathlib import Path
 
 import chromadb
 
@@ -25,7 +26,7 @@ try:
     from . import http_embedding  # noqa: F401
 except ImportError:
     pass
-from . import providers
+from . import config, providers
 from .bm25 import BM25Index
 from .config import SUMMARY_MODEL  # noqa: F401  (importable from here)
 from .config import (
@@ -274,6 +275,35 @@ def _delete_stale_entries(collection, rel_path):
     return stale
 
 
+def _note_id(path, vault=None):
+    """The id a note is indexed under: its path relative to the vault root.
+
+    `rebuild` derives ids that way, so a path given with `./` or `..` steps,
+    or as an absolute path inside the vault, is put in the same form. A path
+    that leads outside the vault is a caller error. `vault` is looked up only
+    when the path is absolute.
+    """
+    rel = Path(os.path.normpath(path))
+    if rel.is_absolute():
+        vault = vault or get_vault_path()
+        for base, target in ((Path(os.path.normpath(vault)), rel), (vault.resolve(), rel.resolve())):
+            try:
+                rel = target.relative_to(base)
+                break
+            except ValueError:
+                continue
+    if rel.is_absolute() or not rel.parts or rel.parts[0] == "..":
+        raise CliError(f"{path} is outside the vault",
+                       "paths are relative to the vault root"
+                       + (f" {vault}" if vault else ""))
+    return str(rel)
+
+
+def _legacy_id(vault, rel_path):
+    """The id an older `upsert` gave the note when called with its absolute path."""
+    return str(vault / rel_path) if vault else None
+
+
 def _base_path(doc_id):
     """Extract base file path from a doc ID, stripping ::repo and ::summary suffixes."""
     return doc_id.split("::")[0]
@@ -457,7 +487,7 @@ def cmd_rebuild(args):
 def cmd_upsert(args):
     """Add or update a single document with stale entry cleanup."""
     vault = get_vault_path()
-    rel_path = args.path
+    rel_path = _note_id(args.path, vault)
     full_path = vault / rel_path
 
     if not full_path.exists():
@@ -469,6 +499,8 @@ def cmd_upsert(args):
 
     # Critical fix: clean stale entries before reinserting
     _delete_stale_entries(col, rel_path)
+    legacy = _legacy_id(vault, rel_path)
+    _delete_stale_entries(col, legacy)
 
     text = full_path.read_text(encoding="utf-8", errors="replace")
     fm, body = parse_document(text)
@@ -517,6 +549,7 @@ def cmd_upsert(args):
         bm25_index.load()
     except FileNotFoundError:
         bm25_index.build_from_docs([])
+    bm25_index.delete(legacy)
     bm25_index.upsert(bm25_doc_from_fields(rel_path, fm, body))
     bm25_index.save()
     _emit(args, [f"Upserted: {rel_path}"], {"upserted": rel_path})
@@ -530,12 +563,21 @@ def cmd_delete(args):
     model. The BM25 index is cleaned either way: a keyless setup has no
     vector index at all, and the note must still stop showing up in search.
     """
+    # The vault is optional here: deleting reads no note. With one configured,
+    # what an older `upsert` stored under the absolute path goes too.
+    vault_path = config.load_config().get("vault_path")
+    vault = Path(vault_path) if vault_path else None
+    rel_path = _note_id(args.path, vault)
+    legacy = _legacy_id(vault, rel_path)
     client = get_client()
     col = open_existing_collection(client)
-    rel_path = args.path
 
-    stale = _delete_stale_entries(col, rel_path) if col is not None else []
-    from_bm25 = _delete_from_bm25(rel_path)
+    stale = []
+    if col is not None:
+        stale = _delete_stale_entries(col, rel_path)
+        if legacy:
+            stale += _delete_stale_entries(col, legacy)
+    from_bm25 = _delete_from_bm25(rel_path) + (_delete_from_bm25(legacy) if legacy else 0)
     if not stale and not from_bm25:
         # Idempotent: the goal state (not indexed) already holds.
         print(f"cortex-vec: {rel_path} not indexed; nothing to delete",

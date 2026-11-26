@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `httpx` is now a declared dependency of `cortex-vec`. `chromadb` already
   installs it.
 
+### Fixed
+- `cortex-vec upsert` given an absolute path, or one with `./` or `..` steps,
+  indexed the note under that path as written instead of the vault-relative
+  id `rebuild` uses, so the note could show up twice in search. `upsert` and
+  `delete` now use the vault-relative path, and a path outside the vault is an
+  error (exit code 2). The next `upsert` or `delete` of an affected note also
+  removes what the absolute path left behind.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

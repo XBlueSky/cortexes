@@ -291,6 +291,10 @@ cortex-vec upsert Notes/Nginx/new.md       # add/update a single document
 cortex-vec delete Notes/Nginx/old.md       # delete a document
 ```
 
+`upsert` and `delete` take a path relative to the vault root. An absolute path
+inside the vault also works and is indexed under its relative path, the same
+id `rebuild` gives the note. A path outside the vault is an error.
+
 ### Hybrid Retrieval (0.4.0+)
 
 `cortex-vec search` now defaults to BM25 + vector RRF hybrid, balancing exact
