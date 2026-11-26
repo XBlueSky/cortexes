@@ -438,7 +438,9 @@ defaults:
 
 `rerank_model` is left out on purpose: when it is not set, rerank uses
 `models.chat.model` (see [Models](#models)). Set it only to give rerank a
-different model from the one that writes summaries.
+different model from the one that writes summaries. It belongs to the default
+`llm` rerank type: with `models.rerank.type` set to `endpoint` it is a setup
+error (exit code 3), and the endpoint's model goes in `models.rerank.model`.
 
 Using it with CLI flags:
 
@@ -537,7 +539,7 @@ out; these are the defaults:
   host. With neither, or with a value that is not such a URL, it is a setup
   error: every command that reads `models` exits with code 3, `search`,
   `status` and `delete` included, instead of falling back to BM25 (for the
-  rerank type, even when rerank is off). So when the
+  `endpoint` rerank type, even when rerank is off). So when the
   block leaves `base_url` out, every command needs `OPENAI_BASE_URL` in its
   environment. A `base_url` in the block wins over the environment variable,
   so leave it out if you want to send a single command to another gateway

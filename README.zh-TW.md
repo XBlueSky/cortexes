@@ -368,7 +368,7 @@ cortex-vec eval run \
 }
 ```
 
-`rerank_model` 是刻意省略的：沒設定時 rerank 用 `models.chat.model`（見 [Models](#models)）。只有想讓 rerank 用不同於產生摘要的模型時才需要設定。
+`rerank_model` 是刻意省略的：沒設定時 rerank 用 `models.chat.model`（見 [Models](#models)）。只有想讓 rerank 用不同於產生摘要的模型時才需要設定。它只屬於預設的 `llm` 類型 rerank：`models.rerank.type` 設成 `endpoint` 時寫了它就是設定錯誤（exit code 3），endpoint 的模型寫在 `models.rerank.model`。
 
 搭配 CLI flag 的用法：
 
@@ -450,7 +450,7 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 | `rerank` | `llm` | `chat` 接點的 endpoint 與 client | 模型是 `retrieval.rerank_model`，沒設就用 `models.chat.model`。不接受其他欄位 |
 | `rerank` | `endpoint` | 接受 `POST {base_url}/rerank`、以 bearer key 驗證的 endpoint | body 是 `{"query": …, "documents": […]}`，`model` 有設才帶。回應是放在 `results` 或 `data` 底下的 `index`／`relevance_score` 清單；可以只替部分文件打分，但一筆分數都沒有算失敗。需要 URL：`base_url`，沒寫就用 `OPENAI_BASE_URL`。`model` 預設不設；`api_key_env` 預設是 `OPENAI_API_KEY` |
 
-- **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。`http` 類型的 embedding 與 `endpoint` 類型的 rerank 自己呼叫 endpoint，所以一定要有 URL：先用區塊裡的 `base_url`，沒寫就用 `OPENAI_BASE_URL`，而且必須是帶主機名稱的 `http://` 或 `https://` URL。兩者都沒有、或值不是這樣的 URL，就是設定錯誤：每個讀 `models` 的指令都會以 exit code 3 結束，`search`、`status`、`delete` 也一樣，不會退回 BM25（rerank 的類型即使沒開 rerank 也是如此）。所以區塊沒寫 `base_url` 時，每個指令的環境裡都要有 `OPENAI_BASE_URL`。區塊裡有寫 `base_url` 時以它為準，所以想用 `OPENAI_BASE_URL=… cortex-vec …` 讓單一指令改走另一台 gateway，就不要把它寫進區塊。
+- **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。`http` 類型的 embedding 與 `endpoint` 類型的 rerank 自己呼叫 endpoint，所以一定要有 URL：先用區塊裡的 `base_url`，沒寫就用 `OPENAI_BASE_URL`，而且必須是帶主機名稱的 `http://` 或 `https://` URL。兩者都沒有、或值不是這樣的 URL，就是設定錯誤：每個讀 `models` 的指令都會以 exit code 3 結束，`search`、`status`、`delete` 也一樣，不會退回 BM25（`endpoint` 類型的 rerank 即使沒開 rerank 也是如此）。所以區塊沒寫 `base_url` 時，每個指令的環境裡都要有 `OPENAI_BASE_URL`。區塊裡有寫 `base_url` 時以它為準，所以想用 `OPENAI_BASE_URL=… cortex-vec …` 讓單一指令改走另一台 gateway，就不要把它寫進區塊。
 - **`api_key_env`** — 填的是存放金鑰的環境變數**名稱**，只能用大寫字母、數字與底線。金鑰本身不會寫進 `config.json`。
 - **`retrieval.rerank_model`** 只屬於 `llm` 類型的 rerank。`models.rerank.type` 是 `endpoint` 時寫了它就是設定錯誤（exit code 3）；endpoint 的模型寫在 `models.rerank.model`。
 - **Chat 參數** — 每一次 chat 呼叫（摘要、`eval propose`、LLM rerank）都會帶 `max_completion_tokens` 與 `reasoning_effort: "none"`，這是配合預設的 `gpt-5.4-mini` 設的，目前不能調整。模型或 endpoint 若不接受其中任何一個，每次 chat 呼叫都會失敗：摘要退回「標題 + tags」並在 stderr 印出警告，rerank 則維持原本的順序。

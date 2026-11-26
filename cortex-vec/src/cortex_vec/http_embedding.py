@@ -7,6 +7,7 @@ request but do not answer in the OpenAI shape.
 chromadb is imported at the top of this module, so load it only after
 `store.py` has swapped in pysqlite3: from `store.py` itself, or with an import
 inside a function, as `providers.py` does.
+
 The request itself (key checks, client, error messages) is in
 `http_endpoint.py`, shared with the `endpoint` rerank type.
 """

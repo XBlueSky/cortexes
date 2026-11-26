@@ -87,11 +87,13 @@ def fixture_docs():
 
 @pytest.fixture
 def embedding_endpoint(monkeypatch):
-    """Stand in for an `http`-type embedding endpoint; no socket is opened.
+    """Stand in for the endpoint that the `http` embedding type or the
+    `endpoint` rerank type calls; no socket is opened.
 
     `seen = embedding_endpoint(handler)` routes every `httpx.Client` built
     afterwards to `handler(request) -> httpx.Response`. Without a handler the
-    endpoint answers one 3-d vector per input. `seen.requests` collects the
+    endpoint answers as an embeddings endpoint, one 3-d vector per input, so
+    a rerank test that expects a request passes its own. `seen.requests` collects the
     requests, `seen.client_kwargs` how each client was built.
     """
     import json
