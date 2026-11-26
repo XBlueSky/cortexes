@@ -1,8 +1,9 @@
 """Model clients, built from the `models` block of ~/.cortex/config.json.
 
-This is the only module that constructs an embedding function or a chat
-client. A new provider type is added here and in `config._MODEL_TYPES`, and
-nowhere else.
+This is the only module that constructs an embedding function, a chat
+client or a rerank endpoint request. A new provider type is added here and
+in `config._MODEL_TYPES`, and nowhere else; a new rerank type also needs a
+branch in `rerank.py`, where the `llm` type's prompt lives.
 
 chromadb and openai are imported inside the functions, not at module level:
 store.py has to swap in pysqlite3 before chromadb is first imported, and this
@@ -111,6 +112,22 @@ def chat_client():
 def chat_model():
     """Model name (for Azure: the deployment name) to pass to the chat client."""
     return _role("chat")["model"]
+
+
+# ── rerank ───────────────────────────────────────────────────────────────────
+
+def rerank_type():
+    """`llm` (score with the chat model) or `endpoint` (score through models.rerank)."""
+    return _role("rerank")["type"]
+
+
+def endpoint_rerank(query, documents):
+    """Score `documents` through the `endpoint` rerank type; {position: score}."""
+    from . import rerank_endpoint
+
+    mc = _role("rerank")
+    return rerank_endpoint.score(query, documents, model=mc["model"], base_url=mc["base_url"],
+                                 api_key_env=mc["api_key_env"])
 
 
 # ── reporting ────────────────────────────────────────────────────────────────

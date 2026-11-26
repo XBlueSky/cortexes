@@ -1,4 +1,7 @@
-"""Optional LLM reranker over the top window of results (uses the chat model).
+"""Optional reranker over the top window of results.
+
+`models.rerank.type` picks how the window is scored: `llm` (the default) asks
+the chat model, `endpoint` sends it to the rerank endpoint in `models.rerank`.
 
 Off by default. Any failure (no key, bad JSON, API error) returns the input
 order unchanged — reranking must never make a search fail. The failure is
@@ -26,34 +29,57 @@ def _parse_scores(content):
     return json.loads(text)
 
 
-def rerank(query, results, model, window=15, notes=None):
-    """Reorder the top `window` of `results` by LLM relevance; tail unchanged.
+def _document(r):
+    """The text both types score a result by."""
+    return f'{r.get("title", "")} — {r.get("summary", "")}'
 
-    On failure the input order is returned and, when `notes` is a list, one
-    line saying so is appended to it.
+
+def _llm_scores(query, head, model):
+    """{position: score} from the chat model."""
+    client = providers.chat_client()
+    candidates = "\n".join(f"{i}: {_document(r)}" for i, r in enumerate(head))
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": f"查詢：{query}\n\n候選：\n{candidates}"},
+        ],
+        max_completion_tokens=500,
+        reasoning_effort="none",
+    )
+    scored = _parse_scores(resp.choices[0].message.content)
+    return {int(s["index"]): float(s["score"]) for s in scored}
+
+
+def _ranked(count, order):
+    """Positions 0..count-1: scored ones by score, highest first, then the rest in order.
+
+    Ties keep their original order. Keys outside the range are ignored: the
+    chat model may answer with any index.
+    """
+    scored = [i for i in range(count) if i in order]
+    rest = [i for i in range(count) if i not in order]
+    return sorted(scored, key=lambda i: order[i], reverse=True) + rest
+
+
+def rerank(query, results, model, window=15, notes=None):
+    """Reorder the top `window` of `results` by relevance; tail unchanged.
+
+    `model` is the chat model for the `llm` type; the `endpoint` type ignores
+    it. On failure the input order is returned and, when `notes` is a list,
+    one line saying so is appended to it.
     """
     if not results:
         return results
     head = results[:window]
     tail = results[window:]
     try:
-        client = providers.chat_client()
-        candidates = "\n".join(
-            f'{i}: {r.get("title", "")} — {r.get("summary", "")}' for i, r in enumerate(head)
-        )
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": f"查詢：{query}\n\n候選：\n{candidates}"},
-            ],
-            max_completion_tokens=500,
-            reasoning_effort="none",
-        )
-        scored = _parse_scores(resp.choices[0].message.content)
-        order = {int(s["index"]): float(s["score"]) for s in scored}
-        ranked_idx = sorted(range(len(head)), key=lambda i: order.get(i, -1.0), reverse=True)
-        head = [head[i] for i in ranked_idx]
+        # Inside the try: a config that cannot be read must not fail the search either.
+        if providers.rerank_type() == "endpoint":
+            order = providers.endpoint_rerank(query, [_document(r) for r in head])
+        else:
+            order = _llm_scores(query, head, model)
+        head = [head[i] for i in _ranked(len(head), order)]
     except Exception as e:
         if notes is not None:
             notes.append(f"rerank failed ({brief(e)}); order unchanged")

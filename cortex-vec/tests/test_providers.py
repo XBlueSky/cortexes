@@ -2,6 +2,7 @@
 import json
 
 import chromadb.utils.embedding_functions as chroma_ef
+import httpx
 import openai
 import pytest
 
@@ -164,3 +165,21 @@ def test_http_follows_OPENAI_BASE_URL_per_command_and_keeps_its_signature(monkey
     assert [str(r.url) for r in seen.requests] == [
         "https://a.example.com/v1/embeddings", "https://b.example.com/v1/embeddings"]
     assert signatures == [{"type": "http", "model": "my-embedding-model"}] * 2
+
+
+def test_rerank_type_defaults_to_llm():
+    assert providers.rerank_type() == "llm"
+
+
+def test_endpoint_rerank_uses_models_rerank(monkeypatch, embedding_endpoint):
+    monkeypatch.setenv("MY_RERANK_KEY", "k-1")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://env.example.com/v1")
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint", "api_key_env": "MY_RERANK_KEY",
+                                  "model": "my-rerank-model"}})
+    seen = embedding_endpoint(lambda r: httpx.Response(200, json={"data": [{"index": 0, "relevance_score": 1.0}]}))
+    assert providers.rerank_type() == "endpoint"
+    assert providers.endpoint_rerank("q", ["x", "y"]) == {0: 1.0}
+    (request,) = seen.requests
+    assert str(request.url) == "https://env.example.com/v1/rerank"
+    assert request.headers["Authorization"] == "Bearer k-1"
+    assert json.loads(request.content) == {"query": "q", "documents": ["x", "y"], "model": "my-rerank-model"}
