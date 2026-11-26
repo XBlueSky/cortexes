@@ -404,6 +404,12 @@ ranking with LLM relevance judgment. Any failure (API error / timeout)
 automatically falls back to the original RRF order without affecting search
 availability, and leaves one `rerank failed … order unchanged` line on stderr.
 
+With `models.rerank.type` set to `endpoint` (see [Models](#models)), the same
+window is sent to that rerank endpoint instead, one `title — summary` text
+per result, and reordered by `relevance_score`. Results the endpoint does not
+score keep their original order after the scored ones. Failures are handled
+the same way.
+
 #### max-per-repo diversification
 
 Controlled by config `retrieval.max_per_repo` (`0` = unlimited), caps how
@@ -432,7 +438,9 @@ defaults:
 
 `rerank_model` is left out on purpose: when it is not set, rerank uses
 `models.chat.model` (see [Models](#models)). Set it only to give rerank a
-different model from the one that writes summaries.
+different model from the one that writes summaries. It belongs to the default
+`llm` rerank type: with `models.rerank.type` set to `endpoint` it is a setup
+error (exit code 3), and the endpoint's model goes in `models.rerank.model`.
 
 Using it with CLI flags:
 
@@ -487,8 +495,9 @@ reports how many commits are still unpushed.
 
 By default every model call goes to OpenAI: `text-embedding-3-small` for
 embeddings, and `gpt-5.4-mini` for summaries, `eval propose` and LLM rerank.
-The optional `models` block in `~/.cortex/config.json` points either role at
-another endpoint. Every key can be left out; these are the defaults:
+The optional `models` block in `~/.cortex/config.json` points any of its three
+roles (embedding, chat and rerank) at another endpoint. Every key can be left
+out; these are the defaults:
 
 ```json
 {
@@ -505,6 +514,9 @@ another endpoint. Every key can be left out; these are the defaults:
       "base_url": null,
       "api_key_env": "OPENAI_API_KEY",
       "api_version": null
+    },
+    "rerank": {
+      "type": "llm"
     }
   }
 }
@@ -516,14 +528,18 @@ another endpoint. Every key can be left out; these are the defaults:
 | `embedding` | `http` | An endpoint that takes `POST {base_url}/embeddings` with a bearer key | For gateways that do not answer in the OpenAI shape. The reply may be the OpenAI `data` list, `{"embedding": [[…]]}` or `{"embeddings": [[…]]}`. Needs a URL: `base_url`, or else `OPENAI_BASE_URL` |
 | `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
 | `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
+| `rerank` | `llm` | The `chat` role's endpoint and client | The model is `retrieval.rerank_model`, or else `models.chat.model`. Takes no other field |
+| `rerank` | `endpoint` | An endpoint that takes `POST {base_url}/rerank` with a bearer key | The body is `{"query": …, "documents": […]}`, plus `model` only when it is set. The reply is a list of `index` / `relevance_score` items under `results` or `data`; it may score only some of the documents, but a reply that scores none of them is a failure. Needs a URL: `base_url`, or else `OPENAI_BASE_URL`. `model` is unset by default; `api_key_env` defaults to `OPENAI_API_KEY` |
 
 - **`base_url`** — when omitted, the OpenAI SDK's default applies, including
-  the `OPENAI_BASE_URL` environment variable. The `http` type calls the
-  endpoint itself, so it must have a URL: the `base_url` in the block, or else
+  the `OPENAI_BASE_URL` environment variable. The `http` embedding type and
+  the `endpoint` rerank type call the endpoint themselves, so each must have
+  a URL: the `base_url` in the block, or else
   `OPENAI_BASE_URL`, and it must be an `http://` or `https://` URL with a
   host. With neither, or with a value that is not such a URL, it is a setup
   error: every command that reads `models` exits with code 3, `search`,
-  `status` and `delete` included, instead of falling back to BM25. So when the
+  `status` and `delete` included, instead of falling back to BM25 (for the
+  `endpoint` rerank type, even when rerank is off). So when the
   block leaves `base_url` out, every command needs `OPENAI_BASE_URL` in its
   environment. A `base_url` in the block wins over the environment variable,
   so leave it out if you want to send a single command to another gateway
@@ -531,6 +547,9 @@ another endpoint. Every key can be left out; these are the defaults:
 - **`api_key_env`** — the *name* of the environment variable that holds the
   key: uppercase letters, digits and underscores. The key itself never goes
   into `config.json`.
+- **`retrieval.rerank_model`** belongs to the `llm` rerank type. With
+  `models.rerank.type` set to `endpoint` it is a setup error (exit code 3);
+  the endpoint's model goes in `models.rerank.model`.
 - **Chat parameters** — every chat call (summaries, `eval propose`, LLM
   rerank) sends `max_completion_tokens` and `reasoning_effort: "none"`, which
   suit the default `gpt-5.4-mini`. They are not configurable. A model or
@@ -593,6 +612,27 @@ HTTP status and, for a reply that cannot be read, its top-level field names,
 but never the reply body or the query, since an endpoint may echo the key
 back. To see the endpoint's own explanation, call it with `curl`.
 
+Example — rerank through a gateway's `/rerank` endpoint:
+
+```json
+{
+  "models": {
+    "rerank": {
+      "type": "endpoint",
+      "base_url": "https://llm.example.com/v1",
+      "api_key_env": "MY_GATEWAY_KEY"
+    }
+  }
+}
+```
+
+This only picks how results are reranked; rerank itself is still turned on
+with `--rerank` or `retrieval.rerank`. The request is
+`POST https://llm.example.com/v1/rerank` and goes through the same code as
+the `http` embedding type: the same timeouts, no retry, no redirects, and the
+same rules for the key, a query in `base_url` and error messages. Leave
+`model` out if the endpoint does not take one.
+
 **Changing the embedding model needs a rebuild.** Vectors from different
 models cannot be compared, so the index records the `type` and `model` it was
 built with (an index built before this setting existed counts as `openai` +
@@ -615,7 +655,7 @@ needs no rebuild.
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | Default API key for embeddings, summaries and rerank; `models.*.api_key_env` can name a different variable. Required for `rebuild`/`upsert`/vector search; `search` automatically falls back to BM25-only without it |
-| `OPENAI_BASE_URL` | No | Read by the OpenAI SDK when `models.*.base_url` is not set; points the default `openai` type at an OpenAI-compatible endpoint. The `http` embedding type reads it too when `models.embedding.base_url` is not set |
+| `OPENAI_BASE_URL` | No | Read by the OpenAI SDK when `models.*.base_url` is not set; points the default `openai` type at an OpenAI-compatible endpoint. The `http` embedding type reads it too when `models.embedding.base_url` is not set, and so does the `endpoint` rerank type when `models.rerank.base_url` is not set |
 | `CORTEX_VAULT_PATH` | No | Read only by `session-start-inject.sh` and the `takeoff.sh` helper. It is **not** a general vault switch: `cortex-vec`, the SessionEnd recorder, and the evolve/distill/broadcast skills all resolve the vault from `config.json`, and the BM25/vector indexes live at a fixed `~/.cortex/` path either way — so pointing it at a second vault would split reads from writes across one shared index. A real multi-vault design is deferred; see [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | When set (e.g. `=1`), the SessionEnd hook skips recording this session into Raw/ — for launcher/probe sessions that carry no distill-worthy content |
 | `CORTEX_NO_CLASSIFIER` | No | When set to `1`, the transcript filter never calls the LLM classifier; oversized blocks are kept verbatim instead. Disables **only** the filter's nested classifier calls — it does not affect normal Claude Code session processing, including SessionStart metadata and vault content loaded by commands and skills |

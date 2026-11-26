@@ -21,6 +21,7 @@ _MODELS_DEFAULTS = {
                   "api_key_env": "OPENAI_API_KEY"},
     "chat": {"type": "openai", "model": SUMMARY_MODEL, "base_url": None,
              "api_key_env": "OPENAI_API_KEY", "api_version": None},
+    "rerank": {"type": "llm", "model": None, "base_url": None, "api_key_env": "OPENAI_API_KEY"},
 }
 
 # role -> type -> (fields that type accepts, fields it requires)
@@ -34,12 +35,18 @@ _MODEL_TYPES = {
         "azure": (("model", "base_url", "api_key_env", "api_version"),
                   ("base_url", "api_version")),
     },
+    "rerank": {
+        # Uses the chat role's client; its model is retrieval.rerank_model.
+        "llm": ((), ()),
+        "endpoint": (("model", "base_url", "api_key_env"), ()),
+    },
 }
 
 # (role, type) -> env var that supplies `base_url` when the block leaves it
 # out. These types call the endpoint themselves, so they need a usable URL
 # before the command starts.
-_BASE_URL_ENV = {("embedding", "http"): "OPENAI_BASE_URL"}
+_BASE_URL_ENV = {("embedding", "http"): "OPENAI_BASE_URL",
+                 ("rerank", "endpoint"): "OPENAI_BASE_URL"}
 
 _RETRIEVAL_DEFAULTS = {
     # Plan 1
@@ -122,7 +129,8 @@ def get_models_config():
     the block's value, or else the env var's. For the others it stays None
     when the block does not set it, and the SDK reads its own env var.
     """
-    models = load_config().get("models")
+    cfg = load_config()
+    models = cfg.get("models")
     if models is None:                      # null = unset, at every level
         models = {}
     if not isinstance(models, dict):
@@ -131,7 +139,14 @@ def get_models_config():
         if role not in _MODELS_DEFAULTS:
             raise _bad_models(f"models.{role}", "unknown role",
                               "valid roles: " + ", ".join(_MODELS_DEFAULTS))
-    return {role: _merge_role(role, models.get(role)) for role in _MODELS_DEFAULTS}
+    merged = {role: _merge_role(role, models.get(role)) for role in _MODELS_DEFAULTS}
+    retrieval = cfg.get("retrieval")
+    # Unset is falsy, as fusion.search reads it (`rerank_model or chat_model()`).
+    if (merged["rerank"]["type"] == "endpoint" and isinstance(retrieval, dict)
+            and retrieval.get("rerank_model")):
+        raise _bad_models("retrieval.rerank_model", "applies only when models.rerank.type is 'llm'",
+                          "remove it; the endpoint's model is models.rerank.model")
+    return merged
 
 
 def _merge_role(role, user):
@@ -168,8 +183,12 @@ def _merge_role(role, user):
     settable, required = types[kind]
     for field, value in user.items():
         if field != "type" and value is not None and field not in settable:
-            raise _bad_models(f"{path}.{field}", f"does not apply to type '{kind}'",
-                              f"fields for '{kind}': " + ", ".join(settable))
+            hint = f"fields for '{kind}': " + (", ".join(settable) or "none")
+            # Most often `type` was left at its default: say which type takes the field.
+            owners = [t for t, (fields, _) in types.items() if field in fields]
+            if owners:
+                hint += "; " + " or ".join(f"type '{t}'" for t in owners) + f" takes {field}"
+            raise _bad_models(f"{path}.{field}", f"does not apply to type '{kind}'", hint)
     for field in required:
         if merged[field] is None:
             raise _bad_models(f"{path}.{field}", f"required when type is '{kind}'")

@@ -3,7 +3,10 @@
 A wrong block is a setup error (exit 3) on every command that uses a model,
 even when the broken role is one that command would never have touched.
 """
+import json
+import re
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +24,7 @@ def test_defaults_when_models_is_absent():
                       "base_url": None, "api_key_env": "OPENAI_API_KEY"},
         "chat": {"type": "openai", "model": "gpt-5.4-mini", "base_url": None,
                  "api_key_env": "OPENAI_API_KEY", "api_version": None},
+        "rerank": {"type": "llm", "model": None, "base_url": None, "api_key_env": "OPENAI_API_KEY"},
     }
 
 
@@ -39,14 +43,15 @@ def test_an_explicit_null_means_unset(monkeypatch):
     assert config.get_models_config()["chat"]["model"] == "gpt-5.4-mini"
 
 
-@pytest.mark.parametrize("models", [None, {"chat": None}])
+@pytest.mark.parametrize("models", [None, {"chat": None}, {"rerank": None}])
 def test_a_null_block_or_role_means_unset_too(monkeypatch, models):
     _cfg(monkeypatch, models)
-    assert config.get_models_config()["chat"]["model"] == "gpt-5.4-mini"
+    mc = config.get_models_config()
+    assert mc["chat"]["model"] == "gpt-5.4-mini" and mc["rerank"]["type"] == "llm"
 
 
 @pytest.mark.parametrize("models, field, names", [
-    ({"rerank": {"type": "llm"}}, "models.rerank", "embedding, chat"),
+    ({"vision": {"type": "llm"}}, "models.vision", "embedding, chat, rerank"),
     ({"chat": {"type": "anthropic"}}, "models.chat.type", "openai, azure"),
     ({"embedding": {"type": "azure"}}, "models.embedding.type", "valid values: openai, http"),
     ({"chat": {"type": "http"}}, "models.chat.type", "openai, azure"),
@@ -59,6 +64,12 @@ def test_a_null_block_or_role_means_unset_too(monkeypatch, models):
     ({"embedding": {"model": ""}}, "models.embedding.model", "non-empty string"),
     ({"chat": "gpt-5.4-mini"}, "models.chat", "object"),
     ("openai", "models", "object"),
+    ({"rerank": {"type": "cohere"}}, "models.rerank.type", "llm, endpoint"),
+    ({"rerank": {"model": "my-rerank-model"}}, "models.rerank.model", "does not apply to type 'llm'"),
+    ({"rerank": {"type": "llm", "base_url": "https://llm.example.com/v1"}}, "models.rerank.base_url", "fields for 'llm': none"),
+    ({"rerank": {"api_key_env": "MY_RERANK_KEY"}}, "models.rerank.api_key_env", "llm"),
+    ({"rerank": {"type": "endpoint", "api_key_env": "sk-nope"}}, "models.rerank.api_key_env", "environment variable"),
+    ({"rerank": {"type": "endpoint", "base_url": "llm.example.com/v1"}}, "models.rerank.base_url", "http:// or https://"),
 ])
 def test_invalid_models_names_the_file_the_field_and_the_fix(monkeypatch, models, field, names):
     _cfg(monkeypatch, models)
@@ -68,6 +79,20 @@ def test_invalid_models_names_the_file_the_field_and_the_fix(monkeypatch, models
     assert exc.value.code == EXIT_SETUP
     assert "config.json" in rendered and field in rendered and names in rendered
     assert "sk-nope" not in rendered          # a pasted key is never echoed back
+
+
+@pytest.mark.parametrize("models, field, owner", [
+    # `type` left at its default: the field is right, the type is missing.
+    ({"rerank": {"base_url": "https://llm.example.com/v1"}}, "models.rerank.base_url",
+     "type 'endpoint' takes base_url"),
+    ({"chat": {"api_version": "2024-06-01"}}, "models.chat.api_version", "type 'azure' takes api_version"),
+])
+def test_a_field_of_another_type_names_that_type(monkeypatch, models, field, owner):
+    _cfg(monkeypatch, models)
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    rendered = exc.value.render()
+    assert field in rendered and owner in rendered
 
 
 HEX_KEY = "a3f1c09b7d2e4f6a8b0c1d2e3f405162"    # no prefix, no punctuation: shaped like an identifier
@@ -204,3 +229,52 @@ def test_http_without_a_base_url_stops_the_command_before_it_touches_the_index(m
         cli.main()
     err = capsys.readouterr().err
     assert exc.value.code == 3 and "models.embedding.base_url" in err and err.count("\n") == 1
+
+
+def test_rerank_endpoint_base_url_falls_back_to_OPENAI_BASE_URL_and_the_block_wins(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://env.example.com/v1")
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint"}})
+    assert config.get_models_config()["rerank"]["base_url"] == "https://env.example.com/v1"
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint", "base_url": "https://llm.example.com/v1"}})
+    assert config.get_models_config()["rerank"]["base_url"] == "https://llm.example.com/v1"
+
+
+@pytest.mark.parametrize("argv", [["search", "x"], ["status"]])
+def test_rerank_endpoint_without_any_base_url_stops_the_command_before_it_runs(monkeypatch, capsys, argv):
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint"}})          # rerank is not even turned on
+    monkeypatch.setattr(store, "get_client", lambda: pytest.fail("command body ran"))
+    monkeypatch.setattr(sys, "argv", ["cortex-vec", *argv])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    err = capsys.readouterr().err
+    assert exc.value.code == EXIT_SETUP and "models.rerank.base_url" in err and err.count("\n") == 1
+
+
+def test_retrieval_rerank_model_belongs_to_the_llm_type(monkeypatch):
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint", "base_url": "https://llm.example.com/v1"}},
+         retrieval={"rerank_model": "pinned"})
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    assert exc.value.code == EXIT_SETUP and "retrieval.rerank_model" in exc.value.render()
+    _cfg(monkeypatch, {"rerank": {"type": "llm"}}, retrieval={"rerank_model": "pinned"})
+    assert config.get_models_config()["rerank"]["type"] == "llm"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_an_empty_retrieval_rerank_model_is_unset_for_the_endpoint_type_too(monkeypatch, value):
+    # fusion.search reads it as `rc["rerank_model"] or providers.chat_model()`,
+    # so "" sets nothing and is no reason to stop.
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint", "base_url": "https://llm.example.com/v1"}},
+         retrieval={"rerank_model": value})
+    assert config.get_models_config()["rerank"]["type"] == "endpoint"
+
+
+@pytest.mark.parametrize("readme", ["README.md", "README.zh-TW.md"])
+def test_the_readme_defaults_block_is_a_valid_config(monkeypatch, readme):
+    # Readers copy this block into config.json as a starting point.
+    text = (Path(__file__).resolve().parents[2] / readme).read_text(encoding="utf-8")
+    section = text[text.index("### Models"):]
+    block = re.search(r"```json\n(.*?)\n```", section, re.S).group(1)
+    monkeypatch.setattr(config, "load_config", lambda: json.loads(block))
+    config.get_models_config()

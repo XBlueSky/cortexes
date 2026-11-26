@@ -149,9 +149,10 @@ vault 裡。請把它放到別的地方。
 
 `~/.cortex/config.json` 的 `models` 區塊可以改變這兩件事。`base_url` 讓同樣
 的資料改送到你設定的 endpoint，而不是 OpenAI；`api_key_env` 指定 key 要從
-哪個環境變數讀取。每個接點（embedding、chat）只有在它自己的那個變數沒有
-設定時才不會送出資料——所以一旦 `api_key_env` 指向別的變數，取消設定
-`OPENAI_API_KEY` 就不再能讓那個接點停下來。
+哪個環境變數讀取。每個接點（embedding、chat、rerank）只有在它自己的那個
+變數沒有設定時才不會送出資料（預設的 `llm` 類型 rerank 用的是 chat 接點
+的）——所以一旦 `api_key_env` 指向別的變數，取消設定 `OPENAI_API_KEY`
+就不再能讓那個接點停下來。
 
 有三個功能會用到它：
 
@@ -164,7 +165,8 @@ rebuild` 或 `upsert`、或進行向量搜尋時，被索引的 vault 頁面文�
 
 **重排序（Rerank）**——預設關閉。啟用時（`--rerank`，或設定檔的
 `retrieval.rerank`），你的查詢字串加上前約 15 筆結果的標題與摘要會送往
-OpenAI 進行重新排序。
+OpenAI 進行重新排序。`models.rerank.type` 設成 `endpoint` 時，同樣的查詢、
+標題與摘要改送到你設定的 rerank endpoint。
 
 請注意，`Raw/` 的 session 記錄**預設不會被索引**——向量與 BM25 索引只
 涵蓋 `Notes/` 與 `Projects/`。Raw 內容只有在你把它提煉成筆記之後，才

@@ -7,56 +7,37 @@ request but do not answer in the OpenAI shape.
 chromadb is imported at the top of this module, so load it only after
 `store.py` has swapped in pysqlite3: from `store.py` itself, or with an import
 inside a function, as `providers.py` does.
-"""
-import os
 
-import httpx
+The request itself (key checks, client, error messages) is in
+`http_endpoint.py`, shared with the `endpoint` rerank type.
+"""
 from chromadb.api.types import Documents, EmbeddingFunction
 from chromadb.utils.embedding_functions import register_embedding_function
 
-from .errors import brief
+from .http_endpoint import (
+    EndpointError,
+    endpoint_url,
+    field_names,
+    is_number,
+    new_client,
+    post_json,
+    read_key,
+)
 
 # Every index built through this type records this name, and chroma refuses to
 # open it under another one. Renaming it makes every `http` user rebuild.
 NAME = "cortex-http"
-# Ten seconds to connect and sixty for the reply. `search` asks twice before
-# it falls back to BM25, so an endpoint that is not there must give up fast.
-TIMEOUT_SECONDS = 60.0
-CONNECT_TIMEOUT_SECONDS = 10.0
 
 _REPLY_KEYS = ("data", "embedding", "embeddings")
-_MAX_FIELDS = 8
-_MAX_FIELD_CHARS = 40
-
-# The transport errors whose own text goes into a message: it comes from the
-# operating system or the TLS library. Any other one may quote the request
-# (the HTTP layer names the whole Authorization header when it refuses its
-# value), the URL, or bytes the endpoint sent, so only its type is shown.
-_DESCRIBED = (httpx.ConnectError, httpx.TimeoutException, httpx.ReadError, httpx.WriteError)
 
 
-class EmbeddingEndpointError(RuntimeError):
-    """The endpoint could not be used, or its reply could not be read.
+class EmbeddingEndpointError(EndpointError):
+    """The embedding endpoint could not be used, or its reply could not be read.
 
     Built from one single-line string and nothing else: chroma rewrites
-    `args[0]` in place ("... in upsert.") before it re-raises. The message
-    never holds the key, the URL's userinfo or query, or a reply body, since
-    an endpoint may echo the key back in an error. What it can hold from
-    outside this program: the reply's top-level field names, bounded, and the
-    text of a `_DESCRIBED` error.
+    `args[0]` in place ("... in upsert.") before it re-raises. What the
+    message may hold is described at `EndpointError`.
     """
-
-
-def _is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _field_names(payload):
-    """The reply's top-level field names, bounded and on one line."""
-    names = [" ".join(str(name).split())[:_MAX_FIELD_CHARS] for name in list(payload)[:_MAX_FIELDS]]
-    if not names:
-        return "none"
-    return ", ".join(names) + (", …" if len(payload) > _MAX_FIELDS else "")
 
 
 def parse_embeddings(payload, expected):
@@ -77,7 +58,7 @@ def parse_embeddings(payload, expected):
     if key is None:
         raise EmbeddingEndpointError(
             'embedding response has none of "data", "embedding", "embeddings" '
-            f"(top-level fields: {_field_names(payload)})")
+            f"(top-level fields: {field_names(payload)})")
     vectors = payload[key]
     if not isinstance(vectors, list):
         raise EmbeddingEndpointError(f'"{key}" in the embedding response is not a list')
@@ -90,31 +71,13 @@ def parse_embeddings(payload, expected):
             vectors = sorted(vectors, key=lambda item: item["index"])
         vectors = [item["embedding"] for item in vectors]
     for i, vector in enumerate(vectors):
-        if not (isinstance(vector, list) and vector and all(_is_number(x) for x in vector)):
+        if not (isinstance(vector, list) and vector and all(is_number(x) for x in vector)):
             raise EmbeddingEndpointError(
                 f"embedding {i} in the response is not a non-empty list of numbers")
     if len(vectors) != expected:
         raise EmbeddingEndpointError(
             f"embedding endpoint returned {len(vectors)} embeddings for {expected} inputs")
     return vectors
-
-
-def _embeddings_url(base_url):
-    """`{base_url}/embeddings`, with any query kept after the new path.
-
-    The fragment is dropped, since it is never sent. Plain string work, so the
-    URL's own percent-encoding reaches the request unchanged.
-    """
-    path, sep, query = base_url.partition("#")[0].partition("?")
-    return f"{path.rstrip('/')}/embeddings{sep}{query}"
-
-
-def _request_line(url):
-    """`: POST <url>` for a message, without userinfo or query: either may hold a credential."""
-    try:
-        return f": POST {httpx.URL(url).copy_with(userinfo=b'', query=None)}"
-    except Exception:
-        return ""
 
 
 @register_embedding_function
@@ -135,42 +98,12 @@ class HttpEmbeddingFunction(EmbeddingFunction[Documents]):
         if not self._base_url:
             raise EmbeddingEndpointError(
                 f"{NAME} has no endpoint here; cortex-vec supplies it from models.embedding")
-        # Stripped: a key saved with a line ending is common. Anything else
-        # that cannot go into a header is refused here, because the HTTP
-        # layer would refuse it with an error that quotes the key.
-        key = os.environ.get(self._api_key_env, "").strip()
-        if not key:
-            raise EmbeddingEndpointError(f"{self._api_key_env} not set")
-        if not (key.isascii() and key.isprintable()):
-            raise EmbeddingEndpointError(
-                f"{self._api_key_env} holds a character that cannot be sent in an HTTP header")
-        url = _embeddings_url(self._base_url)
-        request_line = _request_line(url)
+        key = read_key(self._api_key_env, EmbeddingEndpointError)
+        url = endpoint_url(self._base_url, "embeddings")
         if self._client is None:
-            # No transport argument: httpx then honours the proxy and CA
-            # environment variables. One attempt, and redirects are not
-            # followed, so the key is never sent on to another host.
-            self._client = httpx.Client(
-                timeout=httpx.Timeout(TIMEOUT_SECONDS, connect=CONNECT_TIMEOUT_SECONDS))
-        try:
-            response = self._client.post(
-                url, headers={"Authorization": f"Bearer {key}"},
-                json={"model": self._model, "input": list(input)})
-        except (httpx.HTTPError, httpx.InvalidURL) as e:
-            reason = brief(e) if isinstance(e, _DESCRIBED) else type(e).__name__
-            raise EmbeddingEndpointError(
-                f"embedding endpoint unreachable ({reason}){request_line}") from None
-        if not response.is_success:
-            # The standard phrase for the code, not the one on the status line.
-            status = f"{response.status_code} {httpx.codes.get_reason_phrase(response.status_code)}"
-            raise EmbeddingEndpointError(
-                f"embedding endpoint returned HTTP {status.strip()}{request_line}")
-        try:
-            payload = response.json()
-        except ValueError:
-            raise EmbeddingEndpointError(
-                f"embedding endpoint returned HTTP {response.status_code} "
-                f"but the body is not JSON{request_line}") from None
+            self._client = new_client()
+        payload = post_json(self._client, url, key, {"model": self._model, "input": list(input)},
+                            "embedding endpoint", EmbeddingEndpointError)
         return parse_embeddings(payload, len(input))
 
     @staticmethod

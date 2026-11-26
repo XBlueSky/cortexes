@@ -1,3 +1,6 @@
+import json
+
+import httpx
 import pytest
 
 from cortex_vec import fusion, store, bm25, rerank, config, providers
@@ -68,3 +71,18 @@ def test_a_failed_rerank_keeps_the_order_and_reaches_the_search_notes(monkeypatc
     out = fusion.search("q", n=2, rerank=True, notes=notes)
     assert [o["id"] for o in out] == ["a", "b"]
     assert any("rerank failed" in n and "order unchanged" in n for n in notes)
+
+
+def test_search_reranks_through_the_endpoint_when_config_turns_it_on(monkeypatch, embedding_endpoint):
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setattr(config, "load_config", lambda: {
+        "retrieval": {"rerank": True},
+        "models": {"rerank": {"type": "endpoint", "base_url": "https://llm.example.com/v1"}}})
+    monkeypatch.setattr(store, "vector_stream", lambda q, n, where=None: _vec())
+    monkeypatch.setattr(bm25, "BM25Index", _NoBM25)
+    seen = embedding_endpoint(lambda r: httpx.Response(200, json={"results": [
+        {"index": 1, "relevance_score": 0.9}, {"index": 0, "relevance_score": 0.1}]}))
+    notes = []
+    out = fusion.search("q", n=2, notes=notes)
+    assert [o["id"] for o in out] == ["b", "a"] and notes == []
+    assert json.loads(seen.requests[0].content)["documents"] == ["A — ", "B — "]
