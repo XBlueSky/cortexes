@@ -43,10 +43,11 @@ def test_an_explicit_null_means_unset(monkeypatch):
     assert config.get_models_config()["chat"]["model"] == "gpt-5.4-mini"
 
 
-@pytest.mark.parametrize("models", [None, {"chat": None}])
+@pytest.mark.parametrize("models", [None, {"chat": None}, {"rerank": None}])
 def test_a_null_block_or_role_means_unset_too(monkeypatch, models):
     _cfg(monkeypatch, models)
-    assert config.get_models_config()["chat"]["model"] == "gpt-5.4-mini"
+    mc = config.get_models_config()
+    assert mc["chat"]["model"] == "gpt-5.4-mini" and mc["rerank"]["type"] == "llm"
 
 
 @pytest.mark.parametrize("models, field, names", [
@@ -78,6 +79,20 @@ def test_invalid_models_names_the_file_the_field_and_the_fix(monkeypatch, models
     assert exc.value.code == EXIT_SETUP
     assert "config.json" in rendered and field in rendered and names in rendered
     assert "sk-nope" not in rendered          # a pasted key is never echoed back
+
+
+@pytest.mark.parametrize("models, field, owner", [
+    # `type` left at its default: the field is right, the type is missing.
+    ({"rerank": {"base_url": "https://llm.example.com/v1"}}, "models.rerank.base_url",
+     "type 'endpoint' takes base_url"),
+    ({"chat": {"api_version": "2024-06-01"}}, "models.chat.api_version", "type 'azure' takes api_version"),
+])
+def test_a_field_of_another_type_names_that_type(monkeypatch, models, field, owner):
+    _cfg(monkeypatch, models)
+    with pytest.raises(CliError) as exc:
+        config.get_models_config()
+    rendered = exc.value.render()
+    assert field in rendered and owner in rendered
 
 
 HEX_KEY = "a3f1c09b7d2e4f6a8b0c1d2e3f405162"    # no prefix, no punctuation: shaped like an identifier
@@ -244,6 +259,15 @@ def test_retrieval_rerank_model_belongs_to_the_llm_type(monkeypatch):
     assert exc.value.code == EXIT_SETUP and "retrieval.rerank_model" in exc.value.render()
     _cfg(monkeypatch, {"rerank": {"type": "llm"}}, retrieval={"rerank_model": "pinned"})
     assert config.get_models_config()["rerank"]["type"] == "llm"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_an_empty_retrieval_rerank_model_is_unset_for_the_endpoint_type_too(monkeypatch, value):
+    # fusion.search reads it as `rc["rerank_model"] or providers.chat_model()`,
+    # so "" sets nothing and is no reason to stop.
+    _cfg(monkeypatch, {"rerank": {"type": "endpoint", "base_url": "https://llm.example.com/v1"}},
+         retrieval={"rerank_model": value})
+    assert config.get_models_config()["rerank"]["type"] == "endpoint"
 
 
 @pytest.mark.parametrize("readme", ["README.md", "README.zh-TW.md"])

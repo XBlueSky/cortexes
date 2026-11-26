@@ -141,8 +141,9 @@ def get_models_config():
                               "valid roles: " + ", ".join(_MODELS_DEFAULTS))
     merged = {role: _merge_role(role, models.get(role)) for role in _MODELS_DEFAULTS}
     retrieval = cfg.get("retrieval")
+    # Unset is falsy, as fusion.search reads it (`rerank_model or chat_model()`).
     if (merged["rerank"]["type"] == "endpoint" and isinstance(retrieval, dict)
-            and retrieval.get("rerank_model") is not None):
+            and retrieval.get("rerank_model")):
         raise _bad_models("retrieval.rerank_model", "applies only when models.rerank.type is 'llm'",
                           "remove it; the endpoint's model is models.rerank.model")
     return merged
@@ -182,8 +183,12 @@ def _merge_role(role, user):
     settable, required = types[kind]
     for field, value in user.items():
         if field != "type" and value is not None and field not in settable:
-            raise _bad_models(f"{path}.{field}", f"does not apply to type '{kind}'",
-                              f"fields for '{kind}': " + (", ".join(settable) or "none"))
+            hint = f"fields for '{kind}': " + (", ".join(settable) or "none")
+            # Most often `type` was left at its default: say which type takes the field.
+            owners = [t for t, (fields, _) in types.items() if field in fields]
+            if owners:
+                hint += "; " + " or ".join(f"type '{t}'" for t in owners) + f" takes {field}"
+            raise _bad_models(f"{path}.{field}", f"does not apply to type '{kind}'", hint)
     for field in required:
         if merged[field] is None:
             raise _bad_models(f"{path}.{field}", f"required when type is '{kind}'")
