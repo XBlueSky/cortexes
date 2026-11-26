@@ -69,9 +69,9 @@ def rerank(query, results, model, window=15, notes=None):
     it. On failure the input order is returned and, when `notes` is a list,
     one line saying so is appended to it.
     """
-    if not results:
-        return results
     head = results[:window]
+    if not head:            # no results, or a zero window: nothing to score, nothing to send
+        return results
     tail = results[window:]
     try:
         # Inside the try: a config that cannot be read must not fail the search either.

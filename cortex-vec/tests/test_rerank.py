@@ -68,6 +68,23 @@ def test_rerank_uses_the_shared_chat_client(monkeypatch):
     assert [r["id"] for r in out] == ["b", "a"] and notes == []
 
 
+def test_a_negative_llm_score_still_ranks_above_the_results_it_left_out(monkeypatch):
+    # The results the model left out go last whatever the others scored; they
+    # used to count as -1.0, which put them above a score of -2.
+    monkeypatch.setattr(providers, "chat_client", lambda: _FakeClient('[{"index": 1, "score": -2}]'))
+    out = rerank.rerank("q", _results(), model="m", window=15)
+    assert [r["id"] for r in out] == ["b", "a"]
+
+
+def test_a_zero_window_does_not_call_the_chat_model(monkeypatch):
+    def _no_chat():
+        raise AssertionError("an empty window must not call the chat model")
+    monkeypatch.setattr(providers, "chat_client", _no_chat)
+    res, notes = _results(), []
+    assert rerank.rerank("q", res, model="m", window=0, notes=notes) == res
+    assert notes == []
+
+
 GATEWAY = "https://llm.example.com/v1"
 KEY = "k-test-123"
 
@@ -135,3 +152,10 @@ def test_endpoint_rerank_without_its_key_keeps_the_order(endpoint_cfg, embedding
     assert rerank.rerank("q", res, model="m", window=15, notes=notes) == res
     assert notes == ["rerank failed (RerankEndpointError: MY_RERANK_KEY not set); order unchanged"]
     assert seen.requests == []
+
+
+def test_a_zero_window_sends_nothing_to_the_endpoint(endpoint_cfg, embedding_endpoint):
+    seen = embedding_endpoint(lambda r: httpx.Response(200, json={"results": []}))
+    res, notes = _results(), []
+    assert rerank.rerank("q", res, model="m", window=0, notes=notes) == res
+    assert seen.requests == [] and notes == []
