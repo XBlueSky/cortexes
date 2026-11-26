@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Switching between `openai` and `http` needs `cortex-vec rebuild`.
 - `httpx` is now a declared dependency of `cortex-vec`. `chromadb` already
   installs it.
+- `models.rerank` picks the reranker. `type: "llm"` (the default) is the
+  existing chat-model rerank. `type: "endpoint"` sends the rerank window to
+  `POST {base_url}/rerank` with a bearer key and reads `index` and
+  `relevance_score` from a `results` or `data` list; `model` is sent only when
+  set, and `base_url` falls back to `OPENAI_BASE_URL`. `retrieval.rerank_model`
+  applies to the `llm` type only.
 
 ## [2.4.0] - 2026-11-25
 

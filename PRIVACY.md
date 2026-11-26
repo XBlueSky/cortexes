@@ -170,9 +170,10 @@ is never written to the vault, the index, or any config file.
 A `models` block in `~/.cortex/config.json` can change both halves of that.
 `base_url` sends the same data to the endpoint you configured instead of
 OpenAI, and `api_key_env` names the environment variable the key is read
-from. Each role (embedding, chat) sends nothing only while its own variable
-is unset — so once `api_key_env` names another variable, unsetting
-`OPENAI_API_KEY` no longer stops that role.
+from. Each role (embedding, chat, rerank) sends nothing only while its own
+variable is unset (the default `llm` rerank type uses the chat role's) — so
+once `api_key_env` names another variable, unsetting `OPENAI_API_KEY` no
+longer stops that role.
 
 Three features use it:
 
@@ -187,6 +188,8 @@ one-line summary.
 **Reranking** — off by default. When enabled (`--rerank`, or
 `retrieval.rerank` in config), your search query plus the titles and
 summaries of roughly the top 15 results are sent to OpenAI for reordering.
+With `models.rerank.type` set to `endpoint`, the same query, titles and
+summaries go to the rerank endpoint you configured instead.
 
 Note that `Raw/` session records are **not** indexed by default — the vector
 and BM25 indexes cover `Notes/` and `Projects/`. Raw content reaches OpenAI

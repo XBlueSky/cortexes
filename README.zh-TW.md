@@ -343,6 +343,8 @@ cortex-vec eval run \
 
 透過 `cortex-vec search --rerank`（或 config `retrieval.rerank: true`）啟用。對初步 hybrid 結果的前 `retrieval.rerank_window`（預設 15）筆，呼叫 chat 模型（有設 `retrieval.rerank_model` 就用它，否則用 `models.chat.model`，預設 `gpt-5.4-mini`）重新排序，以 LLM 判斷相關性取代純分數排名。任何失敗（API error / timeout）均自動回退原 RRF 順序，不影響搜尋可用性，並在 stderr 留下一行 `rerank failed … order unchanged`。
 
+`models.rerank.type` 設成 `endpoint` 時（見 [Models](#models)），同一個視窗改送到那個 rerank endpoint，每筆結果是一段 `title — summary` 文字，依 `relevance_score` 重排。endpoint 沒打分的結果照原順序排在有分數的後面。失敗時的處理相同。
+
 #### max-per-repo 多樣化
 
 由 config `retrieval.max_per_repo`（`0` = 不限）控制，限制同一 repo 在前 k 結果中最多出現幾筆，避免某個大型 repo 淹沒其他來源的結果。
@@ -414,7 +416,7 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 
 ### Models
 
-預設所有模型呼叫都送往 OpenAI：embedding 用 `text-embedding-3-small`，摘要、`eval propose` 與 LLM rerank 用 `gpt-5.4-mini`。`~/.cortex/config.json` 裡選用的 `models` 區塊可以把任一接點指到別的 endpoint。每個鍵都可以省略，以下就是預設值：
+預設所有模型呼叫都送往 OpenAI：embedding 用 `text-embedding-3-small`，摘要、`eval propose` 與 LLM rerank 用 `gpt-5.4-mini`。`~/.cortex/config.json` 裡選用的 `models` 區塊可以把三個接點（embedding、chat、rerank）中的任何一個指到別的 endpoint。每個鍵都可以省略，以下就是預設值：
 
 ```json
 {
@@ -431,6 +433,12 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
       "base_url": null,
       "api_key_env": "OPENAI_API_KEY",
       "api_version": null
+    },
+    "rerank": {
+      "type": "llm",
+      "model": null,
+      "base_url": null,
+      "api_key_env": "OPENAI_API_KEY"
     }
   }
 }
@@ -442,9 +450,12 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 | `embedding` | `http` | 接受 `POST {base_url}/embeddings`、以 bearer key 驗證的 endpoint | 給回應不是 OpenAI 格式的 gateway 用。回應可以是 OpenAI 的 `data` 清單、`{"embedding": [[…]]}` 或 `{"embeddings": [[…]]}`。需要 URL：`base_url`，沒寫就用 `OPENAI_BASE_URL` |
 | `chat` | `openai` | OpenAI 相容的 chat completions endpoint | 模型必須接受下面的 chat 參數 |
 | `chat` | `azure` | Azure OpenAI | `model` 是 deployment 名稱；`base_url` 與 `api_version` 必填。deployment 必須接受下面的 chat 參數 |
+| `rerank` | `llm` | `chat` 接點的 endpoint 與 client | 模型是 `retrieval.rerank_model`，沒設就用 `models.chat.model`。不接受其他欄位 |
+| `rerank` | `endpoint` | 接受 `POST {base_url}/rerank`、以 bearer key 驗證的 endpoint | body 是 `{"query": …, "documents": […]}`，`model` 有設才帶。回應是放在 `results` 或 `data` 底下的 `index`／`relevance_score` 清單；可以只替部分文件打分，但一筆分數都沒有算失敗。需要 URL：`base_url`，沒寫就用 `OPENAI_BASE_URL` |
 
-- **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。`http` 類型自己呼叫 endpoint，所以一定要有 URL：先用區塊裡的 `base_url`，沒寫就用 `OPENAI_BASE_URL`，而且必須是帶主機名稱的 `http://` 或 `https://` URL。兩者都沒有、或值不是這樣的 URL，就是設定錯誤：每個讀 `models` 的指令都會以 exit code 3 結束，`search`、`status`、`delete` 也一樣，不會退回 BM25。所以區塊沒寫 `base_url` 時，每個指令的環境裡都要有 `OPENAI_BASE_URL`。區塊裡有寫 `base_url` 時以它為準，所以想用 `OPENAI_BASE_URL=… cortex-vec …` 讓單一指令改走另一台 gateway，就不要把它寫進區塊。
+- **`base_url`** — 省略時沿用 OpenAI SDK 的預設，包含 `OPENAI_BASE_URL` 環境變數。`http` 類型的 embedding 與 `endpoint` 類型的 rerank 自己呼叫 endpoint，所以一定要有 URL：先用區塊裡的 `base_url`，沒寫就用 `OPENAI_BASE_URL`，而且必須是帶主機名稱的 `http://` 或 `https://` URL。兩者都沒有、或值不是這樣的 URL，就是設定錯誤：每個讀 `models` 的指令都會以 exit code 3 結束，`search`、`status`、`delete` 也一樣，不會退回 BM25（rerank 的類型即使沒開 rerank 也是如此）。所以區塊沒寫 `base_url` 時，每個指令的環境裡都要有 `OPENAI_BASE_URL`。區塊裡有寫 `base_url` 時以它為準，所以想用 `OPENAI_BASE_URL=… cortex-vec …` 讓單一指令改走另一台 gateway，就不要把它寫進區塊。
 - **`api_key_env`** — 填的是存放金鑰的環境變數**名稱**，只能用大寫字母、數字與底線。金鑰本身不會寫進 `config.json`。
+- **`retrieval.rerank_model`** 只屬於 `llm` 類型的 rerank。`models.rerank.type` 是 `endpoint` 時寫了它就是設定錯誤（exit code 3）；endpoint 的模型寫在 `models.rerank.model`。
 - **Chat 參數** — 每一次 chat 呼叫（摘要、`eval propose`、LLM rerank）都會帶 `max_completion_tokens` 與 `reasoning_effort: "none"`，這是配合預設的 `gpt-5.4-mini` 設的，目前不能調整。模型或 endpoint 若不接受其中任何一個，每次 chat 呼叫都會失敗：摘要退回「標題 + tags」並在 stderr 印出警告，rerank 則維持原本的順序。
 - **寫錯會立刻停下** — `models` 區塊有誤時（未知的接點、類型或欄位，或缺少必填欄位），`search`、`upsert`、`rebuild`、`status`、`delete` 與 `eval` 會以 exit code 3 結束並點名是哪個欄位。`rebuild --bm25-only` 不讀 `models`。
 
@@ -487,6 +498,22 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 
 請求是 `POST https://llm.example.com/v1/embeddings`，header 為 `Authorization: Bearer <key>`，body 為 `{"model": "my-embedding-model", "input": ["…"]}`。10 秒內連不上、或 60 秒內沒有回應就放棄，不重試，也不跟隨轉址。金鑰取自 `api_key_env` 指名的變數；沒寫 `api_key_env` 時，送到這個 endpoint 的是 `OPENAI_API_KEY`。`base_url` 裡的 query 會保留在路徑之後：`https://llm.example.com/v1?code=…` 送出的是 `POST https://llm.example.com/v1/embeddings?code=…`。錯誤訊息會寫 HTTP 狀態，回應讀不懂時再加上它的頂層欄位名稱，但不會包含回應內文或 query，因為 endpoint 可能把金鑰回印出來。想看 endpoint 自己寫的原因，請用 `curl` 直接呼叫。
 
+範例 — rerank 走 gateway 的 `/rerank` endpoint：
+
+```json
+{
+  "models": {
+    "rerank": {
+      "type": "endpoint",
+      "base_url": "https://llm.example.com/v1",
+      "api_key_env": "MY_GATEWAY_KEY"
+    }
+  }
+}
+```
+
+這只決定 rerank 怎麼打分，開關仍是 `--rerank` 或 `retrieval.rerank`。請求是 `POST https://llm.example.com/v1/rerank`，與 `http` 類型的 embedding 走同一套程式：逾時相同、不重試、不跟隨轉址，金鑰、`base_url` 裡的 query 與錯誤訊息的規則也相同。endpoint 不接受 `model` 欄位時，就不要寫 `model`。
+
 **換 embedding 模型需要 rebuild。** 不同模型產生的向量無法互相比較，所以 index 會記下建立時用的 `type` 與 `model`（這個設定出現之前建的 index 視為 `openai` + `text-embedding-3-small`）。`models.embedding` 與它不相符時，`upsert` 會停下並說明修正方式，`search` 退回 BM25-only 並留下一條 note，`status` 顯示 warning。`cortex-vec rebuild` 會用現在的設定重新 embed 整個 vault。它先刪掉現有的向量，再一則一則 embed。中途停下時（例如新的 endpoint 失敗），向量 index 只會有停下前已經 embed 的筆記（在第一則之前就停下則是空的），直到 `rebuild` 成功為止；這段期間其他筆記只能靠 BM25 找到。BM25 index 要等 embed 全部完成才會重寫，所以 rebuild 失敗不會動到它。`type` 在 `openai` 與 `http` 之間切換也算換模型，即使模型名稱相同。只改 `base_url` 或 `api_key_env` 不需要 rebuild。
 
 ### Environment Variables
@@ -494,7 +521,7 @@ JWT、session cookie、curl 與 Authorization 標頭的帳密、URL 內的密碼
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `OPENAI_API_KEY` | No* | embedding、摘要與 rerank 的預設 API key；`models.*.api_key_env` 可以改指別的變數。`rebuild`/`upsert`/vector 搜尋時必填；未設定時 `search` 自動降級為 BM25-only |
-| `OPENAI_BASE_URL` | No | 沒設 `models.*.base_url` 時由 OpenAI SDK 讀取；可把預設的 `openai` 類型指到 OpenAI 相容的 endpoint。`http` 類型的 embedding 在沒設 `models.embedding.base_url` 時也讀它 |
+| `OPENAI_BASE_URL` | No | 沒設 `models.*.base_url` 時由 OpenAI SDK 讀取；可把預設的 `openai` 類型指到 OpenAI 相容的 endpoint。`http` 類型的 embedding 在沒設 `models.embedding.base_url` 時也讀它，`endpoint` 類型的 rerank 在沒設 `models.rerank.base_url` 時也一樣 |
 | `CORTEX_VAULT_PATH` | No | 只有 `session-start-inject.sh` 與 `takeoff.sh` helper 會讀。它**不是**通用的 vault 切換開關：`cortex-vec`、SessionEnd recorder，以及 evolve／distill／broadcast 這些 skill 一律從 `config.json` 解析 vault，BM25／向量索引也固定放在 `~/.cortex/` 之下 —— 指向第二個 vault 只會讓讀寫分裂在兩個 vault、卻共用同一份索引。真正的 multi-vault 設計另案處理，見 [#20](https://github.com/XBlueSky/cortexes/pull/20) |
 | `CORTEX_SKIP_RECORD` | No | 設定時(例如 `=1`),SessionEnd hook 會跳過把此 session 記錄進 Raw/ — 供沒有提煉價值的 launcher/probe session 使用 |
 | `CORTEX_NO_CLASSIFIER` | No | 設為 `1` 時,transcript filter 不會呼叫 LLM classifier,過大的區塊改為原樣保留。**只**停用 transcript filter 額外發出的巢狀分類呼叫；不影響一般 Claude Code session 處理,包括 SessionStart metadata,以及 commands／skills 載入的 vault 內容 |
