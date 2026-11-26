@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-26
+
 ### Added
-- `models.embedding` also accepts `type: "http"`, for embedding endpoints
+- **`cortex-vec` 0.13.0 adds an `http` embedding type and a rerank endpoint.**
+  `models.embedding` also accepts `type: "http"`, for embedding endpoints
   that do not answer in the OpenAI shape. It sends `POST {base_url}/embeddings`
   with a bearer key and reads the OpenAI `data` list, `{"embedding": [[…]]}`
   or `{"embeddings": [[…]]}`. `base_url` falls back to `OPENAI_BASE_URL`.
