@@ -3,7 +3,10 @@
 A wrong block is a setup error (exit 3) on every command that uses a model,
 even when the broken role is one that command would never have touched.
 """
+import json
+import re
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -241,3 +244,13 @@ def test_retrieval_rerank_model_belongs_to_the_llm_type(monkeypatch):
     assert exc.value.code == EXIT_SETUP and "retrieval.rerank_model" in exc.value.render()
     _cfg(monkeypatch, {"rerank": {"type": "llm"}}, retrieval={"rerank_model": "pinned"})
     assert config.get_models_config()["rerank"]["type"] == "llm"
+
+
+@pytest.mark.parametrize("readme", ["README.md", "README.zh-TW.md"])
+def test_the_readme_defaults_block_is_a_valid_config(monkeypatch, readme):
+    # Readers copy this block into config.json as a starting point.
+    text = (Path(__file__).resolve().parents[2] / readme).read_text(encoding="utf-8")
+    section = text[text.index("### Models"):]
+    block = re.search(r"```json\n(.*?)\n```", section, re.S).group(1)
+    monkeypatch.setattr(config, "load_config", lambda: json.loads(block))
+    config.get_models_config()

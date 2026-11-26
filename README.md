@@ -514,10 +514,7 @@ out; these are the defaults:
       "api_version": null
     },
     "rerank": {
-      "type": "llm",
-      "model": null,
-      "base_url": null,
-      "api_key_env": "OPENAI_API_KEY"
+      "type": "llm"
     }
   }
 }
@@ -530,7 +527,7 @@ out; these are the defaults:
 | `chat` | `openai` | An OpenAI-compatible chat completions endpoint | The model must accept the chat parameters below |
 | `chat` | `azure` | Azure OpenAI | `model` is the deployment name; `base_url` and `api_version` are required. The deployment must accept the chat parameters below |
 | `rerank` | `llm` | The `chat` role's endpoint and client | The model is `retrieval.rerank_model`, or else `models.chat.model`. Takes no other field |
-| `rerank` | `endpoint` | An endpoint that takes `POST {base_url}/rerank` with a bearer key | The body is `{"query": …, "documents": […]}`, plus `model` only when it is set. The reply is a list of `index` / `relevance_score` items under `results` or `data`; it may score only some of the documents, but a reply that scores none of them is a failure. Needs a URL: `base_url`, or else `OPENAI_BASE_URL` |
+| `rerank` | `endpoint` | An endpoint that takes `POST {base_url}/rerank` with a bearer key | The body is `{"query": …, "documents": […]}`, plus `model` only when it is set. The reply is a list of `index` / `relevance_score` items under `results` or `data`; it may score only some of the documents, but a reply that scores none of them is a failure. Needs a URL: `base_url`, or else `OPENAI_BASE_URL`. `model` is unset by default; `api_key_env` defaults to `OPENAI_API_KEY` |
 
 - **`base_url`** — when omitted, the OpenAI SDK's default applies, including
   the `OPENAI_BASE_URL` environment variable. The `http` embedding type and
