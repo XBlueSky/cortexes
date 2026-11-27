@@ -259,6 +259,8 @@ cortex-vec upsert Notes/Nginx/new.md       # 新增/更新單一文件
 cortex-vec delete Notes/Nginx/old.md       # 刪除文件
 ```
 
+`upsert` 與 `delete` 吃的是相對於 vault 根目錄的路徑。vault 裡的絕對路徑也可以，會用相對路徑建索引，跟 `rebuild` 給這篇筆記的 id 相同。vault 外的路徑會報錯。
+
 ### Hybrid 檢索（0.4.0+）
 
 `cortex-vec search` 現在預設走 BM25 + vector RRF hybrid，兼顧精確詞彙與語意相似度：

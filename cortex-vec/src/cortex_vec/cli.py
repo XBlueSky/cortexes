@@ -31,11 +31,11 @@ def _main():
     p_rebuild.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_upsert = sub.add_parser("upsert", help="Add/update a document")
-    p_upsert.add_argument("path", help="Relative path from vault root")
+    p_upsert.add_argument("path", help="Path relative to the vault root (an absolute path inside the vault also works)")
     p_upsert.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_delete = sub.add_parser("delete", help="Remove a document")
-    p_delete.add_argument("path", help="Relative path from vault root")
+    p_delete.add_argument("path", help="Path relative to the vault root (an absolute path inside the vault also works)")
     p_delete.add_argument("--json", action="store_true", help="Emit one JSON document instead of human text")
 
     p_search = sub.add_parser("search", help="Semantic search")
